@@ -1,0 +1,64 @@
+name: Windows Build Validation
+
+on:
+  push:
+    branches: ["main", "fix/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop-host/src-tauri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-msvc
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop-ui/package-lock.json
+
+      - name: Install WebView2
+        shell: powershell
+        run: |
+          $paths = @(
+            "$env:ProgramFiles(x86)\Microsoft\EdgeWebView\Application",
+            "$env:ProgramFiles\Microsoft\EdgeWebView\Application"
+          )
+          if (-not ($paths | Where-Object { Test-Path $_ })) {
+            Write-Host "WebView2 runtime path not found. Tauri build will report the exact host requirement."
+          }
+
+      - name: Cargo check
+        run: cargo check --locked
+
+      - name: Cargo test
+        run: cargo test --locked
+
+      - name: Tauri build
+        shell: powershell
+        run: |
+          npm install --global @tauri-apps/cli@2.11.4
+          tauri build
+
+      - name: Upload Windows installers
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: novin-accounting-windows-${{ github.sha }}
+          path: |
+            apps/desktop-host/src-tauri/target/release/bundle/msi/*.msi
+            apps/desktop-host/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
