@@ -11,9 +11,6 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: apps/desktop-host/src-tauri
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,28 +27,28 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop-ui/package-lock.json
 
-      - name: Install WebView2
-        shell: powershell
-        run: |
-          $paths = @(
-            "$env:ProgramFiles(x86)\Microsoft\EdgeWebView\Application",
-            "$env:ProgramFiles\Microsoft\EdgeWebView\Application"
-          )
-          if (-not ($paths | Where-Object { Test-Path $_ })) {
-            Write-Host "WebView2 runtime path not found. Tauri build will report the exact host requirement."
-          }
+      - name: Install frontend dependencies
+        working-directory: apps/desktop-ui
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/desktop-ui
+        run: npm run build
+
+      - name: Setup Tauri CLI
+        run: npm install --global @tauri-apps/cli@2.11.4
 
       - name: Cargo check
+        working-directory: apps/desktop-host/src-tauri
         run: cargo check --locked
 
       - name: Cargo test
+        working-directory: apps/desktop-host/src-tauri
         run: cargo test --locked
 
       - name: Tauri build
-        shell: powershell
-        run: |
-          npm install --global @tauri-apps/cli@2.11.4
-          tauri build
+        working-directory: apps/desktop-host/src-tauri
+        run: tauri build
 
       - name: Upload Windows installers
         if: success()
