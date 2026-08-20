@@ -1,0 +1,10 @@
+C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\litemap-1341cc8c26bebafe.d: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\map.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\mod.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\slice_impl.rs
+
+C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\liblitemap-1341cc8c26bebafe.rlib: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\map.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\mod.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\slice_impl.rs
+
+C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\liblitemap-1341cc8c26bebafe.rmeta: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\map.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\mod.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\slice_impl.rs
+
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\lib.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\map.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\mod.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\litemap-0.8.3\src\store\slice_impl.rs:

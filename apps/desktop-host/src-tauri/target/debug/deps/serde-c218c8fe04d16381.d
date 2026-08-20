@@ -1,0 +1,12 @@
+C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\serde-c218c8fe04d16381.d: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\build\serde-1f06ebef1b771151\out/private.rs
+
+C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\libserde-c218c8fe04d16381.rmeta: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\build\serde-1f06ebef1b771151\out/private.rs
+
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\build\serde-1f06ebef1b771151\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\NovinPardaz\\Downloads\\novin-accounting-v1.7.1-windows-build-fixed3\\apps\\desktop-host\\src-tauri\\target\\debug\\build\\serde-1f06ebef1b771151\\out

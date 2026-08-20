@@ -1,0 +1,2 @@
+cargo:rustc-link-search=native=C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\build\webview2-com-sys-e385cff025072d4a\out\x64
+cargo:rustc-link-lib=advapi32
