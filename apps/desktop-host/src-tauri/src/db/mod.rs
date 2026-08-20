@@ -329,9 +329,15 @@ fn migrate(conn: &Connection) -> Result<()> {
       ('reports.view','reports.view'),('reports.builder.manage','reports.builder.manage'),('printing.template.view','printing.template.view'),('printing.template.manage','printing.template.manage'),('treasury.receipt.create','treasury.receipt.create'),('treasury.payment.create','treasury.payment.create'),('treasury.account.create','treasury.account.create'),('treasury.account.view','treasury.account.view'),('treasury.account.edit','treasury.account.edit'),('treasury.check.view','treasury.check.view'),('treasury.check.create','treasury.check.create'),('treasury.check.update','treasury.check.update'),('sales.return.create','sales.return.create'),('sales.return.post','sales.return.post'),('purchase.return.create','purchase.return.create'),('purchase.return.post','purchase.return.post');
     "#)?;
     // v1.4 physical in-transit stock.
-    let _ = conn.execute("ALTER TABLE inventory_balances ADD COLUMN in_transit_quantity REAL NOT NULL DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE inventory_balances ADD COLUMN in_transit_quantity REAL NOT NULL DEFAULT 0",
+        [],
+    );
     // Backward-compatible migration for check settlement linkage.
-    let _ = conn.execute("ALTER TABLE checks ADD COLUMN clearing_journal_id TEXT REFERENCES journal_entries(id)", []);
+    let _ = conn.execute(
+        "ALTER TABLE checks ADD COLUMN clearing_journal_id TEXT REFERENCES journal_entries(id)",
+        [],
+    );
     seed(conn)?;
     Ok(())
 }
@@ -340,31 +346,130 @@ fn seed(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute("INSERT OR IGNORE INTO companies(id,name,national_id,phone) VALUES('company-demo','نوین پرداز','14000000000','021-00000000')",[])?;
     tx.execute("INSERT OR IGNORE INTO fiscal_years(id,company_id,title,start_date,end_date) VALUES('fy-demo','company-demo','1405','1405/01/01','1405/12/29')",[])?;
-    tx.execute("INSERT OR IGNORE INTO roles(id,name) VALUES('role-admin','مدیر سیستم')",[])?;
+    tx.execute(
+        "INSERT OR IGNORE INTO roles(id,name) VALUES('role-admin','مدیر سیستم')",
+        [],
+    )?;
     tx.execute("INSERT OR IGNORE INTO role_permissions(role_id,permission_id) SELECT 'role-admin', id FROM permissions",[])?;
     let password_hash = hash_password("demo");
     tx.execute("INSERT OR IGNORE INTO users(id,username,display_name,password_hash) VALUES('user-demo','admin','مدیر سیستم',?1)", [&password_hash])?;
-    tx.execute("INSERT OR IGNORE INTO user_roles(user_id,role_id) VALUES('user-demo','role-admin')",[])?;
+    tx.execute(
+        "INSERT OR IGNORE INTO user_roles(user_id,role_id) VALUES('user-demo','role-admin')",
+        [],
+    )?;
     tx.execute("INSERT OR IGNORE INTO company_users(company_id,user_id) VALUES('company-demo','user-demo')",[])?;
     let accounts = [
-      ("1000","دارایی ها","group",None::<&str>,"debit"),("1100","موجودی نقد و بانک","general",Some("1000"),"debit"),("1101","صندوق مرکزی","detail",Some("1100"),"debit"),
-      ("1200","حساب های دریافتنی","general",Some("1000"),"debit"),("1201","حساب مشتریان","detail",Some("1200"),"debit"),
-      ("2000","بدهی ها","group",None,"credit"),("2100","حساب های پرداختنی","general",Some("2000"),"credit"),("2101","تأمین کنندگان","detail",Some("2100"),"credit"),
-      ("4000","درآمد فروش","group",None,"credit"),("4100","فروش کالا","general",Some("4000"),"credit"),
-      ("5000","بهای تمام شده","group",None,"debit"),("5100","بهای تمام شده کالای فروش رفته","general",Some("5000"),"debit")
+        ("1000", "دارایی ها", "group", None::<&str>, "debit"),
+        (
+            "1100",
+            "موجودی نقد و بانک",
+            "general",
+            Some("1000"),
+            "debit",
+        ),
+        ("1101", "صندوق مرکزی", "detail", Some("1100"), "debit"),
+        (
+            "1200",
+            "حساب های دریافتنی",
+            "general",
+            Some("1000"),
+            "debit",
+        ),
+        ("1201", "حساب مشتریان", "detail", Some("1200"), "debit"),
+        ("2000", "بدهی ها", "group", None, "credit"),
+        (
+            "2100",
+            "حساب های پرداختنی",
+            "general",
+            Some("2000"),
+            "credit",
+        ),
+        ("2101", "تأمین کنندگان", "detail", Some("2100"), "credit"),
+        ("4000", "درآمد فروش", "group", None, "credit"),
+        ("4100", "فروش کالا", "general", Some("4000"), "credit"),
+        ("5000", "بهای تمام شده", "group", None, "debit"),
+        (
+            "5100",
+            "بهای تمام شده کالای فروش رفته",
+            "general",
+            Some("5000"),
+            "debit",
+        ),
     ];
-    for (code,name,level,parent,nature) in accounts { tx.execute("INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",rusqlite::params![format!("acc-{code}"),code,name,level,parent.map(|p|format!("acc-{p}")),nature])?; }
+    for (code, name, level, parent, nature) in accounts {
+        tx.execute("INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",rusqlite::params![format!("acc-{code}"),code,name,level,parent.map(|p|format!("acc-{p}")),nature])?;
+    }
     tx.execute("INSERT OR IGNORE INTO treasury_accounts(id,company_id,name,account_type,linked_account_id) VALUES('treasury-cash-demo','company-demo','صندوق مرکزی','cash','acc-1101')",[])?;
     tx.execute("INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) VALUES('acc-4200','company-demo','4200','برگشت از فروش','general','acc-4000','debit')",[])?;
     tx.execute("INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) VALUES('acc-5200','company-demo','5200','برگشت از خرید','general','acc-5000','credit')",[])?;
     tx.execute("INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) VALUES('acc-1300','company-demo','1300','موجودی کالا','general','acc-1000','debit')",[])?;
-    let contacts=[("contact-1","شرکت آریا تجارت","company","09120000001",1,0),("contact-2","فروشگاه پارس","company","09120000002",1,0),("contact-3","محمد رضایی","person","09120000003",1,0),("contact-4","تأمین‌کننده آریا","company","09120000004",0,1)];
-    for (id,name,kind,mobile,cust,supp) in contacts { tx.execute("INSERT OR IGNORE INTO contacts(id,company_id,kind,name,mobile,is_customer,is_supplier) VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",rusqlite::params![id,kind,name,mobile,cust,supp])?; }
-    let products=[("prod-1","1001","8901001001001","پرینتر حرارتی X100","دستگاه",12500000,9500000,5.0),("prod-2","1002","8901001001002","بارکدخوان Pro","دستگاه",8900000,6500000,5.0),("prod-3","1003","8901001001003","لیبل حرارتی 50×30","رول",185000,120000,100.0)];
-    for (id,sku,barcode,name,unit,sale,purchase,min) in products { tx.execute("INSERT OR IGNORE INTO products(id,company_id,sku,barcode,name,unit,sale_price,purchase_price,min_stock) VALUES(?1,'company-demo',?2,?3,?4,?5,?6,?7,?8)",rusqlite::params![id,sku,barcode,name,unit,sale,purchase,min])?; }
+    let contacts = [
+        (
+            "contact-1",
+            "شرکت آریا تجارت",
+            "company",
+            "09120000001",
+            1,
+            0,
+        ),
+        ("contact-2", "فروشگاه پارس", "company", "09120000002", 1, 0),
+        ("contact-3", "محمد رضایی", "person", "09120000003", 1, 0),
+        (
+            "contact-4",
+            "تأمین‌کننده آریا",
+            "company",
+            "09120000004",
+            0,
+            1,
+        ),
+    ];
+    for (id, name, kind, mobile, cust, supp) in contacts {
+        tx.execute("INSERT OR IGNORE INTO contacts(id,company_id,kind,name,mobile,is_customer,is_supplier) VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",rusqlite::params![id,kind,name,mobile,cust,supp])?;
+    }
+    let products = [
+        (
+            "prod-1",
+            "1001",
+            "8901001001001",
+            "پرینتر حرارتی X100",
+            "دستگاه",
+            12500000,
+            9500000,
+            5.0,
+        ),
+        (
+            "prod-2",
+            "1002",
+            "8901001001002",
+            "بارکدخوان Pro",
+            "دستگاه",
+            8900000,
+            6500000,
+            5.0,
+        ),
+        (
+            "prod-3",
+            "1003",
+            "8901001001003",
+            "لیبل حرارتی 50×30",
+            "رول",
+            185000,
+            120000,
+            100.0,
+        ),
+    ];
+    for (id, sku, barcode, name, unit, sale, purchase, min) in products {
+        tx.execute("INSERT OR IGNORE INTO products(id,company_id,sku,barcode,name,unit,sale_price,purchase_price,min_stock) VALUES(?1,'company-demo',?2,?3,?4,?5,?6,?7,?8)",rusqlite::params![id,sku,barcode,name,unit,sale,purchase,min])?;
+    }
     tx.execute("INSERT OR IGNORE INTO warehouses(id,company_id,name,code) VALUES('wh-main','company-demo','انبار مرکزی','01')",[])?;
-    tx.execute("INSERT OR IGNORE INTO app_settings(key,value) VALUES('demo_data','true')",[])?;
-    tx.execute("INSERT OR IGNORE INTO app_settings(key,value) VALUES('demo_version','1.7.0')",[])?;
+    tx.execute(
+        "INSERT OR IGNORE INTO app_settings(key,value) VALUES('demo_data','true')",
+        [],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO app_settings(key,value) VALUES('demo_version','1.7.0')",
+        [],
+    )?;
     tx.execute("INSERT OR IGNORE INTO print_templates(id,company_id,name,template_type,content_html,is_default,created_by) VALUES('tpl-demo-invoice','company-demo','قالب استاندارد فاکتور','invoice','<section dir=\"rtl\"><h1>{{company.name}}</h1><p>فاکتور فروش شماره {{invoice.number}}</p><table>{{#lines}}<tr><td>{{product.name}}</td><td>{{quantity}}</td><td>{{line_total}}</td></tr>{{/lines}}</table><strong>{{invoice.total}}</strong></section>',1,'user-demo')",[])?;
     tx.execute("INSERT OR IGNORE INTO inventory_balances(product_id,warehouse_id,quantity,reserved_quantity) VALUES('prod-1','wh-main',24,3)",[])?;
     tx.execute("INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference_type,note,created_by) VALUES('demo-mov-1','company-demo','prod-1','wh-main','receipt',24,9500000,'demo','موجودی نمونه','user-demo')",[])?;
@@ -384,7 +489,12 @@ fn seed(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn hash_password(password:&str)->String {
-    use argon2::{Argon2,PasswordHasher}; use argon2::password_hash::{SaltString,rand_core::OsRng};
-    let salt=SaltString::generate(&mut OsRng); Argon2::default().hash_password(password.as_bytes(),&salt).unwrap().to_string()
+fn hash_password(password: &str) -> String {
+    use argon2::password_hash::{rand_core::OsRng, SaltString};
+    use argon2::{Argon2, PasswordHasher};
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string()
 }
