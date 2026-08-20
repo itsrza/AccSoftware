@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -46,6 +48,25 @@ jobs:
       - name: Frontend type check
         working-directory: apps/desktop-ui
         run: npx tsc --noEmit
+
+      - name: Rust format
+        working-directory: apps/desktop-host/src-tauri
+        run: cargo fmt --all
+
+      - name: Commit Rust formatting
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if (git diff --quiet) {
+            Write-Host "Rust source is already formatted."
+          } else {
+            git add apps/desktop-host/src-tauri
+            git commit -m "style: apply rustfmt to backend"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          }
 
       - name: Rust format check
         working-directory: apps/desktop-host/src-tauri
