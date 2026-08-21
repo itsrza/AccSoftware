@@ -1,9 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use argon2::{Argon2, PasswordVerifier};
+use novin_core::coding::{
+    validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
+};
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
-use novin_core::coding::{validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary};
 use novin_core::jalali;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -1600,7 +1602,6 @@ fn create_journal_internal(
     Ok(id)
 }
 
-
 // ===========================================================================
 // فاز ۲ — ابعاد مالی و سند یک‌سطری
 // مرجع: تصاویر dgNqWj (کدینگ حساب‌ها) و Rb2xiG (صدور سند یک‌سطری)
@@ -1769,9 +1770,7 @@ fn load_account_for_posting(
                 ))
             },
         )
-        .map_err(|_| {
-            format!("COD-008: ثبت سند فقط روی حساب سطح آخر مجاز است: {account_id}")
-        })?;
+        .map_err(|_| format!("COD-008: ثبت سند فقط روی حساب سطح آخر مجاز است: {account_id}"))?;
     let nature = match row.2.as_str() {
         "credit" => AccountNature::Credit,
         "mixed" => AccountNature::Mixed,
