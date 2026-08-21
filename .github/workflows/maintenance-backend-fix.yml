@@ -1,0 +1,68 @@
+name: Backend maintenance patch
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/backend-accounting-core
+
+      - name: Apply safe accounting/report fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          main = Path("apps/desktop-host/src-tauri/src/main.rs")
+          text = main.read_text(encoding="utf-8-sig")
+
+          old = "ORDER BY revenue DESC LIMIT 10"
+          new = "ORDER BY SUM(l.line_total) DESC LIMIT 10"
+          if old not in text:
+              raise SystemExit("Expected revenue ORDER BY query was not found")
+          text = text.replace(old, new, 1)
+
+          old_sql = '''let sql=format!("SELECT x.contact_id,COALESCE(c.name,'ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ'),COUNT(x.id),COALESCE(SUM(x.total),0),COALESCE(SUM(CASE WHEN x.payment_status='paid' THEN x.total WHEN x.payment_status='partial' THEN x.total-COALESCE((SELECT SUM(s.amount) FROM invoice_settlements s WHERE s.invoice_id=x.id AND s.invoice_type=CASE WHEN ?2='sale' THEN 'sales' ELSE 'purchase' END),0) ELSE 0 END),0),0 FROM {table} x LEFT JOIN contacts c ON c.id=x.contact_id WHERE x.company_id=?1 AND x.status='posted' AND c.{kind}=1 GROUP BY x.contact_id,c.name");'''
+          new_sql = '''let sql=format!("SELECT x.contact_id,COALESCE(c.name,'بدون شخص'),COUNT(x.id),COALESCE(SUM(x.total),0),COALESCE(SUM(CASE WHEN x.payment_status='paid' THEN x.total WHEN x.payment_status='partial' THEN COALESCE((SELECT SUM(s.amount) FROM invoice_settlements s WHERE s.invoice_id=x.id AND s.invoice_type=CASE WHEN ?2='sale' THEN 'sales' ELSE 'purchase' END),0) ELSE 0 END),0) FROM {table} x LEFT JOIN contacts c ON c.id=x.contact_id WHERE x.company_id=?1 AND x.status='posted' AND c.{kind}=1 GROUP BY x.contact_id,c.name");'''
+          if old_sql not in text:
+              raise SystemExit("Expected party balance SQL was not found")
+          text = text.replace(old_sql, new_sql, 1)
+          main.write_text(text, encoding="utf-8")
+
+          db = Path("apps/desktop-host/src-tauri/src/db/mod.rs")
+          db_text = db.read_text(encoding="utf-8-sig")
+          marker = '''fn migrate(conn: &Connection) -> Result<()> {\n'''
+          helper = '''fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {\n    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;\n    let mut rows = stmt.query([])?;\n    while let Some(row) = rows.next()? {\n        let name: String = row.get(1)?;\n        if name == column {\n            return Ok(true);\n        }\n    }\n    Ok(false)\n}\n\n'''
+          if helper not in db_text:
+              if marker not in db_text:
+                  raise SystemExit("Migration marker was not found")
+              db_text = db_text.replace(marker, helper + marker, 1)
+          old_migration = '''    // v1.4 physical in-transit stock.\n    let _ = conn.execute(\n        "ALTER TABLE inventory_balances ADD COLUMN in_transit_quantity REAL NOT NULL DEFAULT 0",\n        [],\n    );\n    // Backward-compatible migration for check settlement linkage.\n    let _ = conn.execute(\n        "ALTER TABLE checks ADD COLUMN clearing_journal_id TEXT REFERENCES journal_entries(id)",\n        [],\n    );'''
+          new_migration = '''    // Backward-compatible schema migrations. Check column existence first.\n    if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {\n        conn.execute(\n            "ALTER TABLE inventory_balances ADD COLUMN in_transit_quantity REAL NOT NULL DEFAULT 0",\n            [],\n        )?;\n    }\n    if !column_exists(conn, "checks", "clearing_journal_id")? {\n        conn.execute(\n            "ALTER TABLE checks ADD COLUMN clearing_journal_id TEXT REFERENCES journal_entries(id)",\n            [],\n        )?;\n    }'''
+          if old_migration not in db_text:
+              raise SystemExit("Expected schema migration block was not found")
+          db_text = db_text.replace(old_migration, new_migration, 1)
+          db.write_text(db_text, encoding="utf-8")
+
+      - name: Validate changes
+        run: |
+          git diff --check
+          git diff -- apps/desktop-host/src-tauri/src/main.rs apps/desktop-host/src-tauri/src/db/mod.rs
+
+      - name: Commit patched files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- apps/desktop-host/src-tauri/src/main.rs apps/desktop-host/src-tauri/src/db/mod.rs
+          git commit -m "fix: repair report query and harden schema migrations" || exit 0
+          git push origin HEAD:fix/backend-accounting-core
