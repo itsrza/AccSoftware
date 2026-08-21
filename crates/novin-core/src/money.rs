@@ -167,7 +167,7 @@ impl Money {
         let normalized = normalize_digits(input);
         let cleaned: String = normalized
             .chars()
-            .filter(|c| !matches!(c, ',' | '٬' | ' ' | '\u{200c}' | '_'))
+            .filter(|c| !matches!(*c, ',' | '٬' | ' ' | '\u{200c}' | '_'))
             .collect();
         let trimmed = cleaned.trim();
         if trimmed.is_empty() {

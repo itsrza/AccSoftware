@@ -1,3 +1,5 @@
+<!-- mojibake-check: ignore — این سند عمداً نمونه‌ی متن خراب‌شده را نقل می‌کند -->
+
 # تحلیل فنی پروژه — Novin Pardaz Accounting (itsrza/AccSoftware)
 
 تاریخ بررسی: 2026-08-21 · شاخه بررسی‌شده: `arena/01a0242f-accsoftware` (از `main` @ `82e74fa`)

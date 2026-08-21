@@ -34,7 +34,7 @@ use novin_core::money::{Money, MoneyError};
 fn t01_money_is_exact_and_never_loses_rials() {
     // خطای کلاسیک ممیز شناور نباید رخ دهد.
     let a = Money::from_rials(1);
-    let sum: Money = std::iter::repeat(a).take(10).sum();
+    let sum: Money = [a; 10].into_iter().sum();
     assert_eq!(sum, Money::from_rials(10));
 
     // تبدیل تومان ↔ ریال
@@ -152,7 +152,7 @@ fn t03_jalali_calendar_is_exact_over_two_centuries() {
             "تاریخ شمسی تولیدشده باید معتبر باشد: {jalali:?}"
         );
         assert_eq!(jalali.to_gregorian().unwrap(), cursor, "رفت‌وبرگشت ناسازگار");
-        cursor = cursor + chrono::Duration::days(1);
+        cursor = cursor.succ_opt().expect("تاریخ بعدی باید معتبر باشد");
         checked += 1;
     }
     assert!(checked > 73_000, "پوشش تست کافی نیست: {checked}");

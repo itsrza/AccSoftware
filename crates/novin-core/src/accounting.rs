@@ -191,7 +191,7 @@ pub fn calculate_invoice(
     let mut gross_values = Vec::with_capacity(lines.len());
     let mut net_after_line_discount = Vec::with_capacity(lines.len());
     for line in lines {
-        if !(line.quantity > 0.0) || !line.quantity.is_finite() {
+        if !line.quantity.is_finite() || line.quantity <= 0.0 {
             return Err(AccountingError::InvalidQuantity);
         }
         if line.unit_price.is_negative() || line.line_discount.is_negative() {

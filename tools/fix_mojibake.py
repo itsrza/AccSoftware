@@ -48,6 +48,10 @@ def repair_text(text: str):
         return repaired
     return SUSPECT.sub(_sub, text), fixed, unresolved
 
+# فایل‌هایی که عمداً نمونه‌ی متن خراب دارند (مستندات) با این نشانه معاف می‌شوند.
+IGNORE_MARKER = "mojibake-check: ignore"
+
+
 def main(argv):
     check_only = "--check" in argv
     paths = [a for a in argv[1:] if not a.startswith("--")]
@@ -55,6 +59,10 @@ def main(argv):
     for raw in paths:
         path = pathlib.Path(raw)
         original = path.read_text(encoding="utf-8")
+        if IGNORE_MARKER in original:
+            if check_only:
+                print(f"SKIP {path} (نمونه‌ی عمدی)")
+            continue
         repaired, fixed, unresolved = repair_text(original)
         if check_only:
             if repaired != original:
