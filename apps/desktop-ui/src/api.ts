@@ -170,3 +170,49 @@ export const getPrintTemplates=()=>api<PrintTemplate[]>('list_print_templates')
 export const savePrintTemplate=(id:string|undefined,name:string,template_type:string,content_html:string,is_default:boolean)=>api<string>('save_print_template',{id,name,templateType:template_type,contentHtml:content_html,isDefault:is_default})
 export const deletePrintTemplate=(id:string)=>api<void>('delete_print_template',{id})
 export const importData=(entity_type:string,rows:unknown[])=>api<string>('import_data',{entityType:entity_type,rowsJson:JSON.stringify(rows)})
+
+// --- فاز ۲: ابعاد مالی و سند یک‌سطری (مرجع: تصویر Rb2xiG) ---
+export type PostableAccount = {
+  id: string
+  code: string
+  name: string
+  nature: string
+  requires_subsidiary: boolean
+  subsidiary_group_id?: string
+  requires_cost_center: boolean
+  requires_project: boolean
+}
+export type DimensionOption = {id: string; code: string; title: string}
+export type PostingSideInput = {
+  accountId: string
+  subsidiaryId?: string
+  costCenterId?: string
+  projectId?: string
+}
+
+export const getPostableAccounts = () => api<PostableAccount[]>('list_postable_accounts')
+export const getCostCenters = () => api<DimensionOption[]>('list_cost_centers')
+export const getProjects = () => api<DimensionOption[]>('list_projects')
+export const getSubsidiaryGroups = () => api<DimensionOption[]>('list_subsidiary_groups')
+
+const toSide = (side: PostingSideInput) => ({
+  account_id: side.accountId,
+  subsidiary_id: side.subsidiaryId || null,
+  cost_center_id: side.costCenterId || null,
+  project_id: side.projectId || null,
+})
+
+export const createSingleLineJournal = (
+  entry_date: string,
+  description: string,
+  amount: number,
+  debit: PostingSideInput,
+  credit: PostingSideInput,
+) =>
+  api<string>('create_single_line_journal', {
+    entryDate: entry_date,
+    description,
+    amount,
+    debit: toSide(debit),
+    credit: toSide(credit),
+  })

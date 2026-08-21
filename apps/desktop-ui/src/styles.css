@@ -25,3 +25,21 @@ button{font:inherit}.command-trigger{border:0;cursor:pointer;text-align:right}.c
 .demo-control{display:flex;align-items:center;min-width:170px;justify-content:flex-start}.demo-delete{border:1px solid #ff637e;background:#fff3f5;color:#b51f3a;border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer}.demo-delete:disabled{opacity:.55}.import-format{margin:16px 0;padding:12px 14px;background:#F6F9FF;border:1px solid #e2e8f0;border-radius:10px;display:flex;gap:12px;align-items:center}.template-editor{width:100%;font-family:Consolas,monospace;direction:ltr;text-align:left;border:1px solid #d9dfe9;border-radius:10px;padding:12px;resize:vertical;box-sizing:border-box}.check-row{display:flex!important;align-items:center;gap:8px;margin:12px 0}.check-row input{width:auto!important}
 
 .boot-screen{min-height:100vh;display:grid;place-items:center;background:#F6F9FF;font-family:inherit}.boot-card{min-width:320px;padding:32px;border:1px solid #dfe5ef;border-radius:16px;background:#fff;box-shadow:0 12px 40px rgba(33,37,78,.10);display:flex;flex-direction:column;gap:10px;text-align:center}.boot-card strong{font-size:24px;color:#21254E}.boot-card span,.boot-card small{color:#575757}.boot-card.error strong{color:#FF637E}.boot-card.error span{direction:ltr;word-break:break-word}
+
+/* --- سند یک‌سطری (فاز ۲) --- */
+.sides{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;margin-top:16px}
+.side-panel h3{margin:0 0 12px;font-size:14px;color:var(--brand,#21254E)}
+.side-panel label{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;font-size:13px}
+.side-panel select,.side-panel input{padding:8px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit}
+.side-summary{font-size:12px;color:#62748E;margin-top:8px}
+.swap-btn{align-self:center;padding:10px 14px;border:1px solid #d8dceb;background:#F6F9FF;border-radius:10px;cursor:pointer;font-weight:700;color:#21254E}
+.swap-btn:hover{background:#eaf0ff}
+.form-row{display:flex;gap:12px;flex-wrap:wrap}
+.form-row label{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.form-row label.grow{flex:1;min-width:220px}
+.form-row input{padding:8px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit}
+.amount-preview{margin-top:10px;font-weight:700;color:#21254E}
+.form-actions{display:flex;gap:10px;margin-top:16px}
+.form-actions .primary{background:#21254E;color:#fff;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-family:inherit}
+.form-actions button{padding:10px 18px;border-radius:10px;border:1px solid #d8dceb;background:#fff;cursor:pointer;font-family:inherit}
+.success-box{background:#e8fff5;border:1px solid #00D492;color:#0a6b4a;padding:10px 14px;border-radius:10px;margin-bottom:12px}

@@ -377,6 +377,18 @@ pub fn validate_posting(
             code: account.code.clone(),
         });
     }
+    validate_dimensions(account, dimensions)
+}
+
+/// اعتبارسنجی فقط ابعاد مالی، بدون بررسی سطح کد.
+///
+/// برای پایگاه داده‌هایی که سطح حساب را در ستون جداگانه نگهداری می‌کنند
+/// (به‌جای استنتاج از طول کد) همین تابع استفاده می‌شود تا قواعد ابعاد مالی
+/// یک منبع حقیقت واحد داشته باشند.
+pub fn validate_dimensions(
+    account: &AccountDefinition,
+    dimensions: &Dimensions,
+) -> Result<(), CodingError> {
     match (&account.subsidiary_group, &dimensions.subsidiary) {
         (Some(group), Some(subsidiary)) => {
             if &subsidiary.group != group {

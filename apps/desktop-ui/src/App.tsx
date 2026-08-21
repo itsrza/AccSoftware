@@ -14,6 +14,7 @@ import {Operations} from './pages/Operations'
 import {AdvancedInventory} from './pages/AdvancedInventory'
 import {DataTools} from './pages/DataTools'
 import {PrintTemplates} from './pages/PrintTemplates'
+import {SingleLineJournal} from './pages/SingleLineJournal'
 import {getDemoStatus,deleteDemo,login} from './api'
 import './styles.css'
 import {errorText} from './lib/errors'
@@ -27,6 +28,7 @@ const menu = [
   {id:'treasury',label:'خزانه',icon:'wallet',children:['دریافت','پرداخت','بانک‌ها','صندوق‌ها']},
   {id:'checks',label:'چک‌ها',icon:'check',children:['چک‌های دریافتی','چک‌های پرداختی','سررسیدها']},
   {id:'accounting',label:'حسابداری',icon:'file',children:['اسناد حسابداری','کدینگ حساب‌ها','دفاتر','تراز آزمایشی']},
+  {id:'single-journal',label:'سند یک‌سطری',icon:'file'},
   {id:'reports',label:'گزارشات',icon:'bar',children:['مرکز گزارشات','گزارش‌ساز','گزارش فروش','گزارش خرید','گزارش انبار','گزارش مالی']},
   {id:'integrations',label:'اتصالات و افزونه‌ها',icon:'settings'},
   {id:'data-tools',label:'ورود و خروج اطلاعات',icon:'file'},
@@ -100,7 +102,7 @@ export default function App(){
           <div className="profile"><div className="avatar">م</div><div><b>مدیر سیستم</b><span>مدیریت</span></div><Icon name="chevron" size={14}/></div>
         </div>
       </header>
-      {page==='dashboard'?<Dashboard demo={demo} onSettings={()=>setSettings(true)} onNavigate={setPage}/>:page==='contacts'?<DataPage kind="contacts"/>:page==='inventory'?<AdvancedInventory/>:page==='accounting'?<Operations mode="accounting"/>:page==='reports'?<Reports/>:page==='report-builder'?<ReportBuilder/>:page==='integrations'?<Integrations/>:page==='data-tools'?<DataTools/>:page==='print-templates'?<PrintTemplates/>:page==='treasury'?<Treasury/>:page==='checks'?<Checks/>:<Invoices page={page}/>} 
+      {page==='dashboard'?<Dashboard demo={demo} onSettings={()=>setSettings(true)} onNavigate={setPage}/>:page==='contacts'?<DataPage kind="contacts"/>:page==='inventory'?<AdvancedInventory/>:page==='accounting'?<Operations mode="accounting"/>:page==='reports'?<Reports/>:page==='report-builder'?<ReportBuilder/>:page==='integrations'?<Integrations/>:page==='data-tools'?<DataTools/>:page==='print-templates'?<PrintTemplates/>:page==='single-journal'?<SingleLineJournal/>:page==='treasury'?<Treasury/>:page==='checks'?<Checks/>:<Invoices page={page}/>} 
     </main>
     {settings&&<SettingsCenter onClose={()=>setSettings(false)} dark={dark} setDark={setDark}/>}
     <CommandPalette open={palette} onClose={()=>setPalette(false)} onSelect={setPage}/>

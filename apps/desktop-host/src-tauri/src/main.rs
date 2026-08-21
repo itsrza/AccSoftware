@@ -3,6 +3,7 @@
 use argon2::{Argon2, PasswordVerifier};
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
+use novin_core::coding::{validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary};
 use novin_core::jalali;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -1597,6 +1598,312 @@ fn create_journal_internal(
     )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(id)
+}
+
+
+// ===========================================================================
+// فاز ۲ — ابعاد مالی و سند یک‌سطری
+// مرجع: تصاویر dgNqWj (کدینگ حساب‌ها) و Rb2xiG (صدور سند یک‌سطری)
+// ===========================================================================
+
+#[derive(Serialize)]
+struct SubsidiaryGroupRow {
+    id: String,
+    code: String,
+    title: String,
+}
+
+#[derive(Serialize)]
+struct DimensionRow {
+    id: String,
+    code: String,
+    title: String,
+}
+
+/// حساب قابل ثبت به‌همراه الزامات ابعاد مالی آن.
+#[derive(Serialize)]
+struct PostableAccount {
+    id: String,
+    code: String,
+    name: String,
+    nature: String,
+    requires_subsidiary: bool,
+    subsidiary_group_id: Option<String>,
+    requires_cost_center: bool,
+    requires_project: bool,
+}
+
+fn active_company(c: &Connection, user: &str) -> Result<String, String> {
+    c.query_row(
+        "SELECT company_id FROM company_users WHERE user_id=?1 AND is_active=1 LIMIT 1",
+        params![user],
+        |r| r.get(0),
+    )
+    .map_err(|_| "COD-100: شرکت فعال برای کاربر یافت نشد".to_string())
+}
+
+#[tauri::command]
+fn list_subsidiary_groups(state: State<AppState>) -> Result<Vec<SubsidiaryGroupRow>, String> {
+    let c = conn(&state)?;
+    let user = require_permission(&state, &c, "accounting.journal.create")?;
+    let company = active_company(&c, &user)?;
+    let mut st = c
+        .prepare("SELECT id,code,title FROM subsidiary_groups WHERE company_id=?1 ORDER BY code")
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(SubsidiaryGroupRow {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                title: r.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
+fn list_cost_centers(state: State<AppState>) -> Result<Vec<DimensionRow>, String> {
+    let c = conn(&state)?;
+    let user = require_permission(&state, &c, "accounting.journal.create")?;
+    let company = active_company(&c, &user)?;
+    let mut st = c
+        .prepare(
+            "SELECT id,code,title FROM cost_centers WHERE company_id=?1 AND is_active=1 ORDER BY code",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(DimensionRow {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                title: r.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+#[tauri::command]
+fn list_projects(state: State<AppState>) -> Result<Vec<DimensionRow>, String> {
+    let c = conn(&state)?;
+    let user = require_permission(&state, &c, "accounting.journal.create")?;
+    let company = active_company(&c, &user)?;
+    let mut st = c
+        .prepare(
+            "SELECT id,code,title FROM projects WHERE company_id=?1 AND is_active=1 AND status='open' ORDER BY code",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(DimensionRow {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                title: r.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// فهرست حساب‌های قابل ثبت سند (سطح آخر) به‌همراه الزامات ابعاد مالی.
+#[tauri::command]
+fn list_postable_accounts(state: State<AppState>) -> Result<Vec<PostableAccount>, String> {
+    let c = conn(&state)?;
+    let user = require_permission(&state, &c, "accounting.journal.create")?;
+    let company = active_company(&c, &user)?;
+    let mut st = c
+        .prepare(
+            "SELECT id,code,name,nature,requires_subsidiary,subsidiary_group_id,\
+                    requires_cost_center,requires_project \
+             FROM accounts \
+             WHERE company_id=?1 AND is_active=1 AND level='detail' ORDER BY code",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(PostableAccount {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                name: r.get(2)?,
+                nature: r.get(3)?,
+                requires_subsidiary: r.get::<_, i64>(4)? != 0,
+                subsidiary_group_id: r.get(5)?,
+                requires_cost_center: r.get::<_, i64>(6)? != 0,
+                requires_project: r.get::<_, i64>(7)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// خواندن تعریف حساب و ساخت ابعاد مالی برای اعتبارسنجی توسط هسته.
+fn load_account_for_posting(
+    c: &Connection,
+    company: &str,
+    account_id: &str,
+) -> Result<AccountDefinition, String> {
+    let row: (String, String, String, i64, Option<String>, i64, i64) = c
+        .query_row(
+            "SELECT code,name,nature,requires_subsidiary,subsidiary_group_id,\
+                    requires_cost_center,requires_project \
+             FROM accounts WHERE id=?1 AND company_id=?2 AND is_active=1 AND level='detail'",
+            params![account_id, company],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            },
+        )
+        .map_err(|_| {
+            format!("COD-008: ثبت سند فقط روی حساب سطح آخر مجاز است: {account_id}")
+        })?;
+    let nature = match row.2.as_str() {
+        "credit" => AccountNature::Credit,
+        "mixed" => AccountNature::Mixed,
+        _ => AccountNature::Debit,
+    };
+    let mut account = AccountDefinition::new(row.0, row.1, nature);
+    account.requires_subsidiary = row.3 != 0;
+    account.subsidiary_group = row.4;
+    account.requires_cost_center = row.5 != 0;
+    account.requires_project = row.6 != 0;
+    Ok(account)
+}
+
+/// خواندن تفصیلی شناور و گروه آن.
+fn load_subsidiary(c: &Connection, company: &str, id: &str) -> Result<Subsidiary, String> {
+    c.query_row(
+        "SELECT code,title,group_id FROM subsidiaries WHERE id=?1 AND company_id=?2 AND is_active=1",
+        params![id, company],
+        |r| {
+            Ok(Subsidiary {
+                code: r.get(0)?,
+                title: r.get(1)?,
+                group: r.get(2)?,
+            })
+        },
+    )
+    .map_err(|_| "COD-014: تفصیلی انتخاب‌شده معتبر نیست".to_string())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_side_dimensions(
+    c: &Connection,
+    company: &str,
+    subsidiary_id: Option<String>,
+    cost_center_id: Option<String>,
+    project_id: Option<String>,
+) -> Result<Dimensions, String> {
+    let subsidiary = match subsidiary_id {
+        Some(id) if !id.is_empty() => Some(load_subsidiary(c, company, &id)?),
+        _ => None,
+    };
+    Ok(Dimensions {
+        subsidiary,
+        cost_center: cost_center_id.filter(|value| !value.is_empty()),
+        project: project_id.filter(|value| !value.is_empty()),
+    })
+}
+
+/// یک طرف سند یک‌سطری، همان‌طور که از رابط کاربری می‌آید.
+#[derive(serde::Deserialize)]
+struct SinglePostingInput {
+    account_id: String,
+    #[serde(default)]
+    subsidiary_id: Option<String>,
+    #[serde(default)]
+    cost_center_id: Option<String>,
+    #[serde(default)]
+    project_id: Option<String>,
+}
+
+/// **صدور سند حسابداری یک‌سطری** — معادل فرم `Rb2xiG` نرم‌افزار فعلی.
+///
+/// یک مبلغ، یک شرح، یک طرف بدهکار و یک طرف بستانکار. اعتبارسنجی ابعاد مالی و
+/// تعادل سند توسط هسته‌ی مالی انجام می‌شود، سپس سند ثبت نهایی می‌گردد.
+#[tauri::command]
+fn create_single_line_journal(
+    state: State<AppState>,
+    entry_date: String,
+    description: String,
+    amount: i64,
+    debit: SinglePostingInput,
+    credit: SinglePostingInput,
+) -> Result<String, String> {
+    if amount <= 0 {
+        return Err("ACC-011: مبلغ سند باید بزرگ‌تر از صفر باشد".into());
+    }
+    if debit.account_id == credit.account_id && debit.subsidiary_id == credit.subsidiary_id {
+        return Err("ACC-012: حساب بدهکار و بستانکار نمی‌توانند یکی باشند".into());
+    }
+
+    let (debit_dimensions, credit_dimensions) = {
+        let c = conn(&state)?;
+        let user = require_permission(&state, &c, "accounting.journal.create")?;
+        let company = active_company(&c, &user)?;
+
+        let debit_account = load_account_for_posting(&c, &company, &debit.account_id)?;
+        let credit_account = load_account_for_posting(&c, &company, &credit.account_id)?;
+        let debit_dimensions = build_side_dimensions(
+            &c,
+            &company,
+            debit.subsidiary_id.clone(),
+            debit.cost_center_id.clone(),
+            debit.project_id.clone(),
+        )?;
+        let credit_dimensions = build_side_dimensions(
+            &c,
+            &company,
+            credit.subsidiary_id.clone(),
+            credit.cost_center_id.clone(),
+            credit.project_id.clone(),
+        )?;
+        validate_dimensions(&debit_account, &debit_dimensions).map_err(|e| e.to_string())?;
+        validate_dimensions(&credit_account, &credit_dimensions).map_err(|e| e.to_string())?;
+        (debit_dimensions, credit_dimensions)
+    };
+
+    let lines = vec![
+        (debit.account_id.clone(), amount, 0i64),
+        (credit.account_id.clone(), 0i64, amount),
+    ];
+    let journal_id = create_journal_internal(&state, &entry_date, &description, &lines, "draft")?;
+
+    // ثبت ابعاد مالی روی سطرهای ایجادشده.
+    {
+        let c = conn(&state)?;
+        for (index, dimensions) in [(0usize, &debit_dimensions), (1usize, &credit_dimensions)] {
+            c.execute(
+                "UPDATE journal_lines SET subsidiary_id=?1, cost_center_id=?2, project_id=?3 \
+                 WHERE id=?4",
+                params![
+                    dimensions.subsidiary.as_ref().map(|s| s.code.clone()),
+                    dimensions.cost_center,
+                    dimensions.project,
+                    format!("{journal_id}-line-{index}")
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    post_journal(state, journal_id.clone())?;
+    Ok(journal_id)
 }
 
 #[tauri::command]
@@ -5519,6 +5826,11 @@ fn main() {
             issue_stock,
             list_journals,
             create_journal_draft,
+            create_single_line_journal,
+            list_subsidiary_groups,
+            list_cost_centers,
+            list_projects,
+            list_postable_accounts,
             create_journal,
             post_journal,
             reverse_journal,
