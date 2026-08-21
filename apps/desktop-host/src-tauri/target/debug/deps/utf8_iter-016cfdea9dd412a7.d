@@ -1,7 +1,0 @@
-C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\utf8_iter-016cfdea9dd412a7.d: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\indices.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\report.rs
-
-C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\libutf8_iter-016cfdea9dd412a7.rmeta: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\indices.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\report.rs
-
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\lib.rs:
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\indices.rs:
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\utf8_iter-1.0.4\src\report.rs:

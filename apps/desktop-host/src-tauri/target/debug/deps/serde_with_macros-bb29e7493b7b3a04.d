@@ -1,8 +1,0 @@
-C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\serde_with_macros-bb29e7493b7b3a04.d: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\apply.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\lazy_bool.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\utils.rs
-
-C:\Users\NovinPardaz\Downloads\novin-accounting-v1.7.1-windows-build-fixed3\apps\desktop-host\src-tauri\target\debug\deps\serde_with_macros-bb29e7493b7b3a04.dll: C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\lib.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\apply.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\lazy_bool.rs C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\utils.rs
-
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\lib.rs:
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\apply.rs:
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\lazy_bool.rs:
-C:\Users\NovinPardaz\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde_with_macros-3.22.0\src\utils.rs:

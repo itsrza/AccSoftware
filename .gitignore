@@ -1,0 +1,12 @@
+﻿target/
+*.bak
+*.backup
+cargo-check-error*.txt
+cargo-errors*.txt
+*.log
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
