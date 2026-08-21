@@ -10,6 +10,7 @@
 //! قانون معماری: هر محاسبه‌ی مالی/انباری باید اینجا باشد، نه در لایه‌ی IPC یا React.
 
 pub mod accounting;
+pub mod checks;
 pub mod db;
 pub mod inventory;
 pub mod jalali;
