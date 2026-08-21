@@ -56,7 +56,7 @@ impl JalaliDate {
     pub fn parse(input: &str) -> Result<Self, CalendarError> {
         let normalized = crate::money::normalize_digits(input);
         let parts: Vec<&str> = normalized
-            .split(|c| c == '/' || c == '-')
+            .split(['/', '-'])
             .map(str::trim)
             .collect();
         if parts.len() != 3 {
