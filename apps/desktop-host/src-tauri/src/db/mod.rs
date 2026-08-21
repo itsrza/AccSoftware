@@ -10,6 +10,18 @@ pub fn open(path: &Path) -> Result<Connection> {
     Ok(conn)
 }
 
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let name: String = row.get(1)?;
+        if name == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 fn migrate(conn: &Connection) -> Result<()> {
     conn.execute_batch(r#"
     CREATE TABLE IF NOT EXISTS schema_migrations(
@@ -328,16 +340,19 @@ fn migrate(conn: &Connection) -> Result<()> {
       ('purchase.invoice.create','purchase.invoice.create'),('purchase.invoice.post','purchase.invoice.post'),('purchase.invoice.cancel','purchase.invoice.cancel'),
       ('reports.view','reports.view'),('reports.builder.manage','reports.builder.manage'),('printing.template.view','printing.template.view'),('printing.template.manage','printing.template.manage'),('treasury.receipt.create','treasury.receipt.create'),('treasury.payment.create','treasury.payment.create'),('treasury.account.create','treasury.account.create'),('treasury.account.view','treasury.account.view'),('treasury.account.edit','treasury.account.edit'),('treasury.check.view','treasury.check.view'),('treasury.check.create','treasury.check.create'),('treasury.check.update','treasury.check.update'),('sales.return.create','sales.return.create'),('sales.return.post','sales.return.post'),('purchase.return.create','purchase.return.create'),('purchase.return.post','purchase.return.post');
     "#)?;
-    // v1.4 physical in-transit stock.
-    let _ = conn.execute(
-        "ALTER TABLE inventory_balances ADD COLUMN in_transit_quantity REAL NOT NULL DEFAULT 0",
-        [],
-    );
-    // Backward-compatible migration for check settlement linkage.
-    let _ = conn.execute(
-        "ALTER TABLE checks ADD COLUMN clearing_journal_id TEXT REFERENCES journal_entries(id)",
-        [],
-    );
+    // Backward-compatible schema migrations. Check column existence first.
+    if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
+        conn.execute(
+            "ALTER TABLE inventory_balances ADD COLUMN in_transit_quantity REAL NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+    if !column_exists(conn, "checks", "clearing_journal_id")? {
+        conn.execute(
+            "ALTER TABLE checks ADD COLUMN clearing_journal_id TEXT REFERENCES journal_entries(id)",
+            [],
+        )?;
+    }
     seed(conn)?;
     Ok(())
 }

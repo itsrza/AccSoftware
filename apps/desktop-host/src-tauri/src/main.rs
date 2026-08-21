@@ -1,4 +1,4 @@
-﻿#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use argon2::{Argon2, PasswordVerifier};
 use chrono::Datelike;
@@ -4444,7 +4444,7 @@ fn get_party_balances_for_company(
     } else {
         ("purchase_invoices", "is_supplier")
     };
-    let sql=format!("SELECT x.contact_id,COALESCE(c.name,'ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ'),COUNT(x.id),COALESCE(SUM(x.total),0),COALESCE(SUM(CASE WHEN x.payment_status='paid' THEN x.total WHEN x.payment_status='partial' THEN x.total-COALESCE((SELECT SUM(s.amount) FROM invoice_settlements s WHERE s.invoice_id=x.id AND s.invoice_type=CASE WHEN ?2='sale' THEN 'sales' ELSE 'purchase' END),0) ELSE 0 END),0),0 FROM {table} x LEFT JOIN contacts c ON c.id=x.contact_id WHERE x.company_id=?1 AND x.status='posted' AND c.{kind}=1 GROUP BY x.contact_id,c.name");
+    let sql=format!("SELECT x.contact_id,COALESCE(c.name,'بدون شخص'),COUNT(x.id),COALESCE(SUM(x.total),0),COALESCE(SUM(CASE WHEN x.payment_status='paid' THEN x.total WHEN x.payment_status='partial' THEN COALESCE((SELECT SUM(s.amount) FROM invoice_settlements s WHERE s.invoice_id=x.id AND s.invoice_type=CASE WHEN ?2='sale' THEN 'sales' ELSE 'purchase' END),0) ELSE 0 END),0) FROM {table} x LEFT JOIN contacts c ON c.id=x.contact_id WHERE x.company_id=?1 AND x.status='posted' AND c.{kind}=1 GROUP BY x.contact_id,c.name");
     let mut st = c.prepare(&sql).map_err(|e| e.to_string())?;
     let invoice_type = if sales { "sale" } else { "purchase" };
     let rows = st
@@ -4487,7 +4487,7 @@ fn get_sales_trend(state: State<AppState>) -> Result<Vec<SalesTrend>, String> {
 fn get_top_products(state: State<AppState>) -> Result<Vec<TopProduct>, String> {
     let c = conn(&state)?;
     let (company, fy) = active_company(&state, &c)?;
-    let mut st=c.prepare("SELECT p.id,p.name,COALESCE(SUM(l.quantity),0),COALESCE(SUM(l.line_total),0) FROM sales_invoice_lines l JOIN sales_invoices i ON i.id=l.invoice_id JOIN products p ON p.id=l.product_id WHERE i.company_id=?1 AND i.fiscal_year_id=?2 AND i.status='posted' GROUP BY p.id,p.name ORDER BY revenue DESC LIMIT 10").map_err(|e|e.to_string())?;
+    let mut st=c.prepare("SELECT p.id,p.name,COALESCE(SUM(l.quantity),0),COALESCE(SUM(l.line_total),0) FROM sales_invoice_lines l JOIN sales_invoices i ON i.id=l.invoice_id JOIN products p ON p.id=l.product_id WHERE i.company_id=?1 AND i.fiscal_year_id=?2 AND i.status='posted' GROUP BY p.id,p.name ORDER BY SUM(l.line_total) DESC LIMIT 10").map_err(|e|e.to_string())?;
     let rows = st
         .query_map(params![company, fy], |r| {
             Ok(TopProduct {
