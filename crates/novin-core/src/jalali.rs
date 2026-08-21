@@ -55,10 +55,7 @@ impl JalaliDate {
     /// خواندن از رشته‌ی `YYYY/MM/DD` یا `YYYY-MM-DD` با ارقام فارسی یا لاتین.
     pub fn parse(input: &str) -> Result<Self, CalendarError> {
         let normalized = crate::money::normalize_digits(input);
-        let parts: Vec<&str> = normalized
-            .split(['/', '-'])
-            .map(str::trim)
-            .collect();
+        let parts: Vec<&str> = normalized.split(['/', '-']).map(str::trim).collect();
         if parts.len() != 3 {
             return Err(CalendarError::InvalidFormat);
         }
