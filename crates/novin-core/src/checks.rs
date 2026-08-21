@@ -18,7 +18,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CheckError {
     #[error("CHK-101: گذار وضعیت چک مجاز نیست: از «{from}» به «{to}»")]
-    InvalidTransition { from: &'static str, to: &'static str },
+    InvalidTransition {
+        from: &'static str,
+        to: &'static str,
+    },
     #[error("CHK-102: این وضعیت برای چک {kind} تعریف نشده است")]
     StatusNotAllowedForKind { kind: &'static str },
     #[error("CHK-103: مبلغ چک باید بزرگ‌تر از صفر باشد")]
@@ -297,7 +300,10 @@ pub struct MaturityAverage {
 ///
 /// نتیجه به نزدیک‌ترین روز گرد می‌شود (نصف به سمت بالا در قدر مطلق) تا با
 /// نمایش عدد صحیح روز در رابط کاربری سازگار باشد.
-pub fn weighted_maturity(base: NaiveDate, items: &[CheckItem]) -> Result<MaturityAverage, CheckError> {
+pub fn weighted_maturity(
+    base: NaiveDate,
+    items: &[CheckItem],
+) -> Result<MaturityAverage, CheckError> {
     if items.is_empty() {
         return Err(CheckError::EmptyPortfolio);
     }

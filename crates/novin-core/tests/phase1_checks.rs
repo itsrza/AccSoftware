@@ -28,7 +28,10 @@ use novin_core::money::Money;
 
 /// تاریخ سیستم در تصویر مرجع: ۱۴۰۵/۰۵/۲۹
 fn reference_today() -> NaiveDate {
-    JalaliDate::new(1405, 5, 29).unwrap().to_gregorian().unwrap()
+    JalaliDate::new(1405, 5, 29)
+        .unwrap()
+        .to_gregorian()
+        .unwrap()
 }
 
 /// هشت فقره چک واقعی از تصویر `1hNwr0` (مبلغ ریالی، سررسید شمسی).
@@ -117,7 +120,10 @@ fn t02_weighted_maturity_is_correct() {
     // چک سنگین‌تر باید راس را به سمت خود بکشد: (۹×۰ + ۱×۱۰۰)/۱۰ = ۱۰ روز
     let skewed = vec![
         CheckItem::new(Money::from_rials(9_000_000), base),
-        CheckItem::new(Money::from_rials(1_000_000), base + chrono::Duration::days(100)),
+        CheckItem::new(
+            Money::from_rials(1_000_000),
+            base + chrono::Duration::days(100),
+        ),
     ];
     assert_eq!(weighted_maturity(base, &skewed).unwrap().days, 10);
 }
@@ -136,7 +142,10 @@ fn t03_maturity_edge_cases_are_guarded() {
 
     // سبدی با جمع صفر (مثلاً چک ابطال‌شده با مبلغ صفر) نباید تقسیم بر صفر بدهد
     let zero = vec![CheckItem::new(Money::ZERO, base)];
-    assert_eq!(weighted_maturity(base, &zero), Err(CheckError::InvalidAmount));
+    assert_eq!(
+        weighted_maturity(base, &zero),
+        Err(CheckError::InvalidAmount)
+    );
 
     // تک‌چک: راس همان فاصله‌ی خودش است
     let single = vec![CheckItem::new(
@@ -215,8 +224,14 @@ fn t05_invalid_transitions_are_rejected() {
         transition(kind, CheckStatus::InHand, CheckStatus::Paid),
         Err(CheckError::StatusNotAllowedForKind { kind: "received" })
     );
-    assert!(!status_belongs_to_kind(CheckKind::Received, CheckStatus::Outstanding));
-    assert!(!status_belongs_to_kind(CheckKind::Issued, CheckStatus::Deposited));
+    assert!(!status_belongs_to_kind(
+        CheckKind::Received,
+        CheckStatus::Outstanding
+    ));
+    assert!(!status_belongs_to_kind(
+        CheckKind::Issued,
+        CheckStatus::Deposited
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -327,7 +342,10 @@ fn t08_treasury_effects_are_exact() {
 #[test]
 fn t09_check_registration_is_validated() {
     let issue = JalaliDate::new(1404, 5, 6).unwrap().to_gregorian().unwrap();
-    let due = JalaliDate::new(1404, 5, 31).unwrap().to_gregorian().unwrap();
+    let due = JalaliDate::new(1404, 5, 31)
+        .unwrap()
+        .to_gregorian()
+        .unwrap();
 
     // چک واقعی ردیف آخر تصویر مرجع
     assert!(validate_check(Money::from_rials(1_250_000_000), issue, due).is_ok());
@@ -358,15 +376,36 @@ fn t10_due_soon_filter_only_returns_open_checks() {
 
     let items = vec![
         // در بازه و باز
-        (CheckItem::new(Money::from_rials(100), at(0)), CheckStatus::InHand),
-        (CheckItem::new(Money::from_rials(200), at(7)), CheckStatus::Deposited),
+        (
+            CheckItem::new(Money::from_rials(100), at(0)),
+            CheckStatus::InHand,
+        ),
+        (
+            CheckItem::new(Money::from_rials(200), at(7)),
+            CheckStatus::Deposited,
+        ),
         // در بازه ولی بسته یا انتظامی → نباید بیاید
-        (CheckItem::new(Money::from_rials(300), at(3)), CheckStatus::Collected),
-        (CheckItem::new(Money::from_rials(400), at(4)), CheckStatus::Void),
-        (CheckItem::new(Money::from_rials(500), at(5)), CheckStatus::MemoInHand),
+        (
+            CheckItem::new(Money::from_rials(300), at(3)),
+            CheckStatus::Collected,
+        ),
+        (
+            CheckItem::new(Money::from_rials(400), at(4)),
+            CheckStatus::Void,
+        ),
+        (
+            CheckItem::new(Money::from_rials(500), at(5)),
+            CheckStatus::MemoInHand,
+        ),
         // خارج از بازه
-        (CheckItem::new(Money::from_rials(600), at(30)), CheckStatus::InHand),
-        (CheckItem::new(Money::from_rials(700), at(-1)), CheckStatus::InHand),
+        (
+            CheckItem::new(Money::from_rials(600), at(30)),
+            CheckStatus::InHand,
+        ),
+        (
+            CheckItem::new(Money::from_rials(700), at(-1)),
+            CheckStatus::InHand,
+        ),
     ];
 
     let due_soon = due_within(base, 7, &items);
