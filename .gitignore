@@ -1,12 +1,33 @@
-﻿target/
+# --- خروجی بیلد ---
+target/
+dist/
+build/
+node_modules/
+*.tsbuildinfo
+
+# --- لاگ و فایل موقت ---
+*.log
 *.bak
 *.backup
 cargo-check-error*.txt
+cargo-build-error*.txt
 cargo-errors*.txt
-*.log
-node_modules/
-dist/
-build/
+
+# --- محیط و راز ---
 .env
 .env.*
 !.env.example
+
+# --- پایگاه داده‌ی محلی و پشتیبان ---
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+backups/
+
+# --- ابزار سیستم‌عامل و ویرایشگر ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

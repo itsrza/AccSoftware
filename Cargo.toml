@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/novin-core", "apps/desktop-host/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "1.8.0"
+edition = "2021"
+license = "Proprietary"
+
+[workspace.dependencies]
+rusqlite = { version = "0.37", features = ["bundled", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+argon2 = "0.5"
+rand_core = { version = "0.6", features = ["getrandom"] }
+thiserror = "2"

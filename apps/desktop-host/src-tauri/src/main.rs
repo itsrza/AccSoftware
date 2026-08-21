@@ -1,12 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use argon2::{Argon2, PasswordVerifier};
-use chrono::Datelike;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
-mod db;
+use novin_core::db;
+use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
+use novin_core::jalali;
 
 struct AppState {
     db_path: Mutex<PathBuf>,
@@ -91,7 +92,7 @@ fn conn(state: &State<AppState>) -> Result<Connection, String> {
             .db_path
             .lock()
             .map_err(|_| {
-                "APP-001: Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+                "APP-001: قفل پایگاه داده در دسترس نیست".to_string()
             })?
             .clone(),
     )
@@ -102,9 +103,9 @@ fn require_login(state: &State<AppState>) -> Result<String, String> {
     state
         .user_id
         .lock()
-        .map_err(|_| "AUTH-001: Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?
+        .map_err(|_| "AUTH-001: وضعیت ورود در دسترس نیست".to_string())?
         .clone()
-        .ok_or_else(|| "AUTH-002: ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â´Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯".into())
+        .ok_or_else(|| "AUTH-002: ابتدا وارد حساب کاربری شوید".into())
 }
 
 fn has_permission(c: &Connection, user_id: &str, permission: &str) -> Result<bool, String> {
@@ -120,7 +121,7 @@ fn require_permission(
     let user = require_login(state)?;
     if !has_permission(c, &user, permission)? {
         return Err(format!(
-            "AUTH-403: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯: {permission}"
+            "AUTH-403: مجوز لازم برای این عملیات وجود ندارد: {permission}"
         ));
     }
     Ok(user)
@@ -142,18 +143,18 @@ fn audit(
 #[tauri::command]
 fn login(state: State<AppState>, username: String, password: String) -> Result<User, String> {
     let c = conn(&state)?;
-    let row= c.query_row("SELECT id,username,display_name,password_hash FROM users WHERE username=?1 AND is_active=1",params![username],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).map_err(|_|"AUTH-003: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â² ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¨Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+    let row= c.query_row("SELECT id,username,display_name,password_hash FROM users WHERE username=?1 AND is_active=1",params![username],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,String>(3)?))).map_err(|_|"AUTH-003: نام کاربری یا رمز عبور نادرست است".to_string())?;
     let parsed = argon2::PasswordHash::new(&row.3)
-        .map_err(|_| "AUTH-004: ÃƒËœÃ‚Â§ÃƒËœÃ‚Â·Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "AUTH-004: اطلاعات ورود نامعتبر است".to_string())?;
     Argon2::default()
         .verify_password(password.as_bytes(), &parsed)
         .map_err(|_| {
-            "AUTH-003: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â² ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¨Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "AUTH-003: نام کاربری یا رمز عبور نادرست است".to_string()
         })?;
     *state
         .user_id
         .lock()
-        .map_err(|_| "AUTH-001: Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())? =
+        .map_err(|_| "AUTH-001: وضعیت ورود در دسترس نیست".to_string())? =
         Some(row.0.clone());
     Ok(User {
         id: row.0,
@@ -167,7 +168,7 @@ fn logout(state: State<AppState>) -> Result<(), String> {
     *state
         .user_id
         .lock()
-        .map_err(|_| "AUTH-001: Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())? = None;
+        .map_err(|_| "AUTH-001: وضعیت ورود در دسترس نیست".to_string())? = None;
     Ok(())
 }
 
@@ -176,7 +177,7 @@ fn current_user(state: State<AppState>) -> Result<Option<User>, String> {
     let Some(id) = state
         .user_id
         .lock()
-        .map_err(|_| "AUTH-001: Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?
+        .map_err(|_| "AUTH-001: وضعیت ورود در دسترس نیست".to_string())?
         .clone()
     else {
         return Ok(None);
@@ -332,13 +333,13 @@ fn create_contact(
 ) -> Result<String, String> {
     if name.trim().is_empty() {
         return Err(
-            "CONTACT-001: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CONTACT-001: نام شخص الزامی است"
                 .into(),
         );
     }
     if kind != "person" && kind != "company" {
         return Err(
-            "CONTACT-002: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CONTACT-002: نوع شخص نامعتبر است"
                 .into(),
         );
     }
@@ -351,7 +352,7 @@ fn create_contact(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "CONTACT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "CONTACT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
     let id = format!(
@@ -385,13 +386,13 @@ fn update_contact(
 ) -> Result<(), String> {
     if name.trim().is_empty() {
         return Err(
-            "CONTACT-001: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CONTACT-001: نام شخص الزامی است"
                 .into(),
         );
     }
     if kind != "person" && kind != "company" {
         return Err(
-            "CONTACT-002: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CONTACT-002: نوع شخص نامعتبر است"
                 .into(),
         );
     }
@@ -404,10 +405,10 @@ fn update_contact(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "CONTACT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "CONTACT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
-    let before:String=c.query_row("SELECT json_object('name',name,'kind',kind,'mobile',mobile,'is_customer',is_customer,'is_supplier',is_supplier) FROM contacts WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"CONTACT-005: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let before:String=c.query_row("SELECT json_object('name',name,'kind',kind,'mobile',mobile,'is_customer',is_customer,'is_supplier',is_supplier) FROM contacts WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"CONTACT-005: شخص یافت نشد".to_string())?;
     c.execute("UPDATE contacts SET name=?1,kind=?2,mobile=?3,is_customer=?4,is_supplier=?5 WHERE id=?6 AND company_id=?7",params![name,kind,mobile,is_customer as i64,is_supplier as i64,id,company]).map_err(|e|format!("CONTACT-006: {e}"))?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     audit(
@@ -438,10 +439,10 @@ fn delete_contact(state: State<AppState>, id: String) -> Result<(), String> {
             |r| r.get(0),
         )
         .map_err(|_| {
-            "CONTACT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "CONTACT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
-    let before:String=c.query_row("SELECT json_object('name',name,'kind',kind) FROM contacts WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"CONTACT-005: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let before:String=c.query_row("SELECT json_object('name',name,'kind',kind) FROM contacts WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"CONTACT-005: شخص یافت نشد".to_string())?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     tx.execute(
         "DELETE FROM contacts WHERE id=?1 AND company_id=?2",
@@ -473,11 +474,11 @@ fn create_product(
     min_stock: f64,
 ) -> Result<String, String> {
     if sku.trim().is_empty() || name.trim().is_empty() || unit.trim().is_empty() {
-        return Err("PRODUCT-001: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â¯ÃƒËœÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("PRODUCT-001: کد، نام و واحد کالا الزامی است".into());
     }
     if sale_price < 0 || purchase_price < 0 || min_stock < 0.0 {
         return Err(
-            "PRODUCT-002: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "PRODUCT-002: مقادیر قیمت و حداقل موجودی نامعتبر است"
                 .into(),
         );
     }
@@ -490,7 +491,7 @@ fn create_product(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "PRODUCT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "PRODUCT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
     let id = format!(
@@ -593,16 +594,17 @@ fn get_inventory_valuation_method(state: State<AppState>) -> Result<String, Stri
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-100: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "INV-100: شرکت فعال یافت نشد".to_string()
         })?;
     Ok(inventory_method(&c, &company))
 }
 
 #[tauri::command]
 fn set_inventory_valuation_method(state: State<AppState>, method: String) -> Result<(), String> {
-    if !["fifo", "moving_average", "weighted_average"].contains(&method.as_str()) {
-        return Err("INV-101: ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â²ÃƒËœÃ‚Â´ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â°ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
-    }
+    let method = ValuationMethod::parse(&method)
+        .map_err(|_| "INV-101: روش ارزش‌گذاری نامعتبر است".to_string())?
+        .as_str()
+        .to_string();
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.valuation.manage")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
@@ -613,7 +615,7 @@ fn set_inventory_valuation_method(state: State<AppState>, method: String) -> Res
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-102: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "INV-102: شرکت فعال یافت نشد".to_string()
         })?;
     let key = format!("inventory_valuation_method:{}", company);
     tx.execute("INSERT INTO app_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,method]).map_err(|e| e.to_string())?;
@@ -641,7 +643,7 @@ fn list_inventory_advanced(state: State<AppState>) -> Result<Vec<InventoryAdvanc
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-102: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "INV-102: شرکت فعال یافت نشد".to_string()
         })?;
     let method = inventory_method(&c, &company);
     let mut st=c.prepare("SELECT b.product_id,b.warehouse_id,b.quantity,b.reserved_quantity,b.in_transit_quantity,p.purchase_price,COALESCE(SUM(CASE WHEN l.expiry_date IS NOT NULL AND l.expiry_date<=date('now','+30 day') AND l.status='active' THEN l.quantity ELSE 0 END),0) FROM inventory_balances b JOIN products p ON p.id=b.product_id LEFT JOIN inventory_lots l ON l.product_id=b.product_id AND l.warehouse_id=b.warehouse_id WHERE p.company_id=?1 GROUP BY b.product_id,b.warehouse_id,b.quantity,b.reserved_quantity,p.purchase_price ORDER BY p.name") .map_err(|e|e.to_string())?;
@@ -685,8 +687,26 @@ fn valuation_cost(
     warehouse: &str,
     method: &str,
 ) -> Result<i64, String> {
-    let mut st=c.prepare("SELECT movement_type,quantity,unit_cost FROM inventory_movements WHERE company_id=?1 AND product_id=?2 AND warehouse_id=?3 ORDER BY created_at ASC,id ASC").map_err(|e|e.to_string())?;
-    let rows = st
+    Ok(valuation_of(c, company, product, warehouse, method)?.unit_cost)
+}
+
+/// ارزش‌گذاری کامل موجودی یک کالا در یک انبار با تفویض به هسته‌ی مالی.
+fn valuation_of(
+    c: &Connection,
+    company: &str,
+    product: &str,
+    warehouse: &str,
+    method: &str,
+) -> Result<core_inventory::Valuation, String> {
+    let method = ValuationMethod::parse(method).map_err(|e| e.to_string())?;
+    let mut st = c
+        .prepare(
+            "SELECT movement_type,quantity,unit_cost FROM inventory_movements \
+             WHERE company_id=?1 AND product_id=?2 AND warehouse_id=?3 \
+             ORDER BY created_at ASC,id ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let movements = st
         .query_map(params![company, product, warehouse], |r| {
             Ok((
                 r.get::<_, String>(0)?,
@@ -694,52 +714,14 @@ fn valuation_cost(
                 r.get::<_, i64>(2)?,
             ))
         })
-        .map_err(|e| e.to_string())?;
-    if method == "fifo" {
-        let mut layers: Vec<(f64, i64)> = Vec::new();
-        for x in rows.flatten() {
-            match x.0.as_str() {
-                "receipt" | "transfer_in" => layers.push((x.1, x.2)),
-                "issue" | "transfer_out" => {
-                    let mut n = x.1;
-                    while n > 0.0 && !layers.is_empty() {
-                        if layers[0].0 <= n {
-                            n -= layers[0].0;
-                            layers.remove(0);
-                        } else {
-                            layers[0].0 -= n;
-                            n = 0.0
-                        }
-                    }
-                }
-                "adjustment" => {}
-                _ => {}
-            }
-        }
-        if layers.is_empty() {
-            return Ok(0);
-        }
-        let qty: f64 = layers.iter().map(|x| x.0).sum();
-        let val: f64 = layers.iter().map(|x| x.0 * x.1 as f64).sum();
-        return Ok((val / qty).round() as i64);
-    }
-    let mut qty = 0.0;
-    let mut avg = 0.0;
-    for x in rows.flatten() {
-        match x.0.as_str() {
-            "receipt" | "transfer_in" => {
-                let nq = qty + x.1;
-                if x.1 > 0.0 {
-                    avg = ((avg * qty) + (x.2 as f64 * x.1)) / nq;
-                }
-                qty = nq
-            }
-            "issue" | "transfer_out" => qty = (qty - x.1).max(0.0),
-            "adjustment" => {}
-            _ => {}
-        }
-    }
-    Ok(avg.round() as i64)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .filter_map(|(kind, quantity, unit_cost)| {
+            MovementKind::parse(&kind)
+                .map(|kind| core_inventory::Movement::new(kind, quantity, unit_cost))
+        })
+        .collect::<Vec<_>>();
+    core_inventory::valuate(&movements, method).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -752,7 +734,7 @@ fn reserve_inventory(
     reference_id: Option<String>,
 ) -> Result<String, String> {
     if quantity <= 0.0 {
-        return Err("INV-110: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â±ÃƒËœÃ‚Â²ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("INV-110: مقدار رزرو باید بیشتر از صفر باشد".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.reserve")?;
@@ -763,7 +745,7 @@ fn reserve_inventory(
             params![product_id],
             |r| r.get(0),
         )
-        .map_err(|_| "INV-111: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+        .map_err(|_| "INV-111: کالا یافت نشد".to_string())?;
     let ok: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM company_users WHERE company_id=?1 AND user_id=?2 AND is_active=1",
@@ -772,11 +754,11 @@ fn reserve_inventory(
         )
         .unwrap_or(0);
     if ok == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
     let available:f64=tx.query_row("SELECT COALESCE(quantity-reserved_quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![product_id,warehouse_id],|r|r.get(0)).unwrap_or(0.0);
     if available < quantity {
-        return Err("INV-112: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â±ÃƒËœÃ‚Â²ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€  ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-112: موجودی قابل رزرو کافی نیست".into());
     }
     let id = format!(
         "reservation-{}",
@@ -805,7 +787,7 @@ fn release_inventory(state: State<AppState>, reservation_id: String) -> Result<(
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.reserve")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let row:(String,String,String,f64)=tx.query_row("SELECT company_id,product_id,warehouse_id,quantity FROM inventory_reservations WHERE id=?1 AND status='reserved'",params![reservation_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(|_|"INV-113: ÃƒËœÃ‚Â±ÃƒËœÃ‚Â²ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let row:(String,String,String,f64)=tx.query_row("SELECT company_id,product_id,warehouse_id,quantity FROM inventory_reservations WHERE id=?1 AND status='reserved'",params![reservation_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(|_|"INV-113: رزرو فعال یافت نشد".to_string())?;
     let allowed: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM company_users WHERE company_id=?1 AND user_id=?2 AND is_active=1",
@@ -814,7 +796,7 @@ fn release_inventory(state: State<AppState>, reservation_id: String) -> Result<(
         )
         .unwrap_or(0);
     if allowed == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
     tx.execute("UPDATE inventory_reservations SET status='released',released_at=CURRENT_TIMESTAMP WHERE id=?1",params![reservation_id]).map_err(|e| e.to_string())?;
     tx.execute("UPDATE inventory_balances SET reserved_quantity=MAX(0,reserved_quantity-?),updated_at=CURRENT_TIMESTAMP WHERE product_id=? AND warehouse_id=?",params![row.3,row.1,row.2]).map_err(|e| e.to_string())?;
@@ -845,16 +827,16 @@ fn create_inventory_lot(
     unit_cost: i64,
 ) -> Result<String, String> {
     if lot_number.trim().is_empty() || quantity < 0.0 || unit_cost < 0 {
-        return Err("INV-120: ÃƒËœÃ‚Â§ÃƒËœÃ‚Â·Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒËœÃ‚Â³ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™/ÃƒËœÃ‚Â¨ÃƒÅ¡Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-120: اطلاعات سری/بچ نامعتبر است".into());
     }
     if lot_type == "serial"
         && (serial_number.as_deref().unwrap_or("").trim().is_empty() || quantity != 1.0)
     {
-        return Err("INV-121: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¹ Ãƒâ€ºÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("INV-121: سریال باید شماره یکتا و مقدار دقیقاً ۱ داشته باشد".into());
     }
     if lot_type != "batch" && lot_type != "serial" {
         return Err(
-            "INV-122: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ Lot Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "INV-122: نوع Lot نامعتبر است".into(),
         );
     }
     let mut c = conn(&state)?;
@@ -866,7 +848,7 @@ fn create_inventory_lot(
             params![product_id],
             |r| r.get(0),
         )
-        .map_err(|_| "INV-123: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+        .map_err(|_| "INV-123: کالا یافت نشد".to_string())?;
     let wh: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM warehouses WHERE id=?1 AND company_id=?2 AND is_active=1",
@@ -876,14 +858,14 @@ fn create_inventory_lot(
         .unwrap_or(0);
     if wh == 0 {
         return Err(
-            "INV-124: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "INV-124: انبار معتبر نیست".into(),
         );
     }
     let id = format!(
         "lot-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     );
-    tx.execute("INSERT INTO inventory_lots(id,company_id,product_id,warehouse_id,lot_number,lot_type,serial_number,manufacture_date,expiry_date,quantity,unit_cost,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",params![id,company,product_id,warehouse_id,lot_number,lot_type,serial_number,manufacture_date,expiry_date,quantity,unit_cost,user]).map_err(|e|if e.to_string().contains("UNIQUE"){"INV-125: ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â³ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾/ÃƒËœÃ‚Â¨ÃƒÅ¡Ã¢â‚¬Â  ÃƒËœÃ‚ÂªÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into()}else{e.to_string()})?;
+    tx.execute("INSERT INTO inventory_lots(id,company_id,product_id,warehouse_id,lot_number,lot_type,serial_number,manufacture_date,expiry_date,quantity,unit_cost,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",params![id,company,product_id,warehouse_id,lot_number,lot_type,serial_number,manufacture_date,expiry_date,quantity,unit_cost,user]).map_err(|e|if e.to_string().contains("UNIQUE"){"INV-125: شماره سریال/بچ تکراری است".into()}else{e.to_string()})?;
     audit(
         &tx,
         &user,
@@ -912,7 +894,7 @@ fn list_inventory_lots(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-126: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "INV-126: شرکت فعال یافت نشد".to_string()
         })?;
     let mut sql=String::from("SELECT l.id,l.product_id,l.warehouse_id,l.lot_number,l.lot_type,l.serial_number,l.manufacture_date,l.expiry_date,l.quantity,l.unit_cost,l.status FROM inventory_lots l WHERE l.company_id=?1");
     let mut vals: Vec<String> = vec![company];
@@ -959,7 +941,7 @@ fn create_inventory_count(
     count_date: String,
 ) -> Result<String, String> {
     if title.trim().is_empty() {
-        return Err("INV-130: ÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-130: عنوان انبارگردانی الزامی است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.count.create")?;
@@ -971,7 +953,7 @@ fn create_inventory_count(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-131: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "INV-131: انبار معتبر نیست".to_string()
         })?;
     let id = format!(
         "count-{}",
@@ -1003,7 +985,7 @@ fn list_inventory_counts(state: State<AppState>) -> Result<Vec<InventoryCount>, 
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-132: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "INV-132: شرکت فعال یافت نشد".to_string()
         })?;
     let mut st=c.prepare("SELECT s.id,s.warehouse_id,s.title,s.count_date,s.status,COUNT(l.id),SUM(CASE WHEN ABS(COALESCE(l.variance,0))>0 THEN 1 ELSE 0 END) FROM inventory_count_sessions s LEFT JOIN inventory_count_lines l ON l.session_id=s.id WHERE s.company_id=?1 GROUP BY s.id ORDER BY s.created_at DESC").map_err(|e|e.to_string())?;
     let rows = st
@@ -1031,12 +1013,12 @@ fn set_inventory_count_line(
     note: Option<String>,
 ) -> Result<(), String> {
     if counted_quantity < 0.0 {
-        return Err("INV-133: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("INV-133: مقدار شمارش نمی‌تواند منفی باشد".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.count.create")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let session:String=tx.query_row("SELECT s.id FROM inventory_count_lines l JOIN inventory_count_sessions s ON s.id=l.session_id JOIN company_users cu ON cu.company_id=s.company_id WHERE l.id=?1 AND cu.user_id=?2 AND cu.is_active=1 AND s.status IN ('draft','counting','review')",params![line_id,user],|r|r.get(0)).map_err(|_|"INV-134: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â·ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+    let session:String=tx.query_row("SELECT s.id FROM inventory_count_lines l JOIN inventory_count_sessions s ON s.id=l.session_id JOIN company_users cu ON cu.company_id=s.company_id WHERE l.id=?1 AND cu.user_id=?2 AND cu.is_active=1 AND s.status IN ('draft','counting','review')",params![line_id,user],|r|r.get(0)).map_err(|_|"INV-134: سطر انبارگردانی معتبر نیست".to_string())?;
     tx.execute("UPDATE inventory_count_lines SET counted_quantity=?,recount_quantity=?,variance=?-system_quantity,note=?,status=CASE WHEN ? IS NULL THEN 'counted' ELSE 'recounted' END WHERE id=?",params![counted_quantity,recount_quantity,counted_quantity,note,recount_quantity,line_id]).map_err(|e| e.to_string())?;
     tx.execute(
         "UPDATE inventory_count_sessions SET status='counting' WHERE id=? AND status='draft'",
@@ -1061,10 +1043,10 @@ fn post_inventory_count(state: State<AppState>, session_id: String) -> Result<()
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.count.post")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let company:String=tx.query_row("SELECT company_id FROM inventory_count_sessions WHERE id=?1 AND status IN ('counting','review')",params![session_id],|r|r.get(0)).map_err(|_|"INV-135: ÃƒËœÃ‚Â¯Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+    let company:String=tx.query_row("SELECT company_id FROM inventory_count_sessions WHERE id=?1 AND status IN ('counting','review')",params![session_id],|r|r.get(0)).map_err(|_|"INV-135: دوره انبارگردانی قابل ثبت نیست".to_string())?;
     let incomplete:i64=tx.query_row("SELECT COUNT(*) FROM inventory_count_lines WHERE session_id=?1 AND counted_quantity IS NULL",params![session_id],|r|r.get(0)).map_err(|e| e.to_string())?;
     if incomplete > 0 {
-        return Err("INV-136: Ãƒâ„¢Ã¢â‚¬Â¡Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â´Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯".into());
+        return Err("INV-136: همه اقلام باید شمارش شوند".into());
     }
     let wh: String = tx
         .query_row(
@@ -1120,7 +1102,7 @@ fn create_inventory_transfer_order(
 ) -> Result<String, String> {
     if from_warehouse_id == to_warehouse_id || quantity <= 0.0 {
         return Err(
-            "INV-140: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â£ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "INV-140: مقصد و مبدأ یا مقدار انتقال نامعتبر است"
                 .into(),
         );
     }
@@ -1133,20 +1115,20 @@ fn create_inventory_transfer_order(
             params![from_warehouse_id],
             |r| r.get(0),
         )
-        .map_err(|_| "INV-141: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â£ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "INV-141: انبار مبدأ معتبر نیست".to_string())?;
     let dest: String = tx
         .query_row(
             "SELECT company_id FROM warehouses WHERE id=?1 AND is_active=1",
             params![to_warehouse_id],
             |r| r.get(0),
         )
-        .map_err(|_| "INV-142: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "INV-142: انبار مقصد معتبر نیست".to_string())?;
     if company != dest {
-        return Err("INV-143: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Å¡ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯".into());
+        return Err("INV-143: انبارها متعلق به یک شرکت نیستند".into());
     }
     let avail:f64=tx.query_row("SELECT COALESCE(quantity-reserved_quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![product_id,from_warehouse_id],|r|r.get(0)).unwrap_or(0.0);
     if avail < quantity {
-        return Err("INV-144: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-144: موجودی قابل انتقال کافی نیست".into());
     }
     let id = format!(
         "transfer-order-{}",
@@ -1180,7 +1162,7 @@ fn list_inventory_transfer_orders(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-147: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "INV-147: شرکت فعال یافت نشد".to_string()
         })?;
     let mut st=c.prepare("SELECT id,product_id,from_warehouse_id,to_warehouse_id,quantity,unit_cost,status,note FROM inventory_transfer_orders WHERE company_id=?1 ORDER BY created_at DESC").map_err(|e|e.to_string())?;
     let rows = st
@@ -1205,9 +1187,9 @@ fn receive_inventory_transfer(state: State<AppState>, transfer_id: String) -> Re
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.transfer.receive")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let row:(String,String,String,String,String,f64,i64)=tx.query_row("SELECT company_id,product_id,from_warehouse_id,to_warehouse_id,status,quantity,unit_cost FROM inventory_transfer_orders WHERE id=?1",params![transfer_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?))).map_err(|_|"INV-145: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let row:(String,String,String,String,String,f64,i64)=tx.query_row("SELECT company_id,product_id,from_warehouse_id,to_warehouse_id,status,quantity,unit_cost FROM inventory_transfer_orders WHERE id=?1",params![transfer_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?))).map_err(|_|"INV-145: انتقال یافت نشد".to_string())?;
     if row.4 != "in_transit" {
-        return Err("INV-146: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-146: انتقال در وضعیت قابل دریافت نیست".into());
     }
     let ok: i64 = tx
         .query_row(
@@ -1217,7 +1199,7 @@ fn receive_inventory_transfer(state: State<AppState>, transfer_id: String) -> Re
         )
         .map_err(|e| e.to_string())?;
     if ok == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
     tx.execute("UPDATE inventory_balances SET in_transit_quantity=MAX(0,in_transit_quantity-?),updated_at=CURRENT_TIMESTAMP WHERE product_id=? AND warehouse_id=?",params![row.5,row.1,row.2]).map_err(|e| e.to_string())?;
     tx.execute("INSERT INTO inventory_balances(product_id,warehouse_id,quantity) VALUES(?,?,?) ON CONFLICT(product_id,warehouse_id) DO UPDATE SET quantity=quantity+excluded.quantity,updated_at=CURRENT_TIMESTAMP",params![row.1,row.3,row.5]).map_err(|e| e.to_string())?;
@@ -1266,7 +1248,7 @@ fn inventory_move(
     note: Option<&str>,
 ) -> Result<String, String> {
     if quantity <= 0.0 {
-        return Err("INV-001: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("INV-001: مقدار حرکت باید بیشتر از صفر باشد".into());
     }
     let mut c = conn(state)?;
     let user = require_permission(
@@ -1285,7 +1267,7 @@ fn inventory_move(
             params![product_id],
             |r| r.get(0),
         )
-        .map_err(|_| "INV-002: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+        .map_err(|_| "INV-002: کالا یافت نشد".to_string())?;
     let allowed: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM company_users WHERE company_id=?1 AND user_id=?2 AND is_active=1",
@@ -1294,7 +1276,7 @@ fn inventory_move(
         )
         .map_err(|e| e.to_string())?;
     if allowed == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
     let wh_ok: i64 = tx
         .query_row(
@@ -1305,7 +1287,7 @@ fn inventory_move(
         .map_err(|e| e.to_string())?;
     if wh_ok == 0 {
         return Err(
-            "INV-003: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "INV-003: انبار معتبر نیست".into(),
         );
     }
     let current: f64 = tx
@@ -1317,7 +1299,7 @@ fn inventory_move(
         .unwrap_or(0.0);
     let reserved:f64=tx.query_row("SELECT reserved_quantity FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![product_id,warehouse_id],|r|r.get(0)).unwrap_or(0.0);
     if movement_type == "issue" && current - reserved < quantity {
-        return Err("INV-004: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â´ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-004: موجودی قابل فروش کافی نیست".into());
     }
     let new_qty = if movement_type == "receipt" {
         current + quantity
@@ -1358,11 +1340,11 @@ fn update_product(
     min_stock: f64,
 ) -> Result<(), String> {
     if sku.trim().is_empty() || name.trim().is_empty() || unit.trim().is_empty() {
-        return Err("PRODUCT-001: SKUÃƒËœÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯".into());
+        return Err("PRODUCT-001: SKU، نام و واحد الزامی هستند".into());
     }
     if sale_price < 0 || purchase_price < 0 || min_stock < 0.0 {
         return Err(
-            "PRODUCT-002: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "PRODUCT-002: مقادیر قیمت و حداقل موجودی نامعتبر است"
                 .into(),
         );
     }
@@ -1375,14 +1357,14 @@ fn update_product(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "PRODUCT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "PRODUCT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
-    let before:String=c.query_row("SELECT json_object('sku',sku,'barcode',barcode,'name',name,'unit',unit,'sale_price',sale_price,'purchase_price',purchase_price,'min_stock',min_stock) FROM products WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"PRODUCT-004: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let before:String=c.query_row("SELECT json_object('sku',sku,'barcode',barcode,'name',name,'unit',unit,'sale_price',sale_price,'purchase_price',purchase_price,'min_stock',min_stock) FROM products WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"PRODUCT-004: کالا یافت نشد".to_string())?;
     let result=c.execute("UPDATE products SET sku=?1,barcode=?2,name=?3,unit=?4,sale_price=?5,purchase_price=?6,min_stock=?7 WHERE id=?8 AND company_id=?9",params![sku,barcode,name,unit,sale_price,purchase_price,min_stock,id,company]);
     if let Err(e) = result {
         return Err(if e.to_string().contains("UNIQUE") {
-            "PRODUCT-005: SKU Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â¯ ÃƒËœÃ‚ÂªÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "PRODUCT-005: SKU یا بارکد تکراری است"
                 .into()
         } else {
             format!("PRODUCT-006: {e}")
@@ -1417,7 +1399,7 @@ fn delete_product(state: State<AppState>, id: String) -> Result<(), String> {
             |r| r.get(0),
         )
         .map_err(|_| {
-            "PRODUCT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "PRODUCT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
     let before: String = c
@@ -1426,10 +1408,10 @@ fn delete_product(state: State<AppState>, id: String) -> Result<(), String> {
             params![id, company],
             |r| r.get(0),
         )
-        .map_err(|_| "PRODUCT-004: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+        .map_err(|_| "PRODUCT-004: کالا یافت نشد".to_string())?;
     let refs:i64=c.query_row("SELECT (SELECT COUNT(*) FROM inventory_balances WHERE product_id=?1)+(SELECT COUNT(*) FROM inventory_movements WHERE product_id=?1)",params![id],|r|r.get(0)).map_err(|e|e.to_string())?;
     if refs > 0 {
-        return Err("PRODUCT-007: ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â­ÃƒËœÃ‚Â°Ãƒâ„¢Ã‚Â Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("PRODUCT-007: این کالا سابقه انبار دارد و حذف مستقیم مجاز نیست".into());
     }
     let tx = c.transaction().map_err(|e| e.to_string())?;
     tx.execute(
@@ -1481,11 +1463,11 @@ fn transfer_stock(
 ) -> Result<String, String> {
     if from_warehouse_id == to_warehouse_id {
         return Err(
-            "INV-010: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â£ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Âª ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯".into(),
+            "INV-010: انبار مبدأ و مقصد باید متفاوت باشند".into(),
         );
     }
     if quantity <= 0.0 {
-        return Err("INV-002: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("INV-002: مقدار باید بیشتر از صفر باشد".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.transfer")?;
@@ -1497,7 +1479,7 @@ fn transfer_stock(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-003: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â£ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "INV-003: انبار مبدأ یافت نشد"
                 .to_string()
         })?;
     let dest_company: String = tx
@@ -1507,15 +1489,15 @@ fn transfer_stock(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "INV-004: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "INV-004: انبار مقصد یافت نشد"
                 .to_string()
         })?;
     if company != dest_company {
-        return Err("INV-005: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Å¡ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯".into());
+        return Err("INV-005: انبارها متعلق به یک شرکت نیستند".into());
     }
     let available:f64=tx.query_row("SELECT COALESCE(quantity-reserved_quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![product_id,from_warehouse_id],|r|r.get(0)).unwrap_or(0.0);
     if available < quantity {
-        return Err("INV-006: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-006: موجودی قابل انتقال کافی نیست".into());
     }
     let cost:i64=tx.query_row("SELECT COALESCE(CAST(ROUND(SUM(quantity*unit_cost)/NULLIF(SUM(quantity),0)) AS INTEGER),0) FROM inventory_movements WHERE product_id=?1 AND company_id=?2 AND movement_type IN ('receipt','transfer_in','adjustment')",params![product_id,company],|r|r.get(0)).unwrap_or(0);
     let out_id = format!(
@@ -1555,10 +1537,10 @@ fn adjust_stock(
     note: String,
 ) -> Result<String, String> {
     if new_quantity < 0.0 {
-        return Err("INV-011: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("INV-011: موجودی جدید نمی‌تواند منفی باشد".into());
     }
     if note.trim().is_empty() {
-        return Err("INV-012: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒËœÃ‚Â­ ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ÃƒËœÃ‚Â­ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("INV-012: شرح اصلاح موجودی الزامی است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.adjust")?;
@@ -1569,12 +1551,12 @@ fn adjust_stock(
             params![warehouse_id],
             |r| r.get(0),
         )
-        .map_err(|_| "INV-004: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+        .map_err(|_| "INV-004: انبار یافت نشد".to_string())?;
     let old:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![product_id,warehouse_id],|r|r.get(0)).unwrap_or(0.0);
     let delta = new_quantity - old;
     if delta.abs() < f64::EPSILON {
         return Err(
-            "INV-013: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚ÂªÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â§Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯"
+            "INV-013: موجودی جدید با موجودی فعلی تفاوتی ندارد"
                 .into(),
         );
     }
@@ -1628,24 +1610,24 @@ fn create_journal_internal(
     status: &str,
 ) -> Result<String, String> {
     if lines.is_empty() {
-        return Err("ACC-001: ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â³ÃƒËœÃ‚Â·ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("ACC-001: سند بدون سطر قابل ثبت نیست".into());
     }
     let debit: i64 = lines.iter().map(|x| x.1).sum();
     let credit: i64 = lines.iter().map(|x| x.2).sum();
     if debit <= 0 || debit != credit {
-        return Err("ACC-002: ÃƒËœÃ‚Â¬Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â²ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("ACC-002: جمع بدهکار و بستانکار باید برابر و بزرگتر از صفر باشد".into());
     }
     for (acc, d, c) in lines {
         if *d < 0 || *c < 0 || (*d > 0 && *c > 0) || (*d == 0 && *c == 0) {
             return Err(format!(
-                "ACC-003: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â·ÃƒËœÃ‚Â± ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ {acc} Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+                "ACC-003: سطر حساب {acc} نامعتبر است"
             ));
         }
     }
     let mut c = conn(state)?;
     let user = require_permission(state, &c, "accounting.journal.create")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let (fy,company):(String,String)=tx.query_row("SELECT fy.id,fy.company_id FROM fiscal_years fy JOIN company_users cu ON cu.company_id=fy.company_id WHERE cu.user_id=?1 AND cu.is_active=1 AND fy.is_closed=0 ORDER BY fy.start_date DESC LIMIT 1",params![user],|r|Ok((r.get(0)?,r.get(1)?))).map_err(|_|"ACC-004: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let (fy,company):(String,String)=tx.query_row("SELECT fy.id,fy.company_id FROM fiscal_years fy JOIN company_users cu ON cu.company_id=fy.company_id WHERE cu.user_id=?1 AND cu.is_active=1 AND fy.is_closed=0 ORDER BY fy.start_date DESC LIMIT 1",params![user],|r|Ok((r.get(0)?,r.get(1)?))).map_err(|_|"ACC-004: سال مالی باز برای کاربر یافت نشد".to_string())?;
     let valid_date: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM fiscal_years WHERE id=?1 AND ?2 BETWEEN start_date AND end_date",
@@ -1654,7 +1636,7 @@ fn create_journal_internal(
         )
         .map_err(|e| e.to_string())?;
     if valid_date == 0 {
-        return Err("ACC-005: ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¬ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("ACC-005: تاریخ سند خارج از سال مالی است".into());
     }
     for (acc, _, _) in lines {
         let ok: i64 = tx
@@ -1666,7 +1648,7 @@ fn create_journal_internal(
             .map_err(|e| e.to_string())?;
         if ok == 0 {
             return Err(format!(
-                "ACC-006: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª: {acc}"
+                "ACC-006: حساب معتبر نیست: {acc}"
             ));
         }
     }
@@ -1724,9 +1706,9 @@ fn post_journal(state: State<AppState>, journal_id: String) -> Result<(), String
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "accounting.journal.post")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let row:(String,i64,i64,String)=tx.query_row("SELECT status,(SELECT COALESCE(SUM(debit),0) FROM journal_lines WHERE journal_id=j.id),(SELECT COALESCE(SUM(credit),0) FROM journal_lines WHERE journal_id=j.id),company_id FROM journal_entries j WHERE id=?1",params![journal_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(|_|"ACC-007: ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let row:(String,i64,i64,String)=tx.query_row("SELECT status,(SELECT COALESCE(SUM(debit),0) FROM journal_lines WHERE journal_id=j.id),(SELECT COALESCE(SUM(credit),0) FROM journal_lines WHERE journal_id=j.id),company_id FROM journal_entries j WHERE id=?1",params![journal_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(|_|"ACC-007: سند یافت نشد".to_string())?;
     if row.0 != "draft" && row.0 != "validated" {
-        return Err("ACC-008: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â£Ãƒâ€ºÃ…â€™Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("ACC-008: فقط سند پیش‌نویس یا تأییدشده قابل ثبت نهایی است".into());
     }
     let fiscal_id: String = tx
         .query_row(
@@ -1745,7 +1727,7 @@ fn post_journal(state: State<AppState>, journal_id: String) -> Result<(), String
     validate_fiscal_date(&tx, &fiscal_id, &entry_date)?;
     if row.1 <= 0 || row.1 != row.2 {
         return Err(
-            "ACC-002: ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "ACC-002: سند نامتوازن است".into(),
         );
     }
     let allowed: i64 = tx
@@ -1756,7 +1738,7 @@ fn post_journal(state: State<AppState>, journal_id: String) -> Result<(), String
         )
         .map_err(|e| e.to_string())?;
     if allowed == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به این شرکت وجود ندارد".into());
     }
     tx.execute(
         "UPDATE journal_entries SET status='posted' WHERE id=?1",
@@ -1791,9 +1773,9 @@ fn reverse_journal(
             params![journal_id],
             |r| r.get(0),
         )
-        .map_err(|_| "ACC-007: ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+        .map_err(|_| "ACC-007: سند یافت نشد".to_string())?;
     if status != "posted" {
-        return Err("ACC-009: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚ÂªÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("ACC-009: فقط سند ثبت‌شده قابل برگشت است".into());
     }
     let mut stmt = tx
         .prepare(
@@ -1856,12 +1838,12 @@ fn backup_dir(state: &State<AppState>) -> Result<PathBuf, String> {
         .db_path
         .lock()
         .map_err(|_| {
-            "BACKUP-001: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string()
         })?
         .clone();
     let dir = db
         .parent()
-        .ok_or_else(|| "BACKUP-002: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?
+        .ok_or_else(|| "BACKUP-002: مسیر پشتیبان نامعتبر است".to_string())?
         .join("backups");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
@@ -1901,7 +1883,7 @@ fn backup_database(state: State<AppState>) -> Result<BackupInfo, String> {
         .db_path
         .lock()
         .map_err(|_| {
-            "BACKUP-001: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string()
         })?
         .clone();
     let dir = backup_dir(&state)?;
@@ -1918,7 +1900,7 @@ fn backup_database(state: State<AppState>) -> Result<BackupInfo, String> {
     if integrity != "ok" {
         let _ = std::fs::remove_file(&target);
         return Err(
-            "BACKUP-006: ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â³ÃƒËœÃ‚Â®Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯".into(),
+            "BACKUP-006: بررسی سلامت نسخه پشتیبان ناموفق بود".into(),
         );
     }
     let size = std::fs::metadata(&target).map_err(|e| e.to_string())?.len();
@@ -1950,25 +1932,25 @@ fn restore_database(state: State<AppState>, name: String) -> Result<(), String> 
         || name.contains("..")
         || !name.ends_with(".sqlite")
     {
-        return Err("BACKUP-007: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â³ÃƒËœÃ‚Â®Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("BACKUP-007: نام نسخه پشتیبان نامعتبر است".into());
     }
     let source = backup_dir(&state)?.join(&name);
     if !source.is_file() {
-        return Err("BACKUP-008: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â³ÃƒËœÃ‚Â®Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("BACKUP-008: نسخه پشتیبان پیدا نشد".into());
     }
     let check = Connection::open(&source).map_err(|e| format!("BACKUP-005: {e}"))?;
     let integrity: String = check
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     if integrity != "ok" {
-        return Err("BACKUP-006: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â³ÃƒËœÃ‚Â®Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("BACKUP-006: نسخه پشتیبان سالم نیست".into());
     };
     drop(check);
     let target = state
         .db_path
         .lock()
         .map_err(|_| {
-            "BACKUP-001: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string()
         })?
         .clone();
     let safety = target.with_extension("pre-restore.sqlite");
@@ -1999,7 +1981,7 @@ fn get_demo_status(state: State<AppState>) -> Result<bool, String> {
     let c = conn(&state)?;
     if !has_permission(&c, &user, "security.role.manage")? {
         return Err(
-            "AUTH-403: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯"
+            "AUTH-403: مجوز مدیریت داده‌های نمونه وجود ندارد"
                 .into(),
         );
     }
@@ -2019,7 +2001,7 @@ fn delete_demo_data(state: State<AppState>) -> Result<(), String> {
     let user = require_login(&state)?;
     if !has_permission(&c, &user, "security.role.manage")? {
         return Err(
-            "AUTH-403: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯"
+            "AUTH-403: مجوز مدیریت داده‌های نمونه وجود ندارد"
                 .into(),
         );
     }
@@ -2110,10 +2092,10 @@ fn save_print_template(
     is_default: bool,
 ) -> Result<String, String> {
     if name.trim().is_empty() || content_html.trim().is_empty() {
-        return Err("PRINT-001: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â­ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("PRINT-001: نام و محتوای قالب الزامی است".into());
     }
     if !["invoice", "receipt", "journal", "report", "label"].contains(&template_type.as_str()) {
-        return Err("PRINT-002: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("PRINT-002: نوع قالب نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "printing.template.manage")?;
@@ -2125,7 +2107,7 @@ fn save_print_template(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "PRINT-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "PRINT-003: شرکت فعال یافت نشد"
                 .to_string()
         })?;
     let rid = id.filter(|x| !x.trim().is_empty()).unwrap_or_else(|| {
@@ -2141,7 +2123,7 @@ fn save_print_template(
         )
         .map_err(|e| e.to_string())?;
     }
-    tx.execute("INSERT INTO print_templates(id,company_id,name,template_type,content_html,is_default,created_by) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(id) DO UPDATE SET name=excluded.name,template_type=excluded.template_type,content_html=excluded.content_html,is_default=excluded.is_default,updated_at=CURRENT_TIMESTAMP",params![rid,company,name,template_type,content_html,is_default as i64,user]).map_err(|e|format!("PRINT-004: ÃƒËœÃ‚Â°ÃƒËœÃ‚Â®Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+    tx.execute("INSERT INTO print_templates(id,company_id,name,template_type,content_html,is_default,created_by) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(id) DO UPDATE SET name=excluded.name,template_type=excluded.template_type,content_html=excluded.content_html,is_default=excluded.is_default,updated_at=CURRENT_TIMESTAMP",params![rid,company,name,template_type,content_html,is_default as i64,user]).map_err(|e|format!("PRINT-004: ذخیره قالب انجام نشد: {e}"))?;
     audit(
         &tx,
         &user,
@@ -2191,15 +2173,15 @@ fn import_data(
         },
     )?;
     if entity_type != "contacts" && entity_type != "products" {
-        return Err("IMPORT-001: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Â§ÃƒËœÃ‚Âµ Ãƒâ„¢Ã‹â€  ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â³ÃƒËœÃ‚Â®Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("IMPORT-001: فقط ورود اشخاص و کالاها در این نسخه فعال است".into());
     }
     let rows: Vec<serde_json::Value> = serde_json::from_str(&rows_json)
-        .map_err(|_| "IMPORT-002: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Å¾/ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "IMPORT-002: فایل/داده ورودی معتبر نیست".to_string())?;
     if rows.is_empty() {
-        return Err("IMPORT-003: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("IMPORT-003: داده‌ای برای ورود وجود ندارد".into());
     }
     if rows.len() > 10000 {
-        return Err("IMPORT-004: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â«ÃƒËœÃ‚Â± 10000 ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("IMPORT-004: حداکثر 10000 ردیف مجاز است".into());
     }
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let company: String = tx
@@ -2209,7 +2191,7 @@ fn import_data(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "IMPORT-005: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "IMPORT-005: شرکت فعال یافت نشد"
                 .to_string()
         })?;
     let batch = format!(
@@ -2227,14 +2209,14 @@ fn import_data(
                     .trim();
                 if name.is_empty() {
                     return Err(format!(
-                        "IMPORT-006: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â {} ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª",
+                        "IMPORT-006: نام شخص در ردیف {} الزامی است",
                         i + 1
                     ));
                 }
                 let kind = row.get("kind").and_then(|v| v.as_str()).unwrap_or("person");
                 if kind != "person" && kind != "company" {
                     return Err(format!(
-                        "IMPORT-007: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â {} Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª",
+                        "IMPORT-007: نوع شخص در ردیف {} نامعتبر است",
                         i + 1
                     ));
                 }
@@ -2248,7 +2230,7 @@ fn import_data(
                     .get("is_supplier")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                tx.execute("INSERT INTO contacts(id,company_id,kind,name,mobile,is_customer,is_supplier) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![id,company,kind,name,mobile,cust as i64,supp as i64]).map_err(|e|format!("IMPORT-008: ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â {}: {e}",i+1))?;
+                tx.execute("INSERT INTO contacts(id,company_id,kind,name,mobile,is_customer,is_supplier) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![id,company,kind,name,mobile,cust as i64,supp as i64]).map_err(|e|format!("IMPORT-008: ردیف {}: {e}",i+1))?;
             } else {
                 let sku = row.get("sku").and_then(|v| v.as_str()).unwrap_or("").trim();
                 let name = row
@@ -2259,10 +2241,10 @@ fn import_data(
                 let unit = row
                     .get("unit")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â¯");
+                    .unwrap_or("عدد");
                 if sku.is_empty() || name.is_empty() {
                     return Err(format!(
-                        "IMPORT-009: SKU Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â {} ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª",
+                        "IMPORT-009: SKU و نام کالا در ردیف {} الزامی است",
                         i + 1
                     ));
                 }
@@ -2276,11 +2258,11 @@ fn import_data(
                 let id = format!("product-import-{}-{}", batch, i);
                 if sale < 0 || purchase < 0 || min < 0.0 {
                     return Err(format!(
-                        "IMPORT-010: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº/ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â {} Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª",
+                        "IMPORT-010: مبلغ/حداقل موجودی در ردیف {} نامعتبر است",
                         i + 1
                     ));
                 }
-                tx.execute("INSERT INTO products(id,company_id,sku,barcode,name,unit,sale_price,purchase_price,min_stock) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",params![id,company,sku,barcode,name,unit,sale,purchase,min]).map_err(|e|format!("IMPORT-011: ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â {}: {e}",i+1))?;
+                tx.execute("INSERT INTO products(id,company_id,sku,barcode,name,unit,sale_price,purchase_price,min_stock) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",params![id,company,sku,barcode,name,unit,sale,purchase,min]).map_err(|e|format!("IMPORT-011: ردیف {}: {e}",i+1))?;
             }
         }
         Ok(())
@@ -2351,16 +2333,16 @@ fn active_context(tx: &rusqlite::Transaction<'_>, user: &str) -> Result<(String,
             |r| r.get(0),
         )
         .map_err(|_| {
-            "DOC-001: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "DOC-001: شرکت فعال یافت نشد".to_string()
         })?;
-    let fy:String=tx.query_row("SELECT id FROM fiscal_years WHERE company_id=?1 AND is_closed=0 ORDER BY start_date DESC LIMIT 1",params![company],|r|r.get(0)).map_err(|_|"DOC-002: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let fy:String=tx.query_row("SELECT id FROM fiscal_years WHERE company_id=?1 AND is_closed=0 ORDER BY start_date DESC LIMIT 1",params![company],|r|r.get(0)).map_err(|_|"DOC-002: سال مالی باز یافت نشد".to_string())?;
     Ok((company, fy))
 }
 
 fn invoice_total(lines: &[(String, f64, i64, i64, i64)]) -> Result<(i64, i64, i64, i64), String> {
     if lines.is_empty() {
         return Err(
-            "DOC-003: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â© Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into(),
+            "DOC-003: فاکتور باید حداقل یک قلم داشته باشد".into(),
         );
     }
     let mut subtotal = 0i64;
@@ -2368,11 +2350,11 @@ fn invoice_total(lines: &[(String, f64, i64, i64, i64)]) -> Result<(i64, i64, i6
     let mut tax = 0i64;
     for (_, q, p, d, t) in lines {
         if *q <= 0.0 || *p < 0 || *d < 0 || *t < 0 {
-            return Err("DOC-004: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â©Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("DOC-004: مقدار یکی از اقلام نامعتبر است".into());
         }
         let gross = (*q * (*p as f64)).round() as i64;
         if *d > gross {
-            return Err("DOC-005: ÃƒËœÃ‚ÂªÃƒËœÃ‚Â®Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("DOC-005: تخفیف بیشتر از مبلغ قلم است".into());
         }
         subtotal += gross;
         discount += *d;
@@ -2409,7 +2391,7 @@ fn create_invoice_common(
             )
             .unwrap_or(0);
         if ok == 0 {
-            return Err("DOC-006: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("DOC-006: شخص معتبر نیست".into());
         }
     }
     if let Some(wid) = &warehouse_id {
@@ -2422,7 +2404,7 @@ fn create_invoice_common(
             .unwrap_or(0);
         if ok == 0 {
             return Err(
-                "DOC-007: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+                "DOC-007: انبار معتبر نیست".into(),
             );
         }
     }
@@ -2471,7 +2453,7 @@ fn create_invoice_common(
             .unwrap_or(0);
         if ok == 0 {
             return Err(format!(
-                "DOC-009: ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ„¢Ã¢â‚¬Â¦ {} Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª",
+                "DOC-009: کالا در قلم {} معتبر نیست",
                 i + 1
             ));
         }
@@ -2604,11 +2586,11 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
             ))
         })
         .map_err(|_| {
-            "DOC-010: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "DOC-010: فاکتور یافت نشد".to_string()
         })?
     };
     if row.3 != "draft" {
-        return Err("DOC-011: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("DOC-011: فقط فاکتور پیش‌نویس قابل ثبت است".into());
     }
     let user_company: i64 = tx
         .query_row(
@@ -2618,10 +2600,10 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
         )
         .unwrap_or(0);
     if user_company == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
     let wid = row.6.clone().ok_or(
-        "DOC-012: ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string(),
+        "DOC-012: برای ثبت فاکتور انبار الزامی است".to_string(),
     )?;
     let mut st=tx.prepare(&format!("SELECT product_id,quantity,unit_price,line_total FROM {lt} WHERE invoice_id=?1 ORDER BY rowid")).map_err(|e|e.to_string())?;
     let mut items = Vec::new();
@@ -2642,7 +2624,7 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
     for (pid, q, p, _lt) in &items {
         let current:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![pid,wid],|r|r.get(0)).unwrap_or(0.0);
         if sale && current < *q {
-            return Err("DOC-013: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â©Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ÃƒËœÃ‚Â§ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("DOC-013: موجودی یکی از کالاها کافی نیست".into());
         }
         let newq = if sale { current - *q } else { current + *q };
         tx.execute("INSERT INTO inventory_balances(product_id,warehouse_id,quantity) VALUES(?,?,?) ON CONFLICT(product_id,warehouse_id) DO UPDATE SET quantity=excluded.quantity,updated_at=CURRENT_TIMESTAMP",params![pid,wid,newq]).map_err(|e|e.to_string())?;
@@ -2661,13 +2643,13 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
     let debit: i64 = lines.iter().map(|x| x.1).sum();
     let credit: i64 = lines.iter().map(|x| x.2).sum();
     if debit != credit {
-        return Err("ACC-002: ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â© Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("ACC-002: سند اتوماتیک نامتوازن است".into());
     }
     let journal_id = format!("journal-invoice-{id}");
     let number:i64=tx.query_row("SELECT COALESCE(MAX(number),0)+1 FROM journal_entries WHERE company_id=?1 AND fiscal_year_id=?2",params![row.0,row.1],|r|r.get(0)).map_err(|e|e.to_string())?;
-    tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,'ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±', 'posted','invoice',?,?)",params![journal_id,row.0,row.1,number,row.2,id,user]).map_err(|e|e.to_string())?;
+    tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,'ثبت خودکار فاکتور', 'posted','invoice',?,?)",params![journal_id,row.0,row.1,number,row.2,id,user]).map_err(|e|e.to_string())?;
     for (i, (acc, d, cr)) in lines.iter().enumerate() {
-        tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{journal_id}-line-{}",i+1),journal_id,acc,d,cr,"ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±"]).map_err(|e|e.to_string())?;
+        tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{journal_id}-line-{}",i+1),journal_id,acc,d,cr,"ثبت خودکار فاکتور"]).map_err(|e|e.to_string())?;
     }
     tx.execute(
         &format!("UPDATE {table} SET status='posted',journal_id=?1 WHERE id=?2"),
@@ -2712,7 +2694,7 @@ fn settle_invoice(
     settlement_date: String,
 ) -> Result<String, String> {
     if amount <= 0 {
-        return Err("SET-001: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº ÃƒËœÃ‚ÂªÃƒËœÃ‚Â³Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("SET-001: مبلغ تسویه باید بیشتر از صفر باشد".into());
     }
     let permission = if sale {
         "treasury.receipt.create"
@@ -2736,12 +2718,12 @@ fn settle_invoice(
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         })
         .map_err(|_| {
-            "SET-002: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "SET-002: فاکتور یافت نشد".to_string()
         })?
     };
     if row.2 != "posted" {
         return Err(
-            "SET-003: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚ÂªÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â³Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "SET-003: فقط فاکتور ثبت‌شده قابل تسویه است".into(),
         );
     }
     let allowed: i64 = tx
@@ -2752,19 +2734,19 @@ fn settle_invoice(
         )
         .unwrap_or(0);
     if allowed == 0 {
-        return Err("AUTH-403: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
     let settled:i64=tx.query_row("SELECT COALESCE(SUM(amount),0) FROM invoice_settlements WHERE invoice_id=?1 AND invoice_type=?2",params![invoice_id,invoice_type],|r|r.get(0)).unwrap_or(0);
     let remaining = row.3 - settled;
     if remaining <= 0 {
         return Err(
-            "SET-004: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¹ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â·Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â³Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "SET-004: فاکتور قبلاً به‌طور کامل تسویه شده است"
                 .into(),
         );
     }
     if amount > remaining {
         return Err(format!(
-            "SET-005: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº ÃƒËœÃ‚ÂªÃƒËœÃ‚Â³Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª. Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡: {remaining}"
+            "SET-005: مبلغ تسویه از مانده فاکتور بیشتر است. مانده: {remaining}"
         ));
     }
     let journal_id = format!(
@@ -2774,9 +2756,9 @@ fn settle_invoice(
     );
     let number:i64=tx.query_row("SELECT COALESCE(MAX(number),0)+1 FROM journal_entries WHERE company_id=?1 AND fiscal_year_id=?2",params![row.0,row.1],|r|r.get(0)).map_err(|e|e.to_string())?;
     let description = if sale {
-        "ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â±Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â´"
+        "دریافت بابت فاکتور فروش"
     } else {
-        "Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â®ÃƒËœÃ‚Âª ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯"
+        "پرداخت بابت فاکتور خرید"
     };
     tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,?,'posted','settlement',?,?)",params![journal_id,row.0,row.1,number,settlement_date,description,invoice_id,user]).map_err(|e|e.to_string())?;
     let (a1d, a1c, a2d, a2c) = if sale {
@@ -2918,12 +2900,12 @@ fn create_treasury_account(
 ) -> Result<String, String> {
     if name.trim().is_empty() {
         return Err(
-            "TRE-001: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "TRE-001: نام حساب الزامی است"
                 .into(),
         );
     }
     if !["cash", "bank", "petty_cash"].contains(&account_type.as_str()) {
-        return Err("TRE-002: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("TRE-002: نوع حساب خزانه نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.account.create")?;
@@ -2938,7 +2920,7 @@ fn create_treasury_account(
             )
             .unwrap_or(0);
         if ok == 0 {
-            return Err("TRE-003: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("TRE-003: حساب حسابداری معتبر نیست".into());
         }
     }
     let id = format!(
@@ -2974,14 +2956,14 @@ fn update_treasury_account(
 ) -> Result<(), String> {
     if name.trim().is_empty() {
         return Err(
-            "TRE-005: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "TRE-005: نام حساب الزامی است"
                 .into(),
         );
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.account.edit")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let company:String=tx.query_row("SELECT company_id FROM treasury_accounts WHERE id=?1 AND company_id IN (SELECT company_id FROM company_users WHERE user_id=?2 AND is_active=1)",params![id,user],|r|r.get(0)).map_err(|_|"TRE-006: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let company:String=tx.query_row("SELECT company_id FROM treasury_accounts WHERE id=?1 AND company_id IN (SELECT company_id FROM company_users WHERE user_id=?2 AND is_active=1)",params![id,user],|r|r.get(0)).map_err(|_|"TRE-006: حساب خزانه یافت نشد".to_string())?;
     if let Some(a) = &linked_account_id {
         let ok: i64 = tx
             .query_row(
@@ -2991,7 +2973,7 @@ fn update_treasury_account(
             )
             .unwrap_or(0);
         if ok == 0 {
-            return Err("TRE-003: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("TRE-003: حساب حسابداری معتبر نیست".into());
         }
     }
     let before:String=tx.query_row("SELECT json_object('name',name,'account_number',account_number,'iban',iban,'linked_account_id',linked_account_id,'is_active',is_active) FROM treasury_accounts WHERE id=?1",params![id],|r|r.get(0)).map_err(|e|e.to_string())?;
@@ -3086,7 +3068,7 @@ fn get_treasury_statement(
         .unwrap_or(0);
     if exists == 0 {
         return Err(
-            "TRE-008: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into(),
+            "TRE-008: حساب خزانه یافت نشد".into(),
         );
     }
     let mut sql=String::from("SELECT id,transaction_type,amount,transaction_date,description,reference_type,reference_id FROM treasury_transactions WHERE company_id=?1 AND fiscal_year_id=?2 AND treasury_account_id=?3");
@@ -3169,39 +3151,7 @@ fn get_treasury_summary(state: State<AppState>) -> Result<Vec<TreasurySummary>, 
 }
 
 fn jalali_date_for(date: chrono::NaiveDate) -> String {
-    let now = date;
-    let gy = now.year();
-    let gm = now.month() as i32;
-    let gd = now.day() as i32;
-    let gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    let (mut jy, gy0) = if gy >= 1600 {
-        (979, gy - 1600)
-    } else {
-        (0, gy - 621)
-    };
-    let gy2 = if gm > 2 { gy0 + 1 } else { gy0 };
-    let mut days = 365 * gy0 + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 - 80
-        + gd
-        + gdm[(gm - 1) as usize];
-    jy += 33 * (days / 12053);
-    days %= 12053;
-    jy += 4 * (days / 1461);
-    days %= 1461;
-    if days > 365 {
-        jy += (days - 1) / 365;
-        days = (days - 1) % 365;
-    }
-    let jm = if days < 186 {
-        days / 31 + 1
-    } else {
-        (days - 186) / 30 + 7
-    };
-    let jd = if days < 186 {
-        days % 31 + 1
-    } else {
-        (days - 186) % 30 + 1
-    };
-    format!("{:04}/{:02}/{:02}", jy, jm, jd)
+    jalali::jalali_string(date)
 }
 
 fn current_jalali_date() -> String {
@@ -3364,17 +3314,17 @@ fn create_check(
 ) -> Result<String, String> {
     if !["received", "issued"].contains(&check_type.as_str()) {
         return Err(
-            "CHK-001: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "CHK-001: نوع چک نامعتبر است".into(),
         );
     }
     if check_number.trim().is_empty() {
         return Err(
-            "CHK-002: ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CHK-002: شماره چک الزامی است"
                 .into(),
         );
     }
     if amount <= 0 {
-        return Err("CHK-003: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("CHK-003: مبلغ چک باید بیشتر از صفر باشد".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.check.create")?;
@@ -3383,7 +3333,7 @@ fn create_check(
     validate_fiscal_date(&tx, &fy, &issue_date)?;
     validate_fiscal_date(&tx, &fy, &due_date)?;
     if issue_date > due_date {
-        return Err("CHK-004: ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® ÃƒËœÃ‚Â³ÃƒËœÃ‚Â±ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("CHK-004: تاریخ سررسید نمی‌تواند قبل از تاریخ صدور باشد".into());
     }
     if let Some(p) = &party_id {
         let ok: i64 = tx
@@ -3394,19 +3344,19 @@ fn create_check(
             )
             .unwrap_or(0);
         if ok == 0 {
-            return Err("CHK-004: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("CHK-004: شخص معتبر نیست".into());
         }
     }
     if let Some(t) = &treasury_account_id {
         let ok:i64=tx.query_row("SELECT COUNT(*) FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![t,company],|r|r.get(0)).unwrap_or(0);
         if ok == 0 {
-            return Err("CHK-005: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("CHK-005: حساب خزانه معتبر نیست".into());
         }
     }
     let duplicate:i64=tx.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND check_type=?2 AND check_number=?3 AND status<>'cancelled'",params![company,check_type,check_number],|r|r.get(0)).unwrap_or(0);
     if duplicate > 0 {
         return Err(
-            "CHK-006: ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚ÂªÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CHK-006: شماره چک تکراری است"
                 .into(),
         );
     }
@@ -3445,7 +3395,7 @@ fn update_check_status(
     .contains(&new_status.as_str())
     {
         return Err(
-            "CHK-008: Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "CHK-008: وضعیت چک نامعتبر است"
                 .into(),
         );
     }
@@ -3454,7 +3404,7 @@ fn update_check_status(
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let row:(String,String,String,i64,Option<String>,Option<String>,String,String,Option<String>)=tx.query_row(
         "SELECT status,check_type,company_id,amount,treasury_account_id,clearing_journal_id,fiscal_year_id,due_date,party_id FROM checks WHERE id=?1 AND company_id IN (SELECT company_id FROM company_users WHERE user_id=?2 AND is_active=1)",params![check_id,user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?))
-    ).map_err(|_|"CHK-009: ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    ).map_err(|_|"CHK-009: چک یافت نشد".to_string())?;
     let old = &row.0;
     let valid = matches!(
         (old.as_str(), new_status.as_str()),
@@ -3469,22 +3419,22 @@ fn update_check_status(
     );
     if !valid {
         return Err(format!(
-            "CHK-010: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¶ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª {} ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ {} Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª",
+            "CHK-010: انتقال وضعیت {} به {} مجاز نیست",
             old, new_status
         ));
     }
     validate_fiscal_date(&tx, &row.6, &row.7)?;
     if new_status == "cancelled" && old == "cleared" {
-        return Err("CHK-011: ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â·ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ¢â‚¬Âº ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒÅ¡Ã‚Â©Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯".into());
+        return Err("CHK-011: چک وصول‌شده قابل ابطال نیست؛ ابتدا برگشت ثبت کنید".into());
     }
     if new_status == "cleared" {
         let treasury_id = row.4.as_ref().ok_or(
-            "CHK-012: ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "CHK-012: برای وصول چک باید حساب خزانه مشخص باشد"
                 .to_string(),
         )?;
         let treasury_account:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![treasury_id,row.2],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
         let treasury_account = treasury_account.ok_or_else(|| {
-            "CHK-013: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "CHK-013: حساب خزانه به حسابداری متصل نیست".to_string()
         })?;
         let offset_account = if row.1 == "received" {
             "acc-1201"
@@ -3499,9 +3449,9 @@ fn update_check_status(
         let jid = format!("journal-check-clear-{}", check_id);
         let n = next_journal_number(&tx, &row.2, &row.6)?;
         let desc = if row.1 == "received" {
-            "Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™"
+            "وصول چک دریافتی"
         } else {
-            "Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â®ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™"
+            "وصول چک پرداختی"
         };
         tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,?, 'posted','check_clear',?,?)",params![jid,row.2,row.6,n,row.7,desc,check_id,user]).map_err(|e|format!("CHK-014: {e}"))?;
         tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{jid}-debit"),jid,debit,row.3,0,desc]).map_err(|e|e.to_string())?;
@@ -3520,7 +3470,7 @@ fn update_check_status(
         .map_err(|e| e.to_string())?;
     } else if new_status == "bounced" && old == "cleared" {
         let original = row.5.ok_or(
-            "CHK-016: ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â© Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "CHK-016: سند وصول چک یافت نشد"
                 .to_string(),
         )?;
         let mut st=tx.prepare("SELECT account_id,debit,credit FROM journal_lines WHERE journal_id=?1 ORDER BY rowid").map_err(|e|e.to_string())?;
@@ -3533,9 +3483,9 @@ fn update_check_status(
         drop(st);
         let jid = format!("journal-check-bounce-{}", check_id);
         let n = next_journal_number(&tx, &row.2, &row.6)?;
-        tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,?, 'posted','check_bounce',?,?)",params![jid,row.2,row.6,n,row.7,"ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â©",check_id,user]).map_err(|e|format!("CHK-017: {e}"))?;
+        tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,?, 'posted','check_bounce',?,?)",params![jid,row.2,row.6,n,row.7,"برگشت چک",check_id,user]).map_err(|e|format!("CHK-017: {e}"))?;
         for (i, (acc, d, cr)) in lines.iter().enumerate() {
-            tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{jid}-line-{i}"),jid,acc,d,cr,"ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â©"]).map_err(|e|e.to_string())?;
+            tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{jid}-line-{i}"),jid,acc,d,cr,"برگشت چک"]).map_err(|e|e.to_string())?;
         }
         if let Some(treasury_id) = &row.4 {
             let tid = format!("treasury-check-bounce-{}", check_id);
@@ -3544,7 +3494,7 @@ fn update_check_status(
             } else {
                 "receipt"
             };
-            tx.execute("INSERT INTO treasury_transactions(id,company_id,fiscal_year_id,treasury_account_id,transaction_type,amount,transaction_date,description,reference_type,reference_id,journal_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",params![tid,row.2,row.6,treasury_id,typ,row.3,row.7,"ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒÅ¡Ã¢â‚¬Â ÃƒÅ¡Ã‚Â©","check",check_id,jid,user]).map_err(|e|format!("CHK-018: {e}"))?;
+            tx.execute("INSERT INTO treasury_transactions(id,company_id,fiscal_year_id,treasury_account_id,transaction_type,amount,transaction_date,description,reference_type,reference_id,journal_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",params![tid,row.2,row.6,treasury_id,typ,row.3,row.7,"برگشت چک","check",check_id,jid,user]).map_err(|e|format!("CHK-018: {e}"))?;
         }
         tx.execute(
             "UPDATE checks SET status='bounced',clearing_journal_id=NULL WHERE id=?1",
@@ -3626,28 +3576,28 @@ fn create_return_common(
             ))
         })
         .map_err(|_| {
-            "RET-001: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "RET-001: فاکتور اصلی یافت نشد"
                 .to_string()
         })?
     };
     if row.2 != "posted" {
         return Err(
-            "RET-002: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚ÂªÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "RET-002: فقط فاکتور ثبت‌شده قابل برگشت است".into(),
         );
     }
     let wid = row
         .4
         .clone()
-        .ok_or("RET-003: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".to_string())?;
+        .ok_or("RET-003: فاکتور اصلی انبار ندارد".to_string())?;
     let mut total = 0i64;
     for (pid, q, p) in &lines {
         if *q <= 0.0 {
-            return Err("RET-004: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("RET-004: مقدار برگشتی نامعتبر است".into());
         }
         let original:f64=tx.query_row(&format!("SELECT COALESCE(SUM(quantity),0) FROM {line_table} WHERE invoice_id=?1 AND product_id=?2"),params![original_invoice_id,pid],|r|r.get(0)).unwrap_or(0.0);
         let returned:f64=tx.query_row(&format!("SELECT COALESCE(SUM(rl.quantity),0) FROM {return_line} rl JOIN {return_table} rh ON rh.id=rl.return_id WHERE rh.original_invoice_id=?1 AND rl.product_id=?2 AND rh.status='posted'"),params![original_invoice_id,pid],|r|r.get(0)).unwrap_or(0.0);
         if *q > original - returned {
-            return Err("RET-005: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("RET-005: مقدار برگشتی بیشتر از مقدار قابل برگشت است".into());
         }
         total += (*q * (*p as f64)).round() as i64;
     }
@@ -3720,13 +3670,13 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
     } else {
         "purchase_return_lines"
     };
-    let row:(String,String,String,String,Option<String>,i64)=tx.query_row(&format!("SELECT company_id,fiscal_year_id,status,warehouse_id,journal_id,total FROM {rt} WHERE id=?1"),params![return_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(|_|"RET-006: ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let row:(String,String,String,String,Option<String>,i64)=tx.query_row(&format!("SELECT company_id,fiscal_year_id,status,warehouse_id,journal_id,total FROM {rt} WHERE id=?1"),params![return_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(|_|"RET-006: برگشت یافت نشد".to_string())?;
     if row.2 != "draft" {
-        return Err("RET-007: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("RET-007: فقط برگشت پیش‌نویس قابل ثبت است".into());
     }
     let wid = row.3.clone();
     if wid.trim().is_empty() {
-        return Err("RET-008: ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string());
+        return Err("RET-008: انبار برگشت مشخص نیست".to_string());
     }
     let mut st = tx
         .prepare(&format!(
@@ -3745,7 +3695,7 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
         let current:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![pid,wid],|r|r.get(0)).unwrap_or(0.0);
         if !sale && current < *q {
             return Err(
-                "RET-009: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª ÃƒËœÃ‚Â®ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+                "RET-009: موجودی برای برگشت خرید کافی نیست".into(),
             );
         }
         let newq = if sale { current + *q } else { current - *q };
@@ -3755,7 +3705,7 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
     }
     let jid = format!("journal-return-{return_id}");
     let n:i64=tx.query_row("SELECT COALESCE(MAX(number),0)+1 FROM journal_entries WHERE company_id=?1 AND fiscal_year_id=?2",params![row.0,row.1],|r|r.get(0)).map_err(|e|e.to_string())?;
-    tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,'ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±','posted','invoice_return',?,?)",params![jid,row.0,row.1,n,chrono::Utc::now().format("%Y/%m/%d").to_string(),return_id,user]).map_err(|e|e.to_string())?;
+    tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,'ثبت خودکار برگشت فاکتور','posted','invoice_return',?,?)",params![jid,row.0,row.1,n,chrono::Utc::now().format("%Y/%m/%d").to_string(),return_id,user]).map_err(|e|e.to_string())?;
     let (a, b) = if sale {
         ("acc-4200", "acc-1201")
     } else {
@@ -3767,7 +3717,7 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
         vec![(a, row.5, 0), (b, 0, row.5)]
     };
     for (i, (acc, d, cr)) in lines.iter().enumerate() {
-        tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{jid}-line-{}",i+1),jid,acc,d,cr,"ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â§ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â´ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±"]).map_err(|e|e.to_string())?;
+        tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{jid}-line-{}",i+1),jid,acc,d,cr,"ثبت خودکار برگشت فاکتور"]).map_err(|e|e.to_string())?;
     }
     tx.execute(
         &format!("UPDATE {rt} SET status='posted',journal_id=?1 WHERE id=?2"),
@@ -3866,7 +3816,7 @@ fn validate_fiscal_date(
 ) -> Result<(), String> {
     let ok:i64=tx.query_row("SELECT COUNT(*) FROM fiscal_years WHERE id=?1 AND is_closed=0 AND ?2 BETWEEN start_date AND end_date",params![fy,date],|r|r.get(0)).map_err(|e|e.to_string())?;
     if ok == 0 {
-        return Err("FY-001: ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® ÃƒËœÃ‚Â®ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¬ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("FY-001: تاریخ خارج از سال مالی باز است".into());
     }
     Ok(())
 }
@@ -3893,7 +3843,7 @@ fn create_treasury_journal(
     source_id: &str,
 ) -> Result<String, String> {
     if amount <= 0 {
-        return Err("TRE-101: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("TRE-101: مبلغ باید بیشتر از صفر باشد".into());
     }
     for acc in [debit_account, credit_account] {
         let ok: i64 = tx
@@ -3904,7 +3854,7 @@ fn create_treasury_journal(
             )
             .map_err(|e| e.to_string())?;
         if ok == 0 {
-            return Err("TRE-102: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+            return Err("TRE-102: حساب معین معتبر نیست".into());
         }
     }
     let id = format!(
@@ -3929,13 +3879,13 @@ fn create_treasury_transaction(
     description: String,
 ) -> Result<String, String> {
     if !["receipt", "payment"].contains(&transaction_type.as_str()) {
-        return Err("TRE-001: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("TRE-001: نوع تراکنش خزانه نامعتبر است".into());
     }
     if amount <= 0 {
-        return Err("TRE-002: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("TRE-002: مبلغ باید بیشتر از صفر باشد".into());
     }
     if description.trim().is_empty() {
-        return Err("TRE-003: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒËœÃ‚Â­ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒÅ¡Ã‚Â©Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("TRE-003: شرح تراکنش الزامی است".into());
     }
     let permission = if transaction_type == "receipt" {
         "treasury.receipt.create"
@@ -3949,7 +3899,7 @@ fn create_treasury_transaction(
     validate_fiscal_date(&tx, &fy, &transaction_date)?;
     let linked:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![treasury_account_id,company],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
     let treasury_gl = linked.ok_or_else(|| {
-        "TRE-004: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+        "TRE-004: حساب خزانه معتبر یا متصل به حسابداری نیست"
             .to_string()
     })?;
     let id = format!(
@@ -4012,10 +3962,10 @@ fn create_treasury_transfer(
     description: String,
 ) -> Result<String, String> {
     if amount <= 0 {
-        return Err("TRE-006: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Âº ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚ÂµÃƒâ„¢Ã‚ÂÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("TRE-006: مبلغ باید بیشتر از صفر باشد".into());
     }
     if from_account_id == to_account_id {
-        return Err("TRE-007: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â£ Ãƒâ„¢Ã‹â€  Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("TRE-007: حساب مبدأ و مقصد نباید یکسان باشد".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.payment.create")?;
@@ -4024,8 +3974,8 @@ fn create_treasury_transfer(
     validate_fiscal_date(&tx, &fy, &transaction_date)?;
     let from:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![from_account_id,company],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
     let to:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![to_account_id,company],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
-    let from = from.ok_or("TRE-008: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â£ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª")?;
-    let to = to.ok_or("TRE-009: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª")?;
+    let from = from.ok_or("TRE-008: حساب مبدأ معتبر یا متصل نیست")?;
+    let to = to.ok_or("TRE-009: حساب مقصد معتبر یا متصل نیست")?;
     let source = format!(
         "transfer-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -4133,7 +4083,7 @@ fn get_account_ledger(
         )
         .map_err(|e| e.to_string())?;
     if ok == 0 {
-        return Err("RPT-001: ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¨ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("RPT-001: حساب معتبر نیست".into());
     }
     let from = from_date.unwrap_or_else(|| {
         tx.query_row(
@@ -4154,7 +4104,7 @@ fn get_account_ledger(
     validate_fiscal_date(&tx, &fy, &from)?;
     validate_fiscal_date(&tx, &fy, &to)?;
     if from > to {
-        return Err("RPT-002: ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("RPT-002: بازه تاریخ نامعتبر است".into());
     }
     let opening:i64=tx.query_row("SELECT COALESCE(SUM(l.debit-l.credit),0) FROM journal_lines l JOIN journal_entries j ON j.id=l.journal_id WHERE l.account_id=?1 AND j.company_id=?2 AND j.fiscal_year_id=?3 AND j.status='posted' AND j.entry_date < ?4",params![account_id,company,fy,from],|r|r.get(0)).map_err(|e|e.to_string())?;
     let mut st=tx.prepare("SELECT j.entry_date,j.number,j.id,j.description,l.debit,l.credit FROM journal_lines l JOIN journal_entries j ON j.id=l.journal_id WHERE l.account_id=?1 AND j.company_id=?2 AND j.fiscal_year_id=?3 AND j.status='posted' AND j.entry_date BETWEEN ?4 AND ?5 ORDER BY j.entry_date,j.number,rowid").map_err(|e|e.to_string())?;
@@ -4269,11 +4219,11 @@ fn close_fiscal_year(state: State<AppState>) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     if drafts > 0 {
-        return Err("FY-002: Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ÃƒËœÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¡Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¹Ãƒâ€ºÃ…â€™Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚ÂªÃƒÅ¡Ã‚Â©Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã‚Â ÃƒÅ¡Ã‚Â©Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯".into());
+        return Err("FY-002: قبل از بستن سال مالی، همه اسناد پیش‌نویس را تعیین تکلیف کنید".into());
     }
     let (debit,credit):(i64,i64)=tx.query_row("SELECT COALESCE(SUM(l.debit),0),COALESCE(SUM(l.credit),0) FROM journal_lines l JOIN journal_entries j ON j.id=l.journal_id WHERE j.fiscal_year_id=?1 AND j.status='posted'",params![fy],|r|Ok((r.get(0)?,r.get(1)?))).map_err(|e|e.to_string())?;
     if debit != credit {
-        return Err("FY-003: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("FY-003: سال مالی نامتوازن است".into());
     }
     tx.execute(
         "UPDATE fiscal_years SET is_closed=1 WHERE id=?1 AND company_id=?2",
@@ -4297,14 +4247,14 @@ fn verify_backup_file(state: State<AppState>, name: String) -> Result<String, St
     let dir = backup_dir(&state)?;
     let path = dir.join(&name);
     if !path.exists() {
-        return Err("BACKUP-007: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("BACKUP-007: فایل پشتیبان یافت نشد".into());
     }
     let c = Connection::open(&path).map_err(|e| format!("BACKUP-008: {e}"))?;
     let integrity: String = c
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     if integrity != "ok" {
-        return Err("BACKUP-009: integrity check Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("BACKUP-009: integrity check ناموفق است".into());
     }
     let mut fk = c
         .prepare("PRAGMA foreign_key_check")
@@ -4312,7 +4262,7 @@ fn verify_backup_file(state: State<AppState>, name: String) -> Result<String, St
     let mut rows = fk.query([]).map_err(|e| e.to_string())?;
     if rows.next().map_err(|e| e.to_string())?.is_some() {
         return Err(
-            "BACKUP-010: foreign key check Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "BACKUP-010: foreign key check ناموفق است".into(),
         );
     }
     Ok("Backup verified".into())
@@ -4407,7 +4357,7 @@ struct ProfitLoss {
 
 fn active_company(state: &State<AppState>, c: &Connection) -> Result<(String, String), String> {
     let user = require_login(state)?;
-    c.query_row("SELECT company_id, (SELECT id FROM fiscal_years fy WHERE fy.company_id=cu.company_id AND fy.is_closed=0 ORDER BY fy.start_date DESC LIMIT 1) FROM company_users cu WHERE cu.user_id=?1 AND cu.is_active=1 LIMIT 1",params![user],|r|Ok((r.get(0)?,r.get::<_,String>(1)?))).map_err(|_|"REPORT-001: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())
+    c.query_row("SELECT company_id, (SELECT id FROM fiscal_years fy WHERE fy.company_id=cu.company_id AND fy.is_closed=0 ORDER BY fy.start_date DESC LIMIT 1) FROM company_users cu WHERE cu.user_id=?1 AND cu.is_active=1 LIMIT 1",params![user],|r|Ok((r.get(0)?,r.get::<_,String>(1)?))).map_err(|_|"REPORT-001: شرکت یا سال مالی فعال یافت نشد".to_string())
 }
 
 #[tauri::command]
@@ -4566,7 +4516,7 @@ fn get_journal_book(
     let from = from_date.unwrap_or(fy_start);
     let to = to_date.unwrap_or(fy_end);
     if from > to {
-        return Err("RPT-002: ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("RPT-002: بازه تاریخ نامعتبر است".into());
     }
     let mut st=c.prepare("SELECT j.entry_date,j.number,j.description,a.code,a.name,l.debit,l.credit FROM journal_entries j JOIN journal_lines l ON l.journal_id=j.id JOIN accounts a ON a.id=l.account_id WHERE j.company_id=?1 AND j.fiscal_year_id=?2 AND j.status='posted' AND j.entry_date BETWEEN ?3 AND ?4 ORDER BY j.entry_date,j.number,a.code").map_err(|e|e.to_string())?;
     let rows = st
@@ -4592,7 +4542,7 @@ fn get_financial_statement(
     as_of: Option<String>,
 ) -> Result<FinancialStatement, String> {
     if statement != "balance_sheet" && statement != "income_statement" {
-        return Err("RPT-010: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("RPT-010: نوع صورت مالی نامعتبر است".into());
     }
     let c = conn(&state)?;
     let (company, fy) = active_company(&state, &c)?;
@@ -4607,12 +4557,12 @@ fn get_financial_statement(
     let (filter, title) = if statement == "balance_sheet" {
         (
             "substr(a.code,1,1) IN ('1','2','3')",
-            "ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â¡",
+            "ترازنامه",
         )
     } else {
         (
             "substr(a.code,1,1) IN ('4','5','6')",
-            "ÃƒËœÃ‚ÂµÃƒâ„¢Ã‹â€ ÃƒËœÃ‚Â±ÃƒËœÃ‚Âª ÃƒËœÃ‚Â³Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‹â€  ÃƒËœÃ‚Â²Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ",
+            "صورت سود و زیان",
         )
     };
     let sql=format!("SELECT a.code,a.name,a.nature,COALESCE(SUM(l.debit-l.credit),0) FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id LEFT JOIN journal_entries j ON j.id=l.journal_id AND j.status='posted' AND j.company_id=?1 AND j.fiscal_year_id=?2 AND j.entry_date<=?3 WHERE a.company_id=?1 AND a.is_active=1 AND {filter} GROUP BY a.id,a.code,a.name,a.nature ORDER BY a.code");
@@ -4677,7 +4627,7 @@ fn get_party_aging(
     use std::collections::HashMap;
     let mut map: HashMap<String, PartyAging> = HashMap::new();
     let d0 = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
-        .map_err(|_| "RPT-011: ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ÃƒËœÃ‚Â±Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â® ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "RPT-011: تاریخ گزارش نامعتبر است".to_string())?;
     for row in rows.filter_map(Result::ok) {
         let invd = chrono::NaiveDate::parse_from_str(&row.2, "%Y-%m-%d").unwrap_or(d0);
         let days = (d0 - invd).num_days().max(0);
@@ -5107,13 +5057,13 @@ fn plugin_root(state: &State<AppState>) -> Result<PathBuf, String> {
     let db = state
         .db_path
         .lock()
-        .map_err(|_| "PLUGIN-001: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "PLUGIN-001: مسیر برنامه در دسترس نیست".to_string())?;
     let root = db
         .parent()
-        .ok_or_else(|| "PLUGIN-002: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?
+        .ok_or_else(|| "PLUGIN-002: مسیر برنامه نامعتبر است".to_string())?
         .join("plugins");
     std::fs::create_dir_all(&root)
-        .map_err(|e| format!("PLUGIN-003: ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‚Â¾Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¡ Plugin ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+        .map_err(|e| format!("PLUGIN-003: ایجاد پوشه Plugin انجام نشد: {e}"))?;
     Ok(root)
 }
 
@@ -5125,7 +5075,7 @@ fn validate_plugin_id(id: &str) -> Result<(), String> {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
     {
         return Err(
-            "PLUGIN-004: ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³Ãƒâ„¢Ã¢â‚¬Â¡ Plugin Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "PLUGIN-004: شناسه Plugin نامعتبر است"
                 .into(),
         );
     }
@@ -5182,27 +5132,27 @@ fn register_plugin(
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "plugins.manage")?;
     let v: serde_json::Value = serde_json::from_str(&manifest_json).map_err(|e| {
-        format!("PLUGIN-005: Manifest Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª: {e}")
+        format!("PLUGIN-005: Manifest نامعتبر است: {e}")
     })?;
     let id = v
         .get("id")
         .and_then(|x| x.as_str())
-        .ok_or_else(|| "PLUGIN-006: id ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .ok_or_else(|| "PLUGIN-006: id الزامی است".to_string())?;
     validate_plugin_id(id)?;
     let name = v
         .get("name")
         .and_then(|x| x.as_str())
-        .ok_or_else(|| "PLUGIN-007: name ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .ok_or_else(|| "PLUGIN-007: name الزامی است".to_string())?;
     let version = v
         .get("version")
         .and_then(|x| x.as_str())
-        .ok_or_else(|| "PLUGIN-008: version ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .ok_or_else(|| "PLUGIN-008: version الزامی است".to_string())?;
     let entry = v
         .get("entrypoint")
         .and_then(|x| x.as_str())
         .unwrap_or("worker");
     if entry.contains('/') || entry.contains('\\') || entry == "." || entry == ".." {
-        return Err("PLUGIN-009: entrypoint Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("PLUGIN-009: entrypoint نامعتبر است".into());
     }
     let perms = v
         .get("permissions")
@@ -5221,26 +5171,26 @@ fn register_plugin(
     for p in &perms {
         let Some(ps) = p.as_str() else {
             return Err(
-                "PLUGIN-010: Permission Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+                "PLUGIN-010: Permission نامعتبر است".into(),
             );
         };
         if !allowed.contains(&ps) {
             return Err(format!(
-                "PLUGIN-011: Permission Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡: {ps}"
+                "PLUGIN-011: Permission پشتیبانی‌نشده: {ps}"
             ));
         }
     }
     let src = std::path::PathBuf::from(&executable_path);
     if !src.is_file() {
-        return Err("PLUGIN-012: Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Å¾ Worker Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("PLUGIN-012: فایل Worker پیدا نشد".into());
     }
     let root = plugin_root(&state)?;
     let dir = root.join(id);
     std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("PLUGIN-013: ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã‚Â¾Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â´Ãƒâ„¢Ã¢â‚¬Â¡ Plugin ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+        .map_err(|e| format!("PLUGIN-013: ایجاد پوشه Plugin انجام نشد: {e}"))?;
     let target = dir.join(entry);
     std::fs::copy(&src, &target).map_err(|e| {
-        format!("PLUGIN-014: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¨ Worker ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}")
+        format!("PLUGIN-014: نصب Worker انجام نشد: {e}")
     })?;
     #[cfg(unix)]
     {
@@ -5258,11 +5208,11 @@ fn register_plugin(
             |r| r.get::<_, String>(0),
         )
         .map_err(|_| {
-            "PLUGIN-015: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "PLUGIN-015: شرکت فعال یافت نشد"
                 .to_string()
         })?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    tx.execute("INSERT OR REPLACE INTO plugins(id,company_id,name,version,description,entrypoint,manifest_json,enabled) VALUES(?1,?2,?3,?4,?5,?6,?7,0)",params![id,company,name,version,v.get("description").and_then(|x|x.as_str()),entry,manifest_json]) .map_err(|e|format!("PLUGIN-016: ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª Plugin ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+    tx.execute("INSERT OR REPLACE INTO plugins(id,company_id,name,version,description,entrypoint,manifest_json,enabled) VALUES(?1,?2,?3,?4,?5,?6,?7,0)",params![id,company,name,version,v.get("description").and_then(|x|x.as_str()),entry,manifest_json]) .map_err(|e|format!("PLUGIN-016: ثبت Plugin انجام نشد: {e}"))?;
     tx.execute(
         "DELETE FROM plugin_permissions WHERE plugin_id=?1",
         params![id],
@@ -5296,7 +5246,7 @@ fn set_plugin_enabled(
 ) -> Result<(), String> {
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "plugins.manage")?;
-    let old:i64=c.query_row("SELECT p.enabled FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-017: Plugin Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let old:i64=c.query_row("SELECT p.enabled FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-017: Plugin پیدا نشد".to_string())?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     tx.execute(
         "UPDATE plugins SET enabled=?2 WHERE id=?1",
@@ -5325,27 +5275,27 @@ fn execute_plugin(
     let user = require_login(&state)?;
     let c = conn(&state)?;
     require_permission(&state, &c, "plugins.execute")?;
-    let enabled:i64=c.query_row("SELECT p.enabled FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-018: Plugin Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let enabled:i64=c.query_row("SELECT p.enabled FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-018: Plugin پیدا نشد".to_string())?;
     if enabled == 0 {
-        return Err("PLUGIN-019: Plugin Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("PLUGIN-019: Plugin فعال نیست".into());
     }
     let native_ok = has_permission(&c, &user, "native.execute")?;
     if !native_ok {
-        return Err("PLUGIN-020: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â² ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Native Worker Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯".into());
+        return Err("PLUGIN-020: مجوز اجرای Native Worker وجود ندارد".into());
     }
     let manifest_native: i64=c.query_row("SELECT COUNT(*) FROM plugin_permissions WHERE plugin_id=?1 AND permission='native.execute'",params![plugin_id],|r|r.get(0)).map_err(|e|e.to_string())?;
     if manifest_native == 0 {
         return Err(
-            "PLUGIN-020: Plugin Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â² native.execute ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "PLUGIN-020: Plugin مجوز native.execute درخواست نکرده است".into(),
         );
     }
-    let entry:String = c.query_row("SELECT p.entrypoint FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-021: ÃƒËœÃ‚Â§ÃƒËœÃ‚Â·Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª Worker Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let entry:String = c.query_row("SELECT p.entrypoint FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-021: اطلاعات Worker یافت نشد".to_string())?;
     let root = plugin_root(&state)?;
     let dir = root.join(&plugin_id);
     let exe = dir.join(&entry);
     if !exe.is_file() {
         return Err(
-            "PLUGIN-022: Worker Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¨ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "PLUGIN-022: Worker نصب‌شده پیدا نشد"
                 .into(),
         );
     }
@@ -5358,13 +5308,13 @@ fn execute_plugin(
         .spawn()
         .map_err(|e| {
             format!(
-                "PLUGIN-023: ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Worker ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"
+                "PLUGIN-023: اجرای Worker انجام نشد: {e}"
             )
         })?;
     use std::io::Write;
     if let Some(mut stdin) = child.stdin.take() {
         stdin.write_all(payload.as_bytes()).map_err(|e| {
-            format!("PLUGIN-024: ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã¢â‚¬Â¡ Worker ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}")
+            format!("PLUGIN-024: ارسال داده به Worker انجام نشد: {e}")
         })?;
     }
     let started = std::time::Instant::now();
@@ -5374,7 +5324,7 @@ fn execute_plugin(
             if !status.success() {
                 let err = String::from_utf8_lossy(&out.stderr);
                 return Err(format!(
-                    "PLUGIN-025: Worker ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â·ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚ÂªÃƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã‚Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {}",
+                    "PLUGIN-025: Worker با خطا متوقف شد: {}",
                     err.trim()
                 ));
             }
@@ -5386,7 +5336,7 @@ fn execute_plugin(
         if started.elapsed() > std::time::Duration::from_secs(15) {
             let _ = child.kill();
             return Err(
-                "PLUGIN-026: ÃƒËœÃ‚Â²Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Worker ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ€ºÃ‚Â±Ãƒâ€ºÃ‚Âµ ÃƒËœÃ‚Â«ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+                "PLUGIN-026: زمان اجرای Worker بیشتر از ۱۵ ثانیه شد"
                     .into(),
             );
         }
@@ -5437,22 +5387,22 @@ fn save_custom_report(
     let user = require_permission(&state, &c, "reports.builder.manage")?;
     if name.trim().is_empty() {
         return Err(
-            "REP-001: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "REP-001: نام گزارش الزامی است"
                 .into(),
         );
     }
     if name.chars().count() > 120 {
-        return Err("REP-002: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â·Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("REP-002: نام گزارش بیش از حد طولانی است".into());
     }
     if config_json.len() > 100_000 {
-        return Err("REP-003: ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¸Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â­ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â²ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â¯ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("REP-003: تنظیمات گزارش بیش از حد بزرگ است".into());
     }
     let allowed = ["sales", "purchase", "inventory", "ledger", "trial"];
     if !allowed.contains(&source.as_str()) {
-        return Err("REP-004: Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â¹ ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("REP-004: منبع گزارش نامعتبر است".into());
     }
     let _: serde_json::Value = serde_json::from_str(&config_json)
-        .map_err(|_| "REP-005: ÃƒËœÃ‚ÂªÃƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¸Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â§ÃƒËœÃ‚Âª ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ JSON Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "REP-005: تنظیمات گزارش JSON نامعتبر است".to_string())?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let (company, _fy) = active_context(&tx, &user)?;
     let updating = id.as_ref().map(|x| !x.trim().is_empty()).unwrap_or(false);
@@ -5465,10 +5415,10 @@ fn save_custom_report(
     if updating {
         let n=tx.execute("UPDATE custom_reports SET name=?2,source=?3,config_json=?4,updated_at=CURRENT_TIMESTAMP WHERE id=?1 AND company_id=?5 AND created_by=?6",params![rid,name,source,config_json,company,user]).map_err(|e|e.to_string())?;
         if n == 0 {
-            return Err("REP-006: ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â´ Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+            return Err("REP-006: گزارش برای ویرایش پیدا نشد".into());
         }
     } else {
-        tx.execute("INSERT INTO custom_reports(id,company_id,name,source,config_json,created_by) VALUES(?1,?2,?3,?4,?5,?6)",params![rid,company,name,source,config_json,user]).map_err(|e|format!("REP-007: ÃƒËœÃ‚Â°ÃƒËœÃ‚Â®Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+        tx.execute("INSERT INTO custom_reports(id,company_id,name,source,config_json,created_by) VALUES(?1,?2,?3,?4,?5,?6)",params![rid,company,name,source,config_json,user]).map_err(|e|format!("REP-007: ذخیره گزارش انجام نشد: {e}"))?;
     }
     audit(
         &tx,
@@ -5490,7 +5440,7 @@ fn delete_custom_report(state: State<AppState>, id: String) -> Result<(), String
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let n=tx.execute("DELETE FROM custom_reports WHERE id=?1 AND created_by=?2 AND company_id IN (SELECT company_id FROM company_users WHERE user_id=?2 AND is_active=1)",params![id,user]).map_err(|e|e.to_string())?;
     if n == 0 {
-        return Err("REP-008: ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â´ Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("REP-008: گزارش پیدا نشد".into());
     }
     audit(
         &tx,
@@ -5547,20 +5497,20 @@ fn create_api_profile(
     let user = require_permission(&state, &c, "integrations.manage")?;
     if name.trim().is_empty() {
         return Err(
-            "API-001: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ÃƒËœÃ‚Â²ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+            "API-001: نام اتصال الزامی است"
                 .into(),
         );
     }
     if !matches!(auth_type.as_str(), "none" | "api_key" | "bearer" | "basic") {
-        return Err("API-002: Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â­ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â¡Ãƒâ„¢Ã‹â€ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("API-002: نوع احراز هویت نامعتبر است".into());
     }
     let base = reqwest::Url::parse(&base_url)
-        .map_err(|_| "API-003: ÃƒËœÃ‚Â¢ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "API-003: آدرس پایه نامعتبر است".to_string())?;
     if base.scheme() != "https" {
-        return Err("API-004: Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚Â· HTTPS ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â®ÃƒËœÃ‚Â§ÃƒËœÃ‚Â±ÃƒËœÃ‚Â¬Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("API-004: فقط HTTPS برای اتصال خارجی مجاز است".into());
     }
     let host = base.host_str().ok_or_else(|| {
-        "API-005: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¢ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª"
+        "API-005: دامنه آدرس مشخص نیست"
             .to_string()
     })?;
     let domains = if allowed_domains.trim().is_empty() {
@@ -5569,10 +5519,10 @@ fn create_api_profile(
         allowed_domains
     };
     if !domains.split(',').map(str::trim).any(|d| d == host) {
-        return Err("API-006: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Base URL ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± Allowed Domains ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("API-006: دامنه Base URL باید در Allowed Domains باشد".into());
     }
     if !(1000..=120000).contains(&timeout_ms) {
-        return Err("API-007: Timeout ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¨Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ€ºÃ‚Â± ÃƒËœÃ‚ÂªÃƒËœÃ‚Â§ Ãƒâ€ºÃ‚Â±Ãƒâ€ºÃ‚Â²Ãƒâ€ºÃ‚Â° ÃƒËœÃ‚Â«ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("API-007: Timeout باید بین ۱ تا ۱۲۰ ثانیه باشد".into());
     }
     let company: String = c
         .query_row(
@@ -5581,22 +5531,22 @@ fn create_api_profile(
             |r| r.get(0),
         )
         .map_err(|_| {
-            "API-008: ÃƒËœÃ‚Â´ÃƒËœÃ‚Â±ÃƒÅ¡Ã‚Â©ÃƒËœÃ‚Âª Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â§Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string()
+            "API-008: شرکت فعال یافت نشد".to_string()
         })?;
     let id = format!(
         "api-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     );
-    c.execute("INSERT INTO api_profiles(id,company_id,name,base_url,auth_type,auth_header,timeout_ms,allowed_domains) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",params![id,company,name,base_url,auth_type,auth_header,timeout_ms,domains]).map_err(|e|format!("API-009: ÃƒËœÃ‚Â«ÃƒËœÃ‚Â¨ÃƒËœÃ‚Âª ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+    c.execute("INSERT INTO api_profiles(id,company_id,name,base_url,auth_type,auth_header,timeout_ms,allowed_domains) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",params![id,company,name,base_url,auth_type,auth_header,timeout_ms,domains]).map_err(|e|format!("API-009: ثبت اتصال انجام نشد: {e}"))?;
     if let Some(secret) = secret {
         if !secret.is_empty() {
             let entry = keyring::Entry::new("novin-pardaz-accounting", &api_secret_key(&id))
                 .map_err(|e| {
-                    format!("API-010: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ Secret Storage Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â¦ÃƒÅ¡Ã‚Â©Ãƒâ„¢Ã¢â‚¬Â  Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª: {e}")
+                    format!("API-010: دسترسی Secret Storage ممکن نیست: {e}")
                 })?;
             entry
                 .set_password(&secret)
-                .map_err(|e| format!("API-011: ÃƒËœÃ‚Â°ÃƒËœÃ‚Â®Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â±Ãƒâ„¢Ã¢â‚¬Â¡ Secret ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}"))?;
+                .map_err(|e| format!("API-011: ذخیره Secret انجام نشد: {e}"))?;
         }
     }
     Ok(id)
@@ -5614,22 +5564,22 @@ fn execute_api_request(
     let user = require_login(&state)?;
     let c = conn(&state)?;
     require_permission(&state, &c, "integrations.execute")?;
-    let p:(String,String,String,Option<String>,i64,bool)=c.query_row("SELECT base_url,auth_type,allowed_domains,auth_header,timeout_ms,enabled FROM api_profiles p JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![profile_id,user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get::<_, i32>(5)? != 0))).map_err(|_|"API-012: ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ API Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".to_string())?;
+    let p:(String,String,String,Option<String>,i64,bool)=c.query_row("SELECT base_url,auth_type,allowed_domains,auth_header,timeout_ms,enabled FROM api_profiles p JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![profile_id,user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get::<_, i32>(5)? != 0))).map_err(|_|"API-012: اتصال API پیدا نشد".to_string())?;
     if !p.5 {
         return Err(
-            "API-013: ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ API ÃƒËœÃ‚ÂºÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â±Ãƒâ„¢Ã‚ÂÃƒËœÃ‚Â¹ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into(),
+            "API-013: اتصال API غیرفعال است".into(),
         );
     }
     let base = reqwest::Url::parse(&p.0)
-        .map_err(|_| "API-014: Base URL Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "API-014: Base URL نامعتبر است".to_string())?;
     let url = base
         .join(path.trim_start_matches('/'))
-        .map_err(|_| "API-015: Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â³Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .map_err(|_| "API-015: مسیر درخواست نامعتبر است".to_string())?;
     let host = url
         .host_str()
-        .ok_or_else(|| "API-016: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string())?;
+        .ok_or_else(|| "API-016: دامنه مقصد مشخص نیست".to_string())?;
     if !p.2.split(',').map(str::trim).any(|d| d == host) {
-        return Err("API-017: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¡ Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã¢â‚¬Å¡ÃƒËœÃ‚ÂµÃƒËœÃ‚Â¯ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± Allowlist Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".into());
+        return Err("API-017: دامنه مقصد در Allowlist نیست".into());
     }
     let m = match method.to_uppercase().as_str() {
         "GET" => reqwest::Method::GET,
@@ -5637,18 +5587,18 @@ fn execute_api_request(
         "PUT" => reqwest::Method::PUT,
         "PATCH" => reqwest::Method::PATCH,
         "DELETE" => reqwest::Method::DELETE,
-        _ => return Err("API-018: HTTP Method Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â´ÃƒËœÃ‚ÂªÃƒâ€ºÃ…â€™ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ€ºÃ…â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€™ÃƒËœÃ‚Â´Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯".into()),
+        _ => return Err("API-018: HTTP Method پشتیبانی نمی‌شود".into()),
     };
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(p.4 as u64))
         .build()
         .map_err(|e| {
-            format!("API-019: ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â®ÃƒËœÃ‚Âª Client ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯: {e}")
+            format!("API-019: ساخت Client انجام نشد: {e}")
         })?;
     let mut req = client.request(m, url);
     if let Some(h) = headers_json {
         let hv: serde_json::Value = serde_json::from_str(&h).map_err(|_| {
-            "API-020: Headers JSON Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¹ÃƒËœÃ‚ÂªÃƒËœÃ‚Â¨ÃƒËœÃ‚Â± ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+            "API-020: Headers JSON نامعتبر است".to_string()
         })?;
         if let Some(obj) = hv.as_object() {
             for (k, v) in obj {
@@ -5657,7 +5607,7 @@ fn execute_api_request(
                     "host" | "authorization" | "cookie"
                 ) {
                     return Err(format!(
-                        "API-021: Header ÃƒËœÃ‚Â­ÃƒËœÃ‚Â³ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â¬ÃƒËœÃ‚Â§ÃƒËœÃ‚Â² Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª: {k}"
+                        "API-021: Header حساس مجاز نیست: {k}"
                     ));
                 }
                 if let Some(val) = v.as_str() {
@@ -5670,17 +5620,17 @@ fn execute_api_request(
         let entry = keyring::Entry::new("novin-pardaz-accounting", &api_secret_key(&profile_id))
             .map_err(|e| {
                 format!(
-                    "API-022: Secret Storage ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª: {e}"
+                    "API-022: Secret Storage در دسترس نیست: {e}"
                 )
             })?;
         let secret = entry.get_password().map_err(|_| {
-            "API-023: Secret ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™Ãƒâ„¢Ã¢â‚¬Â  ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯"
+            "API-023: Secret این اتصال پیدا نشد"
                 .to_string()
         })?;
         match p.1.as_str() {
             "api_key" => {
                 let h = p.3.ok_or_else(|| {
-                    "API-024: Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦ Header ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â±ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ API Key Ãƒâ„¢Ã¢â‚¬Â¦ÃƒËœÃ‚Â´ÃƒËœÃ‚Â®ÃƒËœÃ‚Âµ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡".to_string()
+                    "API-024: نام Header برای API Key مشخص نشده".to_string()
                 })?;
                 req = req.header(h, secret)
             }
@@ -5689,7 +5639,7 @@ fn execute_api_request(
                 let parts = secret.splitn(2, ':').collect::<Vec<_>>();
                 if parts.len() != 2 {
                     return Err(
-                        "API-025: Secret Ãƒâ„¢Ã¢â‚¬Â Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¹ Basic ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ username:password ÃƒËœÃ‚Â¨ÃƒËœÃ‚Â§ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into(),
+                        "API-025: Secret نوع Basic باید username:password باشد".into(),
                     );
                 }
                 req = req.basic_auth(parts[0], Some(parts[1]))
@@ -5702,7 +5652,7 @@ fn execute_api_request(
     }
     let resp = req.send().map_err(|e| {
         format!(
-            "API-026: ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â±ÃƒËœÃ‚Â®Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â§ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¦Ãƒâ„¢Ã‹â€ Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¡ ÃƒËœÃ‚Â¨Ãƒâ„¢Ã‹â€ ÃƒËœÃ‚Â¯: {e}"
+            "API-026: درخواست ناموفق بود: {e}"
         )
     })?;
     let status = resp.status().as_u16();
@@ -5731,7 +5681,7 @@ fn set_api_profile_enabled(
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let n=tx.execute("UPDATE api_profiles SET enabled=?2 WHERE id=?1 AND company_id IN (SELECT company_id FROM company_users WHERE user_id=?3 AND is_active=1)",params![profile_id,enabled as i64,user]).map_err(|e|e.to_string())?;
     if n == 0 {
-        return Err("API-027: ÃƒËœÃ‚Â§ÃƒËœÃ‚ÂªÃƒËœÃ‚ÂµÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Å¾ API Ãƒâ„¢Ã‚Â¾Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ Ãƒâ„¢Ã¢â‚¬Â ÃƒËœÃ‚Â´ÃƒËœÃ‚Â¯".into());
+        return Err("API-027: اتصال API پیدا نشد".into());
     }
     audit(
         &tx,

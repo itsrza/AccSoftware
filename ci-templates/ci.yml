@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # نگهبان‌های مخزن: انکودینگ فارسی، فایل‌های ناخواسته
+  # ---------------------------------------------------------------------------
+  guards:
+    name: نگهبان‌های مخزن
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: بررسی خرابی انکودینگ متن فارسی (mojibake)
+        run: |
+          mapfile -t files < <(git ls-files '*.rs' '*.ts' '*.tsx' '*.md' '*.json' '*.css' '*.html')
+          python3 tools/fix_mojibake.py --check "${files[@]}" | grep -v '^OK ' || true
+          python3 tools/fix_mojibake.py --check "${files[@]}" > /tmp/enc.txt
+          if grep -q '^MOJIBAKE' /tmp/enc.txt; then
+            echo "::error::فایل‌های زیر انکودینگ خراب دارند. ابزار bash: python3 tools/fix_mojibake.py <file>"
+            grep '^MOJIBAKE' /tmp/enc.txt
+            exit 1
+          fi
+
+      - name: بررسی نبود فایل‌های تولیدی در مخزن
+        run: |
+          if git ls-files | grep -E '(^|/)(node_modules|dist|target)/' ; then
+            echo "::error::فایل‌های تولیدی نباید در Git باشند"
+            exit 1
+          fi
+          if git ls-files | grep -E 'cargo-(check|build)-error.*\.txt|\.tsbuildinfo$' ; then
+            echo "::error::لاگ‌های بیلد نباید commit شوند"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # هسته‌ی مالی: تست‌های سخت‌گیرانه (لینوکس، سریع، بدون وابستگی به Tauri)
+  # ---------------------------------------------------------------------------
+  core:
+    name: هسته‌ی مالی — تست و Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: نصب اجزای Rust
+        run: rustup component add clippy rustfmt
+
+      - name: کش Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-core-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-core-
+
+      - name: Clippy (هشدار = خطا)
+        run: cargo clippy -p novin-core --all-targets -- -D warnings
+
+      - name: تست‌های سخت‌گیرانه‌ی هسته
+        run: cargo test -p novin-core --all-targets -- --nocapture
+
+  # ---------------------------------------------------------------------------
+  # میزبان دسکتاپ: کامپایل واقعی Tauri روی ویندوز (پلتفرم هدف محصول)
+  # ---------------------------------------------------------------------------
+  desktop-host:
+    name: میزبان دسکتاپ — کامپایل ویندوز
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop-ui/package-lock.json
+
+      - name: ساخت رابط کاربری (ورودی موردنیاز tauri-build)
+        working-directory: apps/desktop-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: کش Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: windows-cargo-host-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: windows-cargo-host-
+
+      - name: کامپایل میزبان Tauri
+        run: cargo check -p novin-accounting-host --all-targets
+
+  # ---------------------------------------------------------------------------
+  # رابط کاربری: بررسی نوع‌ها و بیلد تولیدی
+  # ---------------------------------------------------------------------------
+  web:
+    name: رابط کاربری — TypeScript و بیلد
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop-ui/package-lock.json
+
+      - name: نصب وابستگی‌ها
+        working-directory: apps/desktop-ui
+        run: npm ci
+
+      - name: بررسی نوع‌ها
+        working-directory: apps/desktop-ui
+        run: npx tsc --noEmit
+
+      - name: بیلد تولیدی
+        working-directory: apps/desktop-ui
+        run: npm run build

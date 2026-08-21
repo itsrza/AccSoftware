@@ -1,18 +1,20 @@
-﻿[package]
+[package]
 name = "novin-accounting-host"
-version = "1.7.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
+novin-core = { path = "../../../crates/novin-core" }
 tauri = { version = "2", features = [] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "2"
-rusqlite = { version = "0.37", features = ["bundled", "chrono"] }
-chrono = { version = "0.4", features = ["serde"] }
-argon2 = "0.5"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rusqlite.workspace = true
+chrono.workspace = true
+argon2.workspace = true
 rand = "0.9"
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand_core.workspace = true
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 keyring = "3"
 

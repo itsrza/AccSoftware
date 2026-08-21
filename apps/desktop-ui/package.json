@@ -1,27 +1,28 @@
 {
   "name": "novin-accounting-desktop-ui",
   "private": true,
-  "version": "1.7.1",
+  "version": "1.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "tauri": "tauri",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false || tsc --noEmit",
+    "tauri": "tauri"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "typescript": "latest",
-    "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "@tauri-apps/api": "latest",
-    "@tauri-apps/cli": "latest",
-    "lucide-react": "latest",
-    "zustand": "latest"
+    "@tauri-apps/api": "2.11.1",
+    "lucide-react": "1.33.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zustand": "5.0.15"
   },
   "devDependencies": {
-    "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@tauri-apps/cli": "2.11.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.1.0",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
   }
 }

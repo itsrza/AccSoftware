@@ -1,0 +1,17 @@
+[package]
+name = "novin-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "هسته‌ی مستقل نوین پرداز: دامنه‌ی مالی، پایگاه داده و محاسبات — بدون وابستگی به Tauri"
+
+[dependencies]
+rusqlite.workspace = true
+chrono.workspace = true
+serde.workspace = true
+argon2.workspace = true
+rand_core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true

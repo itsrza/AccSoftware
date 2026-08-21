@@ -39,7 +39,9 @@ export default function App(){
   const [settings,setSettings]=useState(false)
   const [palette,setPalette]=useState(false)
   const [collapsed,setCollapsed]=useState(false)
-  const DEMO_BUILD = import.meta.env.VITE_DEMO_MODE !== 'false'
+  // حالت دمو فقط وقتی فعال است که صراحتاً درخواست شود؛ پیش‌فرض امن = خاموش.
+  // بیلد تجاری هرگز نباید ورود خودکار یا ابزار حذف داده‌ی نمونه داشته باشد.
+  const DEMO_BUILD = import.meta.env.VITE_DEMO_MODE === 'true'
   const [demo,setDemo]=useState(false)
   const [demoBusy,setDemoBusy]=useState(false)
   const [booting,setBooting]=useState(true)
