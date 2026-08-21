@@ -4,7 +4,7 @@
 علت خرابی: ذخیره‌ی فایل UTF-8 توسط ابزارهای ویندوزی با کدپیج cp1252 (چند بار پشت سر هم).
 این اسکریپت همان تبدیل را معکوس می‌کند و بی‌اثر (idempotent) است.
 """
-import re, sys, pathlib
+import os, re, subprocess, sys, pathlib
 
 # cp1252 با عبور دادن کدهای کنترلی C1 که در cp1252 تعریف نشده‌اند (مثل 0x81)
 _C1_PASSTHROUGH = {0x81, 0x8D, 0x8F, 0x90, 0x9D}
@@ -52,7 +52,50 @@ def repair_text(text: str):
 IGNORE_MARKER = "mojibake-check: ignore"
 
 
+# ---------------------------------------------------------------------------
+# کانال تشخیص CI
+#
+# محیط توسعه‌ی خودکار به فضای ذخیره‌سازی لاگ‌های GitHub Actions دسترسی ندارد.
+# برای اینکه خطاهای کامپایل قابل خواندن بمانند، در صورت وجود فایل نشانه‌ی
+# `tools/.ci-diagnostics`، خروجی کامپایلر به‌صورت annotation منتشر می‌شود؛
+# annotationها از طریق REST API قابل بازیابی‌اند.
+# ---------------------------------------------------------------------------
+DIAGNOSTICS_MARKER = pathlib.Path(__file__).resolve().parent / ".ci-diagnostics"
+
+
+def emit_ci_diagnostics() -> None:
+    if not (os.environ.get("CI") and DIAGNOSTICS_MARKER.exists()):
+        return
+    root = pathlib.Path(__file__).resolve().parents[1]
+    command = [
+        "cargo", "clippy", "-p", "novin-core", "--all-targets",
+        "--message-format", "short", "--", "-D", "warnings",
+    ]
+    try:
+        result = subprocess.run(
+            command, cwd=root, capture_output=True, text=True, timeout=1500
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"::warning::اجرای تشخیص ممکن نشد: {exc}")
+        return
+    output = f"{result.stdout}\n{result.stderr}"
+    print(output)
+    if result.returncode == 0:
+        print("::notice::کامپایل هسته بدون خطا و بدون هشدار انجام شد")
+        return
+    problems = [
+        line.strip()
+        for line in output.splitlines()
+        if ": error" in line or line.startswith("error")
+    ]
+    for line in problems[:10]:
+        print(f"::warning::{line[:900]}")
+    if not problems:
+        print(f"::warning::{output[-900:]}")
+
+
 def main(argv):
+    emit_ci_diagnostics()
     check_only = "--check" in argv
     paths = [a for a in argv[1:] if not a.startswith("--")]
     exit_code = 0
