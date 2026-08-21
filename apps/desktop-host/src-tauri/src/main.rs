@@ -1634,20 +1634,11 @@ struct PostableAccount {
     requires_project: bool,
 }
 
-fn active_company(c: &Connection, user: &str) -> Result<String, String> {
-    c.query_row(
-        "SELECT company_id FROM company_users WHERE user_id=?1 AND is_active=1 LIMIT 1",
-        params![user],
-        |r| r.get(0),
-    )
-    .map_err(|_| "COD-100: شرکت فعال برای کاربر یافت نشد".to_string())
-}
-
 #[tauri::command]
 fn list_subsidiary_groups(state: State<AppState>) -> Result<Vec<SubsidiaryGroupRow>, String> {
     let c = conn(&state)?;
-    let user = require_permission(&state, &c, "accounting.journal.create")?;
-    let company = active_company(&c, &user)?;
+    require_permission(&state, &c, "accounting.journal.create")?;
+    let (company, _) = active_company(&state, &c)?;
     let mut st = c
         .prepare("SELECT id,code,title FROM subsidiary_groups WHERE company_id=?1 ORDER BY code")
         .map_err(|e| e.to_string())?;
@@ -1668,8 +1659,8 @@ fn list_subsidiary_groups(state: State<AppState>) -> Result<Vec<SubsidiaryGroupR
 #[tauri::command]
 fn list_cost_centers(state: State<AppState>) -> Result<Vec<DimensionRow>, String> {
     let c = conn(&state)?;
-    let user = require_permission(&state, &c, "accounting.journal.create")?;
-    let company = active_company(&c, &user)?;
+    require_permission(&state, &c, "accounting.journal.create")?;
+    let (company, _) = active_company(&state, &c)?;
     let mut st = c
         .prepare(
             "SELECT id,code,title FROM cost_centers WHERE company_id=?1 AND is_active=1 ORDER BY code",
@@ -1692,8 +1683,8 @@ fn list_cost_centers(state: State<AppState>) -> Result<Vec<DimensionRow>, String
 #[tauri::command]
 fn list_projects(state: State<AppState>) -> Result<Vec<DimensionRow>, String> {
     let c = conn(&state)?;
-    let user = require_permission(&state, &c, "accounting.journal.create")?;
-    let company = active_company(&c, &user)?;
+    require_permission(&state, &c, "accounting.journal.create")?;
+    let (company, _) = active_company(&state, &c)?;
     let mut st = c
         .prepare(
             "SELECT id,code,title FROM projects WHERE company_id=?1 AND is_active=1 AND status='open' ORDER BY code",
@@ -1717,8 +1708,8 @@ fn list_projects(state: State<AppState>) -> Result<Vec<DimensionRow>, String> {
 #[tauri::command]
 fn list_postable_accounts(state: State<AppState>) -> Result<Vec<PostableAccount>, String> {
     let c = conn(&state)?;
-    let user = require_permission(&state, &c, "accounting.journal.create")?;
-    let company = active_company(&c, &user)?;
+    require_permission(&state, &c, "accounting.journal.create")?;
+    let (company, _) = active_company(&state, &c)?;
     let mut st = c
         .prepare(
             "SELECT id,code,name,nature,requires_subsidiary,subsidiary_group_id,\
@@ -1853,8 +1844,8 @@ fn create_single_line_journal(
 
     let (debit_dimensions, credit_dimensions) = {
         let c = conn(&state)?;
-        let user = require_permission(&state, &c, "accounting.journal.create")?;
-        let company = active_company(&c, &user)?;
+        require_permission(&state, &c, "accounting.journal.create")?;
+        let (company, _) = active_company(&state, &c)?;
 
         let debit_account = load_account_for_posting(&c, &company, &debit.account_id)?;
         let credit_account = load_account_for_posting(&c, &company, &credit.account_id)?;
