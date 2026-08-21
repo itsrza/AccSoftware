@@ -118,7 +118,10 @@ pub struct Layer {
 /// محاسبه‌ی ارزش موجودی از روی گردش‌ها.
 ///
 /// گردش‌ها باید به ترتیب زمانی مرتب باشند.
-pub fn valuate(movements: &[Movement], method: ValuationMethod) -> Result<Valuation, InventoryError> {
+pub fn valuate(
+    movements: &[Movement],
+    method: ValuationMethod,
+) -> Result<Valuation, InventoryError> {
     for movement in movements {
         if !movement.quantity.is_finite() || movement.quantity < 0.0 {
             return Err(InventoryError::InvalidQuantity);

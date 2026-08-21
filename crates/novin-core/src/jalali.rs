@@ -62,9 +62,15 @@ impl JalaliDate {
         if parts.len() != 3 {
             return Err(CalendarError::InvalidFormat);
         }
-        let year = parts[0].parse::<i32>().map_err(|_| CalendarError::InvalidFormat)?;
-        let month = parts[1].parse::<u32>().map_err(|_| CalendarError::InvalidFormat)?;
-        let day = parts[2].parse::<u32>().map_err(|_| CalendarError::InvalidFormat)?;
+        let year = parts[0]
+            .parse::<i32>()
+            .map_err(|_| CalendarError::InvalidFormat)?;
+        let month = parts[1]
+            .parse::<u32>()
+            .map_err(|_| CalendarError::InvalidFormat)?;
+        let day = parts[2]
+            .parse::<u32>()
+            .map_err(|_| CalendarError::InvalidFormat)?;
         JalaliDate::new(year, month, day)
     }
 
@@ -80,13 +86,21 @@ impl JalaliDate {
 
 /// هسته‌ی تبدیل شمسی → میلادی بدون اعتبارسنجی روز/ماه.
 fn to_gregorian_unchecked(jy: i32, jm: i32, jd: i32) -> Option<NaiveDate> {
-    let (gy_base, jy0) = if jy >= 979 { (1600, jy - 979) } else { (621, jy) };
+    let (gy_base, jy0) = if jy >= 979 {
+        (1600, jy - 979)
+    } else {
+        (621, jy)
+    };
     let mut days = 365 * jy0
         + (jy0 / 33) * 8
         + (jy0 % 33 + 3) / 4
         + 78
         + jd
-        + if jm < 7 { (jm - 1) * 31 } else { (jm - 7) * 30 + 186 };
+        + if jm < 7 {
+            (jm - 1) * 31
+        } else {
+            (jm - 7) * 30 + 186
+        };
     let mut gy = gy_base + 400 * (days / 146_097);
     days %= 146_097;
     if days > 36_524 {
@@ -135,7 +149,11 @@ pub fn from_gregorian(date: NaiveDate) -> JalaliDate {
     let gy = date.year();
     let gm = date.month() as i32;
     let gd = date.day() as i32;
-    let (mut jy, gy0) = if gy >= 1600 { (979, gy - 1600) } else { (0, gy - 621) };
+    let (mut jy, gy0) = if gy >= 1600 {
+        (979, gy - 1600)
+    } else {
+        (0, gy - 621)
+    };
     let gy2 = if gm > 2 { gy0 + 1 } else { gy0 };
     let mut days = 365 * gy0 + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 - 80
         + gd

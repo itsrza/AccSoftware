@@ -72,11 +72,17 @@ impl Money {
     }
 
     pub fn checked_add(self, other: Self) -> Result<Self, MoneyError> {
-        self.0.checked_add(other.0).map(Money).ok_or(MoneyError::Overflow)
+        self.0
+            .checked_add(other.0)
+            .map(Money)
+            .ok_or(MoneyError::Overflow)
     }
 
     pub fn checked_sub(self, other: Self) -> Result<Self, MoneyError> {
-        self.0.checked_sub(other.0).map(Money).ok_or(MoneyError::Overflow)
+        self.0
+            .checked_sub(other.0)
+            .map(Money)
+            .ok_or(MoneyError::Overflow)
     }
 
     /// ضرب مبلغ در تعداد (تعداد می‌تواند کسری باشد: ۲.۵ کیلوگرم).
@@ -100,7 +106,9 @@ impl Money {
     pub fn percent_bp(self, basis_points: i64) -> Result<Self, MoneyError> {
         let raw = (self.0 as i128) * (basis_points as i128);
         let scaled = div_round_half_away(raw, 10_000);
-        i64::try_from(scaled).map(Money).map_err(|_| MoneyError::Overflow)
+        i64::try_from(scaled)
+            .map(Money)
+            .map_err(|_| MoneyError::Overflow)
     }
 
     /// تقسیم مبلغ بین چند سهم بر اساس وزن، **بدون گم‌شدن حتی یک ریال**.
@@ -144,7 +152,11 @@ impl Money {
         }
         shares
             .into_iter()
-            .map(|s| i64::try_from(s).map(Money).map_err(|_| MoneyError::Overflow))
+            .map(|s| {
+                i64::try_from(s)
+                    .map(Money)
+                    .map_err(|_| MoneyError::Overflow)
+            })
             .collect()
     }
 
@@ -161,7 +173,10 @@ impl Money {
         if trimmed.is_empty() {
             return Err(MoneyError::Invalid);
         }
-        trimmed.parse::<i64>().map(Money).map_err(|_| MoneyError::Invalid)
+        trimmed
+            .parse::<i64>()
+            .map(Money)
+            .map_err(|_| MoneyError::Invalid)
     }
 
     /// نمایش با جداکننده‌ی هزارگان (ارقام لاتین؛ جهت‌دهی با UI است).

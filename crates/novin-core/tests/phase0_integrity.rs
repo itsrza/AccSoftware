@@ -63,7 +63,10 @@ fn t01_money_is_exact_and_never_loses_rials() {
         Money::from_rials(12_500_000)
     );
     assert_eq!(Money::parse_rials("abc"), Err(MoneyError::Invalid));
-    assert_eq!(Money::from_rials(-12_500_000).format_grouped(), "-12,500,000");
+    assert_eq!(
+        Money::from_rials(-12_500_000).format_grouped(),
+        "-12,500,000"
+    );
 
     // سرریز باید خطا بدهد، نه wrap شود
     assert_eq!(
@@ -107,7 +110,10 @@ fn t02_allocation_preserves_every_rial() {
     assert_eq!(total, negative);
 
     // وزن نامعتبر
-    assert_eq!(Money::from_rials(10).allocate(&[]), Err(MoneyError::Invalid));
+    assert_eq!(
+        Money::from_rials(10).allocate(&[]),
+        Err(MoneyError::Invalid)
+    );
     assert_eq!(
         Money::from_rials(10).allocate(&[0, 0]),
         Err(MoneyError::Invalid)
@@ -141,7 +147,10 @@ fn t03_jalali_calendar_is_exact_over_two_centuries() {
     let mut checked = 0u32;
     while cursor < end {
         let jalali = jalali::from_gregorian(cursor);
-        assert!(jalali.is_valid(), "تاریخ شمسی تولیدشده باید معتبر باشد: {jalali:?}");
+        assert!(
+            jalali.is_valid(),
+            "تاریخ شمسی تولیدشده باید معتبر باشد: {jalali:?}"
+        );
         assert_eq!(jalali.to_gregorian().unwrap(), cursor, "رفت‌وبرگشت ناسازگار");
         cursor = cursor + chrono::Duration::days(1);
         checked += 1;
@@ -153,7 +162,10 @@ fn t03_jalali_calendar_is_exact_over_two_centuries() {
     assert!(!jalali::is_jalali_leap(1404));
     assert_eq!(jalali::days_in_jalali_month(1403, 12), 30);
     assert_eq!(jalali::days_in_jalali_month(1404, 12), 29);
-    assert!(JalaliDate::new(1404, 12, 30).is_err(), "۳۰ اسفند سال غیرکبیسه");
+    assert!(
+        JalaliDate::new(1404, 12, 30).is_err(),
+        "۳۰ اسفند سال غیرکبیسه"
+    );
     assert!(JalaliDate::new(1403, 12, 30).is_ok());
     assert!(JalaliDate::new(1404, 13, 1).is_err());
     assert!(JalaliDate::new(1404, 7, 31).is_err(), "مهر ۳۰ روز است");
@@ -289,8 +301,7 @@ fn t05_sales_invoice_journal_is_always_balanced() {
     );
 
     // سند خودکار باید متعادل باشد
-    let journal =
-        sales_invoice_journal("acc-1101", "acc-4101", "acc-2401", &totals).unwrap();
+    let journal = sales_invoice_journal("acc-1101", "acc-4101", "acc-2401", &totals).unwrap();
     let journal_totals = validate_journal(&journal).unwrap();
     assert_eq!(journal_totals.total_debit, totals.total);
     assert_eq!(journal_totals.total_debit, journal_totals.total_credit);
@@ -437,7 +448,10 @@ fn t08_moving_average_tracks_price_changes() {
     let mut with_issue = movements.clone();
     with_issue.push(Movement::new(MovementKind::Issue, 12.0, 0));
     let valuation = valuate(&with_issue, ValuationMethod::MovingAverage).unwrap();
-    assert_eq!(valuation.unit_cost, 1_500, "خروج نباید بهای میانگین را جابه‌جا کند");
+    assert_eq!(
+        valuation.unit_cost, 1_500,
+        "خروج نباید بهای میانگین را جابه‌جا کند"
+    );
     assert_eq!(valuation.quantity, 8.0);
     assert_eq!(valuation.total_value, 12_000);
 
@@ -525,7 +539,10 @@ fn t09_database_schema_is_sound() {
     let accounts_after: i64 = conn
         .query_row("SELECT COUNT(*) FROM accounts", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(accounts_before, accounts_after, "مهاجرت باید idempotent باشد");
+    assert_eq!(
+        accounts_before, accounts_after,
+        "مهاجرت باید idempotent باشد"
+    );
     assert!(accounts_before > 0, "کدینگ حساب‌ها باید مقداردهی اولیه شود");
 
     // رمز کاربر باید با Argon2 هش شده باشد، نه متن ساده
@@ -536,8 +553,14 @@ fn t09_database_schema_is_sound() {
             |r| r.get(0),
         )
         .unwrap();
-    assert!(hash.starts_with("$argon2"), "رمز عبور باید با Argon2 هش شود");
-    assert!(!hash.contains("demo"), "رمز نباید به‌صورت متن ساده ذخیره شود");
+    assert!(
+        hash.starts_with("$argon2"),
+        "رمز عبور باید با Argon2 هش شود"
+    );
+    assert!(
+        !hash.contains("demo"),
+        "رمز نباید به‌صورت متن ساده ذخیره شود"
+    );
 
     // نقش مدیر باید مجوزها را داشته باشد و مجوزها granular باشند
     let permission_count: i64 = conn
@@ -587,7 +610,10 @@ fn t10_demo_data_is_accounting_consistent() {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap();
-    assert_eq!(total_debit, total_credit, "تراز آزمایشی کل باید متوازن باشد");
+    assert_eq!(
+        total_debit, total_credit,
+        "تراز آزمایشی کل باید متوازن باشد"
+    );
     assert!(total_debit > 0.0, "داده‌ی نمونه نباید خالی باشد");
 
     // هر سطر سند باید به حساب موجود ارجاع دهد (نه حساب یتیم)

@@ -1,13 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use argon2::{Argon2, PasswordVerifier};
+use novin_core::db;
+use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
+use novin_core::jalali;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
-use novin_core::db;
-use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
-use novin_core::jalali;
 
 struct AppState {
     db_path: Mutex<PathBuf>,
@@ -91,9 +91,7 @@ fn conn(state: &State<AppState>) -> Result<Connection, String> {
         state
             .db_path
             .lock()
-            .map_err(|_| {
-                "APP-001: قفل پایگاه داده در دسترس نیست".to_string()
-            })?
+            .map_err(|_| "APP-001: قفل پایگاه داده در دسترس نیست".to_string())?
             .clone(),
     )
     .map_err(|e| e.to_string())
@@ -148,14 +146,11 @@ fn login(state: State<AppState>, username: String, password: String) -> Result<U
         .map_err(|_| "AUTH-004: اطلاعات ورود نامعتبر است".to_string())?;
     Argon2::default()
         .verify_password(password.as_bytes(), &parsed)
-        .map_err(|_| {
-            "AUTH-003: نام کاربری یا رمز عبور نادرست است".to_string()
-        })?;
+        .map_err(|_| "AUTH-003: نام کاربری یا رمز عبور نادرست است".to_string())?;
     *state
         .user_id
         .lock()
-        .map_err(|_| "AUTH-001: وضعیت ورود در دسترس نیست".to_string())? =
-        Some(row.0.clone());
+        .map_err(|_| "AUTH-001: وضعیت ورود در دسترس نیست".to_string())? = Some(row.0.clone());
     Ok(User {
         id: row.0,
         username: row.1,
@@ -332,16 +327,10 @@ fn create_contact(
     is_supplier: bool,
 ) -> Result<String, String> {
     if name.trim().is_empty() {
-        return Err(
-            "CONTACT-001: نام شخص الزامی است"
-                .into(),
-        );
+        return Err("CONTACT-001: نام شخص الزامی است".into());
     }
     if kind != "person" && kind != "company" {
-        return Err(
-            "CONTACT-002: نوع شخص نامعتبر است"
-                .into(),
-        );
+        return Err("CONTACT-002: نوع شخص نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "contacts.create")?;
@@ -351,10 +340,7 @@ fn create_contact(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "CONTACT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "CONTACT-003: شرکت فعال یافت نشد".to_string())?;
     let id = format!(
         "contact-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -385,16 +371,10 @@ fn update_contact(
     is_supplier: bool,
 ) -> Result<(), String> {
     if name.trim().is_empty() {
-        return Err(
-            "CONTACT-001: نام شخص الزامی است"
-                .into(),
-        );
+        return Err("CONTACT-001: نام شخص الزامی است".into());
     }
     if kind != "person" && kind != "company" {
-        return Err(
-            "CONTACT-002: نوع شخص نامعتبر است"
-                .into(),
-        );
+        return Err("CONTACT-002: نوع شخص نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "contacts.edit")?;
@@ -404,10 +384,7 @@ fn update_contact(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "CONTACT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "CONTACT-003: شرکت فعال یافت نشد".to_string())?;
     let before:String=c.query_row("SELECT json_object('name',name,'kind',kind,'mobile',mobile,'is_customer',is_customer,'is_supplier',is_supplier) FROM contacts WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"CONTACT-005: شخص یافت نشد".to_string())?;
     c.execute("UPDATE contacts SET name=?1,kind=?2,mobile=?3,is_customer=?4,is_supplier=?5 WHERE id=?6 AND company_id=?7",params![name,kind,mobile,is_customer as i64,is_supplier as i64,id,company]).map_err(|e|format!("CONTACT-006: {e}"))?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
@@ -438,10 +415,7 @@ fn delete_contact(state: State<AppState>, id: String) -> Result<(), String> {
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "CONTACT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "CONTACT-003: شرکت فعال یافت نشد".to_string())?;
     let before:String=c.query_row("SELECT json_object('name',name,'kind',kind) FROM contacts WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"CONTACT-005: شخص یافت نشد".to_string())?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     tx.execute(
@@ -477,10 +451,7 @@ fn create_product(
         return Err("PRODUCT-001: کد، نام و واحد کالا الزامی است".into());
     }
     if sale_price < 0 || purchase_price < 0 || min_stock < 0.0 {
-        return Err(
-            "PRODUCT-002: مقادیر قیمت و حداقل موجودی نامعتبر است"
-                .into(),
-        );
+        return Err("PRODUCT-002: مقادیر قیمت و حداقل موجودی نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "products.create")?;
@@ -490,10 +461,7 @@ fn create_product(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "PRODUCT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "PRODUCT-003: شرکت فعال یافت نشد".to_string())?;
     let id = format!(
         "product-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -593,9 +561,7 @@ fn get_inventory_valuation_method(state: State<AppState>) -> Result<String, Stri
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-100: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "INV-100: شرکت فعال یافت نشد".to_string())?;
     Ok(inventory_method(&c, &company))
 }
 
@@ -614,9 +580,7 @@ fn set_inventory_valuation_method(state: State<AppState>, method: String) -> Res
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-102: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "INV-102: شرکت فعال یافت نشد".to_string())?;
     let key = format!("inventory_valuation_method:{}", company);
     tx.execute("INSERT INTO app_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,method]).map_err(|e| e.to_string())?;
     audit(
@@ -642,9 +606,7 @@ fn list_inventory_advanced(state: State<AppState>) -> Result<Vec<InventoryAdvanc
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-102: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "INV-102: شرکت فعال یافت نشد".to_string())?;
     let method = inventory_method(&c, &company);
     let mut st=c.prepare("SELECT b.product_id,b.warehouse_id,b.quantity,b.reserved_quantity,b.in_transit_quantity,p.purchase_price,COALESCE(SUM(CASE WHEN l.expiry_date IS NOT NULL AND l.expiry_date<=date('now','+30 day') AND l.status='active' THEN l.quantity ELSE 0 END),0) FROM inventory_balances b JOIN products p ON p.id=b.product_id LEFT JOIN inventory_lots l ON l.product_id=b.product_id AND l.warehouse_id=b.warehouse_id WHERE p.company_id=?1 GROUP BY b.product_id,b.warehouse_id,b.quantity,b.reserved_quantity,p.purchase_price ORDER BY p.name") .map_err(|e|e.to_string())?;
     let rows = st
@@ -835,9 +797,7 @@ fn create_inventory_lot(
         return Err("INV-121: سریال باید شماره یکتا و مقدار دقیقاً ۱ داشته باشد".into());
     }
     if lot_type != "batch" && lot_type != "serial" {
-        return Err(
-            "INV-122: نوع Lot نامعتبر است".into(),
-        );
+        return Err("INV-122: نوع Lot نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.lot.manage")?;
@@ -857,9 +817,7 @@ fn create_inventory_lot(
         )
         .unwrap_or(0);
     if wh == 0 {
-        return Err(
-            "INV-124: انبار معتبر نیست".into(),
-        );
+        return Err("INV-124: انبار معتبر نیست".into());
     }
     let id = format!(
         "lot-{}",
@@ -893,9 +851,7 @@ fn list_inventory_lots(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-126: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "INV-126: شرکت فعال یافت نشد".to_string())?;
     let mut sql=String::from("SELECT l.id,l.product_id,l.warehouse_id,l.lot_number,l.lot_type,l.serial_number,l.manufacture_date,l.expiry_date,l.quantity,l.unit_cost,l.status FROM inventory_lots l WHERE l.company_id=?1");
     let mut vals: Vec<String> = vec![company];
     if let Some(x) = product_id {
@@ -952,9 +908,7 @@ fn create_inventory_count(
             params![warehouse_id],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-131: انبار معتبر نیست".to_string()
-        })?;
+        .map_err(|_| "INV-131: انبار معتبر نیست".to_string())?;
     let id = format!(
         "count-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -984,9 +938,7 @@ fn list_inventory_counts(state: State<AppState>) -> Result<Vec<InventoryCount>, 
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-132: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "INV-132: شرکت فعال یافت نشد".to_string())?;
     let mut st=c.prepare("SELECT s.id,s.warehouse_id,s.title,s.count_date,s.status,COUNT(l.id),SUM(CASE WHEN ABS(COALESCE(l.variance,0))>0 THEN 1 ELSE 0 END) FROM inventory_count_sessions s LEFT JOIN inventory_count_lines l ON l.session_id=s.id WHERE s.company_id=?1 GROUP BY s.id ORDER BY s.created_at DESC").map_err(|e|e.to_string())?;
     let rows = st
         .query_map(params![company], |r| {
@@ -1101,10 +1053,7 @@ fn create_inventory_transfer_order(
     note: Option<String>,
 ) -> Result<String, String> {
     if from_warehouse_id == to_warehouse_id || quantity <= 0.0 {
-        return Err(
-            "INV-140: مقصد و مبدأ یا مقدار انتقال نامعتبر است"
-                .into(),
-        );
+        return Err("INV-140: مقصد و مبدأ یا مقدار انتقال نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.transfer")?;
@@ -1161,9 +1110,7 @@ fn list_inventory_transfer_orders(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-147: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "INV-147: شرکت فعال یافت نشد".to_string())?;
     let mut st=c.prepare("SELECT id,product_id,from_warehouse_id,to_warehouse_id,quantity,unit_cost,status,note FROM inventory_transfer_orders WHERE company_id=?1 ORDER BY created_at DESC").map_err(|e|e.to_string())?;
     let rows = st
         .query_map(params![company], |r| {
@@ -1286,9 +1233,7 @@ fn inventory_move(
         )
         .map_err(|e| e.to_string())?;
     if wh_ok == 0 {
-        return Err(
-            "INV-003: انبار معتبر نیست".into(),
-        );
+        return Err("INV-003: انبار معتبر نیست".into());
     }
     let current: f64 = tx
         .query_row(
@@ -1343,10 +1288,7 @@ fn update_product(
         return Err("PRODUCT-001: SKU، نام و واحد الزامی هستند".into());
     }
     if sale_price < 0 || purchase_price < 0 || min_stock < 0.0 {
-        return Err(
-            "PRODUCT-002: مقادیر قیمت و حداقل موجودی نامعتبر است"
-                .into(),
-        );
+        return Err("PRODUCT-002: مقادیر قیمت و حداقل موجودی نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "products.edit")?;
@@ -1356,16 +1298,12 @@ fn update_product(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "PRODUCT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "PRODUCT-003: شرکت فعال یافت نشد".to_string())?;
     let before:String=c.query_row("SELECT json_object('sku',sku,'barcode',barcode,'name',name,'unit',unit,'sale_price',sale_price,'purchase_price',purchase_price,'min_stock',min_stock) FROM products WHERE id=?1 AND company_id=?2",params![id,company],|r|r.get(0)).map_err(|_|"PRODUCT-004: کالا یافت نشد".to_string())?;
     let result=c.execute("UPDATE products SET sku=?1,barcode=?2,name=?3,unit=?4,sale_price=?5,purchase_price=?6,min_stock=?7 WHERE id=?8 AND company_id=?9",params![sku,barcode,name,unit,sale_price,purchase_price,min_stock,id,company]);
     if let Err(e) = result {
         return Err(if e.to_string().contains("UNIQUE") {
-            "PRODUCT-005: SKU یا بارکد تکراری است"
-                .into()
+            "PRODUCT-005: SKU یا بارکد تکراری است".into()
         } else {
             format!("PRODUCT-006: {e}")
         });
@@ -1398,10 +1336,7 @@ fn delete_product(state: State<AppState>, id: String) -> Result<(), String> {
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "PRODUCT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "PRODUCT-003: شرکت فعال یافت نشد".to_string())?;
     let before: String = c
         .query_row(
             "SELECT json_object('sku',sku,'name',name) FROM products WHERE id=?1 AND company_id=?2",
@@ -1462,9 +1397,7 @@ fn transfer_stock(
     note: Option<String>,
 ) -> Result<String, String> {
     if from_warehouse_id == to_warehouse_id {
-        return Err(
-            "INV-010: انبار مبدأ و مقصد باید متفاوت باشند".into(),
-        );
+        return Err("INV-010: انبار مبدأ و مقصد باید متفاوت باشند".into());
     }
     if quantity <= 0.0 {
         return Err("INV-002: مقدار باید بیشتر از صفر باشد".into());
@@ -1478,20 +1411,14 @@ fn transfer_stock(
             params![from_warehouse_id],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-003: انبار مبدأ یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "INV-003: انبار مبدأ یافت نشد".to_string())?;
     let dest_company: String = tx
         .query_row(
             "SELECT company_id FROM warehouses WHERE id=?1",
             params![to_warehouse_id],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "INV-004: انبار مقصد یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "INV-004: انبار مقصد یافت نشد".to_string())?;
     if company != dest_company {
         return Err("INV-005: انبارها متعلق به یک شرکت نیستند".into());
     }
@@ -1555,10 +1482,7 @@ fn adjust_stock(
     let old:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![product_id,warehouse_id],|r|r.get(0)).unwrap_or(0.0);
     let delta = new_quantity - old;
     if delta.abs() < f64::EPSILON {
-        return Err(
-            "INV-013: موجودی جدید با موجودی فعلی تفاوتی ندارد"
-                .into(),
-        );
+        return Err("INV-013: موجودی جدید با موجودی فعلی تفاوتی ندارد".into());
     }
     let cost:i64=tx.query_row("SELECT COALESCE(CAST(ROUND(SUM(quantity*unit_cost)/NULLIF(SUM(quantity),0)) AS INTEGER),0) FROM inventory_movements WHERE product_id=?1 AND company_id=?2 AND unit_cost>0",params![product_id,company],|r|r.get(0)).unwrap_or(0);
     tx.execute("INSERT INTO inventory_balances(product_id,warehouse_id,quantity) VALUES(?,?,?) ON CONFLICT(product_id,warehouse_id) DO UPDATE SET quantity=excluded.quantity,updated_at=CURRENT_TIMESTAMP",params![product_id,warehouse_id,new_quantity]).map_err(|e|e.to_string())?;
@@ -1619,9 +1543,7 @@ fn create_journal_internal(
     }
     for (acc, d, c) in lines {
         if *d < 0 || *c < 0 || (*d > 0 && *c > 0) || (*d == 0 && *c == 0) {
-            return Err(format!(
-                "ACC-003: سطر حساب {acc} نامعتبر است"
-            ));
+            return Err(format!("ACC-003: سطر حساب {acc} نامعتبر است"));
         }
     }
     let mut c = conn(state)?;
@@ -1647,9 +1569,7 @@ fn create_journal_internal(
             )
             .map_err(|e| e.to_string())?;
         if ok == 0 {
-            return Err(format!(
-                "ACC-006: حساب معتبر نیست: {acc}"
-            ));
+            return Err(format!("ACC-006: حساب معتبر نیست: {acc}"));
         }
     }
     let number: i64 = tx
@@ -1726,9 +1646,7 @@ fn post_journal(state: State<AppState>, journal_id: String) -> Result<(), String
         .map_err(|e| e.to_string())?;
     validate_fiscal_date(&tx, &fiscal_id, &entry_date)?;
     if row.1 <= 0 || row.1 != row.2 {
-        return Err(
-            "ACC-002: سند نامتوازن است".into(),
-        );
+        return Err("ACC-002: سند نامتوازن است".into());
     }
     let allowed: i64 = tx
         .query_row(
@@ -1837,9 +1755,7 @@ fn backup_dir(state: &State<AppState>) -> Result<PathBuf, String> {
     let db = state
         .db_path
         .lock()
-        .map_err(|_| {
-            "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string()
-        })?
+        .map_err(|_| "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string())?
         .clone();
     let dir = db
         .parent()
@@ -1882,9 +1798,7 @@ fn backup_database(state: State<AppState>) -> Result<BackupInfo, String> {
     let source = state
         .db_path
         .lock()
-        .map_err(|_| {
-            "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string()
-        })?
+        .map_err(|_| "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string())?
         .clone();
     let dir = backup_dir(&state)?;
     let name = format!(
@@ -1899,9 +1813,7 @@ fn backup_database(state: State<AppState>) -> Result<BackupInfo, String> {
         .map_err(|e| e.to_string())?;
     if integrity != "ok" {
         let _ = std::fs::remove_file(&target);
-        return Err(
-            "BACKUP-006: بررسی سلامت نسخه پشتیبان ناموفق بود".into(),
-        );
+        return Err("BACKUP-006: بررسی سلامت نسخه پشتیبان ناموفق بود".into());
     }
     let size = std::fs::metadata(&target).map_err(|e| e.to_string())?.len();
     let mut audit_conn = conn(&state)?;
@@ -1949,9 +1861,7 @@ fn restore_database(state: State<AppState>, name: String) -> Result<(), String> 
     let target = state
         .db_path
         .lock()
-        .map_err(|_| {
-            "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string()
-        })?
+        .map_err(|_| "BACKUP-001: مسیر پایگاه داده در دسترس نیست".to_string())?
         .clone();
     let safety = target.with_extension("pre-restore.sqlite");
     std::fs::copy(&target, &safety).map_err(|e| format!("BACKUP-009: {e}"))?;
@@ -1980,10 +1890,7 @@ fn get_demo_status(state: State<AppState>) -> Result<bool, String> {
     let user = require_login(&state)?;
     let c = conn(&state)?;
     if !has_permission(&c, &user, "security.role.manage")? {
-        return Err(
-            "AUTH-403: مجوز مدیریت داده‌های نمونه وجود ندارد"
-                .into(),
-        );
+        return Err("AUTH-403: مجوز مدیریت داده‌های نمونه وجود ندارد".into());
     }
     let v: String = c
         .query_row(
@@ -2000,10 +1907,7 @@ fn delete_demo_data(state: State<AppState>) -> Result<(), String> {
     let mut c = conn(&state)?;
     let user = require_login(&state)?;
     if !has_permission(&c, &user, "security.role.manage")? {
-        return Err(
-            "AUTH-403: مجوز مدیریت داده‌های نمونه وجود ندارد"
-                .into(),
-        );
+        return Err("AUTH-403: مجوز مدیریت داده‌های نمونه وجود ندارد".into());
     }
     let tx = c.transaction().map_err(|e| e.to_string())?;
     // Keep the demo company, fiscal year and admin login. Remove all business/demo content.
@@ -2106,10 +2010,7 @@ fn save_print_template(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "PRINT-003: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "PRINT-003: شرکت فعال یافت نشد".to_string())?;
     let rid = id.filter(|x| !x.trim().is_empty()).unwrap_or_else(|| {
         format!(
             "tpl-{}",
@@ -2190,10 +2091,7 @@ fn import_data(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "IMPORT-005: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "IMPORT-005: شرکت فعال یافت نشد".to_string())?;
     let batch = format!(
         "import-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -2208,17 +2106,11 @@ fn import_data(
                     .unwrap_or("")
                     .trim();
                 if name.is_empty() {
-                    return Err(format!(
-                        "IMPORT-006: نام شخص در ردیف {} الزامی است",
-                        i + 1
-                    ));
+                    return Err(format!("IMPORT-006: نام شخص در ردیف {} الزامی است", i + 1));
                 }
                 let kind = row.get("kind").and_then(|v| v.as_str()).unwrap_or("person");
                 if kind != "person" && kind != "company" {
-                    return Err(format!(
-                        "IMPORT-007: نوع شخص در ردیف {} نامعتبر است",
-                        i + 1
-                    ));
+                    return Err(format!("IMPORT-007: نوع شخص در ردیف {} نامعتبر است", i + 1));
                 }
                 let mobile = row.get("mobile").and_then(|v| v.as_str());
                 let id = format!("contact-import-{}-{}", batch, i);
@@ -2238,10 +2130,7 @@ fn import_data(
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .trim();
-                let unit = row
-                    .get("unit")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("عدد");
+                let unit = row.get("unit").and_then(|v| v.as_str()).unwrap_or("عدد");
                 if sku.is_empty() || name.is_empty() {
                     return Err(format!(
                         "IMPORT-009: SKU و نام کالا در ردیف {} الزامی است",
@@ -2332,18 +2221,14 @@ fn active_context(tx: &rusqlite::Transaction<'_>, user: &str) -> Result<(String,
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "DOC-001: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "DOC-001: شرکت فعال یافت نشد".to_string())?;
     let fy:String=tx.query_row("SELECT id FROM fiscal_years WHERE company_id=?1 AND is_closed=0 ORDER BY start_date DESC LIMIT 1",params![company],|r|r.get(0)).map_err(|_|"DOC-002: سال مالی باز یافت نشد".to_string())?;
     Ok((company, fy))
 }
 
 fn invoice_total(lines: &[(String, f64, i64, i64, i64)]) -> Result<(i64, i64, i64, i64), String> {
     if lines.is_empty() {
-        return Err(
-            "DOC-003: فاکتور باید حداقل یک قلم داشته باشد".into(),
-        );
+        return Err("DOC-003: فاکتور باید حداقل یک قلم داشته باشد".into());
     }
     let mut subtotal = 0i64;
     let mut discount = 0i64;
@@ -2403,9 +2288,7 @@ fn create_invoice_common(
             )
             .unwrap_or(0);
         if ok == 0 {
-            return Err(
-                "DOC-007: انبار معتبر نیست".into(),
-            );
+            return Err("DOC-007: انبار معتبر نیست".into());
         }
     }
     let table = if sale {
@@ -2452,10 +2335,7 @@ fn create_invoice_common(
             )
             .unwrap_or(0);
         if ok == 0 {
-            return Err(format!(
-                "DOC-009: کالا در قلم {} معتبر نیست",
-                i + 1
-            ));
+            return Err(format!("DOC-009: کالا در قلم {} معتبر نیست", i + 1));
         }
         let lid = format!("{id}-line-{}", i + 1);
         let line_total = ((*q * (*p as f64)).round() as i64) - *d + *t;
@@ -2585,9 +2465,7 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
                 r.get(7)?,
             ))
         })
-        .map_err(|_| {
-            "DOC-010: فاکتور یافت نشد".to_string()
-        })?
+        .map_err(|_| "DOC-010: فاکتور یافت نشد".to_string())?
     };
     if row.3 != "draft" {
         return Err("DOC-011: فقط فاکتور پیش‌نویس قابل ثبت است".into());
@@ -2602,9 +2480,10 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
     if user_company == 0 {
         return Err("AUTH-403: دسترسی به شرکت وجود ندارد".into());
     }
-    let wid = row.6.clone().ok_or(
-        "DOC-012: برای ثبت فاکتور انبار الزامی است".to_string(),
-    )?;
+    let wid = row
+        .6
+        .clone()
+        .ok_or("DOC-012: برای ثبت فاکتور انبار الزامی است".to_string())?;
     let mut st=tx.prepare(&format!("SELECT product_id,quantity,unit_price,line_total FROM {lt} WHERE invoice_id=?1 ORDER BY rowid")).map_err(|e|e.to_string())?;
     let mut items = Vec::new();
     let iter = st
@@ -2717,14 +2596,10 @@ fn settle_invoice(
         tx.query_row(&sql, params![invoice_id], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         })
-        .map_err(|_| {
-            "SET-002: فاکتور یافت نشد".to_string()
-        })?
+        .map_err(|_| "SET-002: فاکتور یافت نشد".to_string())?
     };
     if row.2 != "posted" {
-        return Err(
-            "SET-003: فقط فاکتور ثبت‌شده قابل تسویه است".into(),
-        );
+        return Err("SET-003: فقط فاکتور ثبت‌شده قابل تسویه است".into());
     }
     let allowed: i64 = tx
         .query_row(
@@ -2739,10 +2614,7 @@ fn settle_invoice(
     let settled:i64=tx.query_row("SELECT COALESCE(SUM(amount),0) FROM invoice_settlements WHERE invoice_id=?1 AND invoice_type=?2",params![invoice_id,invoice_type],|r|r.get(0)).unwrap_or(0);
     let remaining = row.3 - settled;
     if remaining <= 0 {
-        return Err(
-            "SET-004: فاکتور قبلاً به‌طور کامل تسویه شده است"
-                .into(),
-        );
+        return Err("SET-004: فاکتور قبلاً به‌طور کامل تسویه شده است".into());
     }
     if amount > remaining {
         return Err(format!(
@@ -2899,10 +2771,7 @@ fn create_treasury_account(
     linked_account_id: Option<String>,
 ) -> Result<String, String> {
     if name.trim().is_empty() {
-        return Err(
-            "TRE-001: نام حساب الزامی است"
-                .into(),
-        );
+        return Err("TRE-001: نام حساب الزامی است".into());
     }
     if !["cash", "bank", "petty_cash"].contains(&account_type.as_str()) {
         return Err("TRE-002: نوع حساب خزانه نامعتبر است".into());
@@ -2955,10 +2824,7 @@ fn update_treasury_account(
     is_active: bool,
 ) -> Result<(), String> {
     if name.trim().is_empty() {
-        return Err(
-            "TRE-005: نام حساب الزامی است"
-                .into(),
-        );
+        return Err("TRE-005: نام حساب الزامی است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.account.edit")?;
@@ -3067,9 +2933,7 @@ fn get_treasury_statement(
         )
         .unwrap_or(0);
     if exists == 0 {
-        return Err(
-            "TRE-008: حساب خزانه یافت نشد".into(),
-        );
+        return Err("TRE-008: حساب خزانه یافت نشد".into());
     }
     let mut sql=String::from("SELECT id,transaction_type,amount,transaction_date,description,reference_type,reference_id FROM treasury_transactions WHERE company_id=?1 AND fiscal_year_id=?2 AND treasury_account_id=?3");
     if from_date.is_some() {
@@ -3313,15 +3177,10 @@ fn create_check(
     description: Option<String>,
 ) -> Result<String, String> {
     if !["received", "issued"].contains(&check_type.as_str()) {
-        return Err(
-            "CHK-001: نوع چک نامعتبر است".into(),
-        );
+        return Err("CHK-001: نوع چک نامعتبر است".into());
     }
     if check_number.trim().is_empty() {
-        return Err(
-            "CHK-002: شماره چک الزامی است"
-                .into(),
-        );
+        return Err("CHK-002: شماره چک الزامی است".into());
     }
     if amount <= 0 {
         return Err("CHK-003: مبلغ چک باید بیشتر از صفر باشد".into());
@@ -3355,10 +3214,7 @@ fn create_check(
     }
     let duplicate:i64=tx.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND check_type=?2 AND check_number=?3 AND status<>'cancelled'",params![company,check_type,check_number],|r|r.get(0)).unwrap_or(0);
     if duplicate > 0 {
-        return Err(
-            "CHK-006: شماره چک تکراری است"
-                .into(),
-        );
+        return Err("CHK-006: شماره چک تکراری است".into());
     }
     let id = format!(
         "check-{}",
@@ -3394,10 +3250,7 @@ fn update_check_status(
     ]
     .contains(&new_status.as_str())
     {
-        return Err(
-            "CHK-008: وضعیت چک نامعتبر است"
-                .into(),
-        );
+        return Err("CHK-008: وضعیت چک نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.check.update")?;
@@ -3428,14 +3281,13 @@ fn update_check_status(
         return Err("CHK-011: چک وصول‌شده قابل ابطال نیست؛ ابتدا برگشت ثبت کنید".into());
     }
     if new_status == "cleared" {
-        let treasury_id = row.4.as_ref().ok_or(
-            "CHK-012: برای وصول چک باید حساب خزانه مشخص باشد"
-                .to_string(),
-        )?;
+        let treasury_id = row
+            .4
+            .as_ref()
+            .ok_or("CHK-012: برای وصول چک باید حساب خزانه مشخص باشد".to_string())?;
         let treasury_account:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![treasury_id,row.2],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
-        let treasury_account = treasury_account.ok_or_else(|| {
-            "CHK-013: حساب خزانه به حسابداری متصل نیست".to_string()
-        })?;
+        let treasury_account = treasury_account
+            .ok_or_else(|| "CHK-013: حساب خزانه به حسابداری متصل نیست".to_string())?;
         let offset_account = if row.1 == "received" {
             "acc-1201"
         } else {
@@ -3469,10 +3321,7 @@ fn update_check_status(
         )
         .map_err(|e| e.to_string())?;
     } else if new_status == "bounced" && old == "cleared" {
-        let original = row.5.ok_or(
-            "CHK-016: سند وصول چک یافت نشد"
-                .to_string(),
-        )?;
+        let original = row.5.ok_or("CHK-016: سند وصول چک یافت نشد".to_string())?;
         let mut st=tx.prepare("SELECT account_id,debit,credit FROM journal_lines WHERE journal_id=?1 ORDER BY rowid").map_err(|e|e.to_string())?;
         let lines: Vec<(String, i64, i64)> = st
             .query_map(params![original], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
@@ -3575,15 +3424,10 @@ fn create_return_common(
                 r.get(5)?,
             ))
         })
-        .map_err(|_| {
-            "RET-001: فاکتور اصلی یافت نشد"
-                .to_string()
-        })?
+        .map_err(|_| "RET-001: فاکتور اصلی یافت نشد".to_string())?
     };
     if row.2 != "posted" {
-        return Err(
-            "RET-002: فقط فاکتور ثبت‌شده قابل برگشت است".into(),
-        );
+        return Err("RET-002: فقط فاکتور ثبت‌شده قابل برگشت است".into());
     }
     let wid = row
         .4
@@ -3694,9 +3538,7 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
     for (pid, q, p) in &items {
         let current:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![pid,wid],|r|r.get(0)).unwrap_or(0.0);
         if !sale && current < *q {
-            return Err(
-                "RET-009: موجودی برای برگشت خرید کافی نیست".into(),
-            );
+            return Err("RET-009: موجودی برای برگشت خرید کافی نیست".into());
         }
         let newq = if sale { current + *q } else { current - *q };
         tx.execute("INSERT INTO inventory_balances(product_id,warehouse_id,quantity) VALUES(?,?,?) ON CONFLICT(product_id,warehouse_id) DO UPDATE SET quantity=excluded.quantity,updated_at=CURRENT_TIMESTAMP",params![pid,wid,newq]).map_err(|e|e.to_string())?;
@@ -3898,10 +3740,8 @@ fn create_treasury_transaction(
     let (company, fy) = active_context(&tx, &user)?;
     validate_fiscal_date(&tx, &fy, &transaction_date)?;
     let linked:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![treasury_account_id,company],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
-    let treasury_gl = linked.ok_or_else(|| {
-        "TRE-004: حساب خزانه معتبر یا متصل به حسابداری نیست"
-            .to_string()
-    })?;
+    let treasury_gl =
+        linked.ok_or_else(|| "TRE-004: حساب خزانه معتبر یا متصل به حسابداری نیست".to_string())?;
     let id = format!(
         "treasury-tx-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -4261,9 +4101,7 @@ fn verify_backup_file(state: State<AppState>, name: String) -> Result<String, St
         .map_err(|e| e.to_string())?;
     let mut rows = fk.query([]).map_err(|e| e.to_string())?;
     if rows.next().map_err(|e| e.to_string())?.is_some() {
-        return Err(
-            "BACKUP-010: foreign key check ناموفق است".into(),
-        );
+        return Err("BACKUP-010: foreign key check ناموفق است".into());
     }
     Ok("Backup verified".into())
 }
@@ -4555,15 +4393,9 @@ fn get_financial_statement(
         .map_err(|e| e.to_string())?;
     let date = as_of.unwrap_or(end);
     let (filter, title) = if statement == "balance_sheet" {
-        (
-            "substr(a.code,1,1) IN ('1','2','3')",
-            "ترازنامه",
-        )
+        ("substr(a.code,1,1) IN ('1','2','3')", "ترازنامه")
     } else {
-        (
-            "substr(a.code,1,1) IN ('4','5','6')",
-            "صورت سود و زیان",
-        )
+        ("substr(a.code,1,1) IN ('4','5','6')", "صورت سود و زیان")
     };
     let sql=format!("SELECT a.code,a.name,a.nature,COALESCE(SUM(l.debit-l.credit),0) FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id LEFT JOIN journal_entries j ON j.id=l.journal_id AND j.status='posted' AND j.company_id=?1 AND j.fiscal_year_id=?2 AND j.entry_date<=?3 WHERE a.company_id=?1 AND a.is_active=1 AND {filter} GROUP BY a.id,a.code,a.name,a.nature ORDER BY a.code");
     let mut st = c.prepare(&sql).map_err(|e| e.to_string())?;
@@ -5074,10 +4906,7 @@ fn validate_plugin_id(id: &str) -> Result<(), String> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
     {
-        return Err(
-            "PLUGIN-004: شناسه Plugin نامعتبر است"
-                .into(),
-        );
+        return Err("PLUGIN-004: شناسه Plugin نامعتبر است".into());
     }
     Ok(())
 }
@@ -5131,9 +4960,8 @@ fn register_plugin(
 ) -> Result<String, String> {
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "plugins.manage")?;
-    let v: serde_json::Value = serde_json::from_str(&manifest_json).map_err(|e| {
-        format!("PLUGIN-005: Manifest نامعتبر است: {e}")
-    })?;
+    let v: serde_json::Value = serde_json::from_str(&manifest_json)
+        .map_err(|e| format!("PLUGIN-005: Manifest نامعتبر است: {e}"))?;
     let id = v
         .get("id")
         .and_then(|x| x.as_str())
@@ -5170,14 +4998,10 @@ fn register_plugin(
     ];
     for p in &perms {
         let Some(ps) = p.as_str() else {
-            return Err(
-                "PLUGIN-010: Permission نامعتبر است".into(),
-            );
+            return Err("PLUGIN-010: Permission نامعتبر است".into());
         };
         if !allowed.contains(&ps) {
-            return Err(format!(
-                "PLUGIN-011: Permission پشتیبانی‌نشده: {ps}"
-            ));
+            return Err(format!("PLUGIN-011: Permission پشتیبانی‌نشده: {ps}"));
         }
     }
     let src = std::path::PathBuf::from(&executable_path);
@@ -5189,9 +5013,7 @@ fn register_plugin(
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("PLUGIN-013: ایجاد پوشه Plugin انجام نشد: {e}"))?;
     let target = dir.join(entry);
-    std::fs::copy(&src, &target).map_err(|e| {
-        format!("PLUGIN-014: نصب Worker انجام نشد: {e}")
-    })?;
+    std::fs::copy(&src, &target).map_err(|e| format!("PLUGIN-014: نصب Worker انجام نشد: {e}"))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -5207,10 +5029,7 @@ fn register_plugin(
             params![user],
             |r| r.get::<_, String>(0),
         )
-        .map_err(|_| {
-            "PLUGIN-015: شرکت فعال یافت نشد"
-                .to_string()
-        })?;
+        .map_err(|_| "PLUGIN-015: شرکت فعال یافت نشد".to_string())?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
     tx.execute("INSERT OR REPLACE INTO plugins(id,company_id,name,version,description,entrypoint,manifest_json,enabled) VALUES(?1,?2,?3,?4,?5,?6,?7,0)",params![id,company,name,version,v.get("description").and_then(|x|x.as_str()),entry,manifest_json]) .map_err(|e|format!("PLUGIN-016: ثبت Plugin انجام نشد: {e}"))?;
     tx.execute(
@@ -5285,19 +5104,14 @@ fn execute_plugin(
     }
     let manifest_native: i64=c.query_row("SELECT COUNT(*) FROM plugin_permissions WHERE plugin_id=?1 AND permission='native.execute'",params![plugin_id],|r|r.get(0)).map_err(|e|e.to_string())?;
     if manifest_native == 0 {
-        return Err(
-            "PLUGIN-020: Plugin مجوز native.execute درخواست نکرده است".into(),
-        );
+        return Err("PLUGIN-020: Plugin مجوز native.execute درخواست نکرده است".into());
     }
     let entry:String = c.query_row("SELECT p.entrypoint FROM plugins p LEFT JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![plugin_id,user],|r|r.get(0)).map_err(|_|"PLUGIN-021: اطلاعات Worker یافت نشد".to_string())?;
     let root = plugin_root(&state)?;
     let dir = root.join(&plugin_id);
     let exe = dir.join(&entry);
     if !exe.is_file() {
-        return Err(
-            "PLUGIN-022: Worker نصب‌شده پیدا نشد"
-                .into(),
-        );
+        return Err("PLUGIN-022: Worker نصب‌شده پیدا نشد".into());
     }
     let mut child = std::process::Command::new(&exe)
         .current_dir(&dir)
@@ -5306,16 +5120,12 @@ fn execute_plugin(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| {
-            format!(
-                "PLUGIN-023: اجرای Worker انجام نشد: {e}"
-            )
-        })?;
+        .map_err(|e| format!("PLUGIN-023: اجرای Worker انجام نشد: {e}"))?;
     use std::io::Write;
     if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(payload.as_bytes()).map_err(|e| {
-            format!("PLUGIN-024: ارسال داده به Worker انجام نشد: {e}")
-        })?;
+        stdin
+            .write_all(payload.as_bytes())
+            .map_err(|e| format!("PLUGIN-024: ارسال داده به Worker انجام نشد: {e}"))?;
     }
     let started = std::time::Instant::now();
     loop {
@@ -5335,10 +5145,7 @@ fn execute_plugin(
         }
         if started.elapsed() > std::time::Duration::from_secs(15) {
             let _ = child.kill();
-            return Err(
-                "PLUGIN-026: زمان اجرای Worker بیشتر از ۱۵ ثانیه شد"
-                    .into(),
-            );
+            return Err("PLUGIN-026: زمان اجرای Worker بیشتر از ۱۵ ثانیه شد".into());
         }
         std::thread::sleep(std::time::Duration::from_millis(25));
     }
@@ -5386,10 +5193,7 @@ fn save_custom_report(
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "reports.builder.manage")?;
     if name.trim().is_empty() {
-        return Err(
-            "REP-001: نام گزارش الزامی است"
-                .into(),
-        );
+        return Err("REP-001: نام گزارش الزامی است".into());
     }
     if name.chars().count() > 120 {
         return Err("REP-002: نام گزارش بیش از حد طولانی است".into());
@@ -5496,23 +5300,19 @@ fn create_api_profile(
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "integrations.manage")?;
     if name.trim().is_empty() {
-        return Err(
-            "API-001: نام اتصال الزامی است"
-                .into(),
-        );
+        return Err("API-001: نام اتصال الزامی است".into());
     }
     if !matches!(auth_type.as_str(), "none" | "api_key" | "bearer" | "basic") {
         return Err("API-002: نوع احراز هویت نامعتبر است".into());
     }
-    let base = reqwest::Url::parse(&base_url)
-        .map_err(|_| "API-003: آدرس پایه نامعتبر است".to_string())?;
+    let base =
+        reqwest::Url::parse(&base_url).map_err(|_| "API-003: آدرس پایه نامعتبر است".to_string())?;
     if base.scheme() != "https" {
         return Err("API-004: فقط HTTPS برای اتصال خارجی مجاز است".into());
     }
-    let host = base.host_str().ok_or_else(|| {
-        "API-005: دامنه آدرس مشخص نیست"
-            .to_string()
-    })?;
+    let host = base
+        .host_str()
+        .ok_or_else(|| "API-005: دامنه آدرس مشخص نیست".to_string())?;
     let domains = if allowed_domains.trim().is_empty() {
         host.to_string()
     } else {
@@ -5530,9 +5330,7 @@ fn create_api_profile(
             params![user],
             |r| r.get(0),
         )
-        .map_err(|_| {
-            "API-008: شرکت فعال یافت نشد".to_string()
-        })?;
+        .map_err(|_| "API-008: شرکت فعال یافت نشد".to_string())?;
     let id = format!(
         "api-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
@@ -5541,9 +5339,7 @@ fn create_api_profile(
     if let Some(secret) = secret {
         if !secret.is_empty() {
             let entry = keyring::Entry::new("novin-pardaz-accounting", &api_secret_key(&id))
-                .map_err(|e| {
-                    format!("API-010: دسترسی Secret Storage ممکن نیست: {e}")
-                })?;
+                .map_err(|e| format!("API-010: دسترسی Secret Storage ممکن نیست: {e}"))?;
             entry
                 .set_password(&secret)
                 .map_err(|e| format!("API-011: ذخیره Secret انجام نشد: {e}"))?;
@@ -5566,12 +5362,10 @@ fn execute_api_request(
     require_permission(&state, &c, "integrations.execute")?;
     let p:(String,String,String,Option<String>,i64,bool)=c.query_row("SELECT base_url,auth_type,allowed_domains,auth_header,timeout_ms,enabled FROM api_profiles p JOIN company_users cu ON cu.company_id=p.company_id WHERE p.id=?1 AND cu.user_id=?2 AND cu.is_active=1",params![profile_id,user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get::<_, i32>(5)? != 0))).map_err(|_|"API-012: اتصال API پیدا نشد".to_string())?;
     if !p.5 {
-        return Err(
-            "API-013: اتصال API غیرفعال است".into(),
-        );
+        return Err("API-013: اتصال API غیرفعال است".into());
     }
-    let base = reqwest::Url::parse(&p.0)
-        .map_err(|_| "API-014: Base URL نامعتبر است".to_string())?;
+    let base =
+        reqwest::Url::parse(&p.0).map_err(|_| "API-014: Base URL نامعتبر است".to_string())?;
     let url = base
         .join(path.trim_start_matches('/'))
         .map_err(|_| "API-015: مسیر درخواست نامعتبر است".to_string())?;
@@ -5592,23 +5386,18 @@ fn execute_api_request(
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(p.4 as u64))
         .build()
-        .map_err(|e| {
-            format!("API-019: ساخت Client انجام نشد: {e}")
-        })?;
+        .map_err(|e| format!("API-019: ساخت Client انجام نشد: {e}"))?;
     let mut req = client.request(m, url);
     if let Some(h) = headers_json {
-        let hv: serde_json::Value = serde_json::from_str(&h).map_err(|_| {
-            "API-020: Headers JSON نامعتبر است".to_string()
-        })?;
+        let hv: serde_json::Value = serde_json::from_str(&h)
+            .map_err(|_| "API-020: Headers JSON نامعتبر است".to_string())?;
         if let Some(obj) = hv.as_object() {
             for (k, v) in obj {
                 if matches!(
                     k.to_lowercase().as_str(),
                     "host" | "authorization" | "cookie"
                 ) {
-                    return Err(format!(
-                        "API-021: Header حساس مجاز نیست: {k}"
-                    ));
+                    return Err(format!("API-021: Header حساس مجاز نیست: {k}"));
                 }
                 if let Some(val) = v.as_str() {
                     req = req.header(k, val);
@@ -5618,29 +5407,21 @@ fn execute_api_request(
     }
     if p.1 != "none" {
         let entry = keyring::Entry::new("novin-pardaz-accounting", &api_secret_key(&profile_id))
-            .map_err(|e| {
-                format!(
-                    "API-022: Secret Storage در دسترس نیست: {e}"
-                )
-            })?;
-        let secret = entry.get_password().map_err(|_| {
-            "API-023: Secret این اتصال پیدا نشد"
-                .to_string()
-        })?;
+            .map_err(|e| format!("API-022: Secret Storage در دسترس نیست: {e}"))?;
+        let secret = entry
+            .get_password()
+            .map_err(|_| "API-023: Secret این اتصال پیدا نشد".to_string())?;
         match p.1.as_str() {
             "api_key" => {
-                let h = p.3.ok_or_else(|| {
-                    "API-024: نام Header برای API Key مشخص نشده".to_string()
-                })?;
+                let h =
+                    p.3.ok_or_else(|| "API-024: نام Header برای API Key مشخص نشده".to_string())?;
                 req = req.header(h, secret)
             }
             "bearer" => req = req.bearer_auth(secret),
             "basic" => {
                 let parts = secret.splitn(2, ':').collect::<Vec<_>>();
                 if parts.len() != 2 {
-                    return Err(
-                        "API-025: Secret نوع Basic باید username:password باشد".into(),
-                    );
+                    return Err("API-025: Secret نوع Basic باید username:password باشد".into());
                 }
                 req = req.basic_auth(parts[0], Some(parts[1]))
             }
@@ -5650,11 +5431,9 @@ fn execute_api_request(
     if let Some(b) = body {
         req = req.body(b).header("content-type", "application/json");
     }
-    let resp = req.send().map_err(|e| {
-        format!(
-            "API-026: درخواست ناموفق بود: {e}"
-        )
-    })?;
+    let resp = req
+        .send()
+        .map_err(|e| format!("API-026: درخواست ناموفق بود: {e}"))?;
     let status = resp.status().as_u16();
     let ct = resp
         .headers()
@@ -5821,4 +5600,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running application");
 }
-
