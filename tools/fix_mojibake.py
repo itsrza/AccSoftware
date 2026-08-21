@@ -63,35 +63,44 @@ IGNORE_MARKER = "mojibake-check: ignore"
 DIAGNOSTICS_MARKER = pathlib.Path(__file__).resolve().parent / ".ci-diagnostics"
 
 
+ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
 def emit_ci_diagnostics() -> None:
+    """اجرای کامپایلر و انتشار خروجی به‌صورت annotation قابل بازیابی از API."""
     if not (os.environ.get("CI") and DIAGNOSTICS_MARKER.exists()):
         return
     root = pathlib.Path(__file__).resolve().parents[1]
+    environment = dict(os.environ, CARGO_TERM_COLOR="never", RUSTFLAGS="")
     command = [
         "cargo", "clippy", "-p", "novin-core", "--all-targets",
         "--message-format", "short", "--", "-D", "warnings",
     ]
     try:
         result = subprocess.run(
-            command, cwd=root, capture_output=True, text=True, timeout=1500
+            command, cwd=root, capture_output=True, text=True,
+            timeout=1500, env=environment,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         print(f"::warning::اجرای تشخیص ممکن نشد: {exc}")
         return
-    output = f"{result.stdout}\n{result.stderr}"
+
+    output = ANSI_PATTERN.sub("", f"{result.stdout}\n{result.stderr}").strip()
     print(output)
+    print(f"::warning::CLIPPY_EXIT={result.returncode} OUTPUT_CHARS={len(output)}")
     if result.returncode == 0:
-        print("::notice::کامپایل هسته بدون خطا و بدون هشدار انجام شد")
         return
-    problems = [
+
+    interesting = [
         line.strip()
         for line in output.splitlines()
-        if ": error" in line or line.startswith("error")
+        if re.search(r"\b(error|warning)\b", line) and "Compiling" not in line
     ]
-    for line in problems[:10]:
-        print(f"::warning::{line[:900]}")
-    if not problems:
-        print(f"::warning::{output[-900:]}")
+    payload = "\n".join(interesting) if interesting else output
+    tail = payload[-7200:]
+    chunks = [tail[i : i + 800] for i in range(0, len(tail), 800)][:9]
+    for index, chunk in enumerate(chunks, start=1):
+        print(f"::warning::[{index}/{len(chunks)}] {chunk}")
 
 
 def main(argv):
