@@ -3,6 +3,7 @@
 //! هیچ سندی نباید نامتعادل ثبت شود. این ماژول تنها مرجع اعتبارسنجی سند و
 //! محاسبه‌ی مبالغ فاکتور است؛ لایه‌ی IPC فقط آن را صدا می‌زند.
 
+use crate::coding::{validate_posting, AccountDefinition, CodingError, CodingScheme, Dimensions};
 use crate::money::{Money, MoneyError};
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,12 @@ pub enum AccountingError {
     DiscountTooLarge,
     #[error("ACC-010: خطای محاسبه‌ی مبلغ")]
     Money(#[from] MoneyError),
+    #[error("ACC-011: مبلغ سند باید بزرگ‌تر از صفر باشد")]
+    NonPositiveAmount,
+    #[error("ACC-012: حساب بدهکار و بستانکار نمی‌توانند یکی باشند")]
+    SameAccountOnBothSides,
+    #[error("ACC-013: {0}")]
+    Coding(#[from] CodingError),
 }
 
 /// یک سطر سند حسابداری.
@@ -291,4 +298,98 @@ pub fn purchase_invoice_journal(
     lines.push(JournalLine::credit(payable_account, totals.total));
     validate_journal(&lines)?;
     Ok(lines)
+}
+
+/// یک طرف سند یک‌سطری: حساب + ابعاد مالی آن.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PostingSide {
+    pub account: AccountDefinition,
+    #[serde(default)]
+    pub dimensions: Dimensions,
+}
+
+impl PostingSide {
+    pub fn new(account: AccountDefinition) -> Self {
+        PostingSide {
+            account,
+            dimensions: Dimensions::default(),
+        }
+    }
+
+    pub fn with_dimensions(account: AccountDefinition, dimensions: Dimensions) -> Self {
+        PostingSide {
+            account,
+            dimensions,
+        }
+    }
+
+    fn to_line(&self, amount: Money, debit: bool, description: Option<String>) -> JournalLine {
+        JournalLine {
+            account_id: self.account.code.clone(),
+            subsidiary_id: self
+                .dimensions
+                .subsidiary
+                .as_ref()
+                .map(|subsidiary| subsidiary.code.clone()),
+            cost_center_id: self.dimensions.cost_center.clone(),
+            project_id: self.dimensions.project.clone(),
+            debit: if debit { amount } else { Money::ZERO },
+            credit: if debit { Money::ZERO } else { amount },
+            description,
+        }
+    }
+}
+
+/// **سند حسابداری یک‌سطری** — پرکاربردترین فرم ثبت سند برای حسابدار.
+///
+/// مرجع: تصویر `Rb2xiG` نرم‌افزار فعلی. یک مبلغ، یک شرح، یک طرف بدهکار و یک
+/// طرف بستانکار؛ خروجی یک سند دوسطری کاملاً متعادل و اعتبارسنجی‌شده است.
+///
+/// اعتبارسنجی‌ها: مثبت بودن مبلغ، متفاوت بودن دو طرف، ثبت‌پذیری هر دو حساب و
+/// درستی ابعاد مالی (تفصیلی الزامی، گروه تفصیلی، مرکز هزینه، پروژه).
+pub fn single_line_entry(
+    scheme: &CodingScheme,
+    amount: Money,
+    description: Option<String>,
+    debit_side: &PostingSide,
+    credit_side: &PostingSide,
+) -> Result<Vec<JournalLine>, AccountingError> {
+    if amount.rials() <= 0 {
+        return Err(AccountingError::NonPositiveAmount);
+    }
+    if debit_side.account.code == credit_side.account.code
+        && debit_side.dimensions == credit_side.dimensions
+    {
+        return Err(AccountingError::SameAccountOnBothSides);
+    }
+    validate_posting(scheme, &debit_side.account, &debit_side.dimensions)?;
+    validate_posting(scheme, &credit_side.account, &credit_side.dimensions)?;
+
+    let lines = vec![
+        debit_side.to_line(amount, true, description.clone()),
+        credit_side.to_line(amount, false, description),
+    ];
+    validate_journal(&lines)?;
+    Ok(lines)
+}
+
+/// جابه‌جایی طرفین سند — معادل دکمه‌ی `<>` در فرم سند یک‌سطری.
+pub fn swap_sides(lines: &[JournalLine]) -> Result<Vec<JournalLine>, AccountingError> {
+    build_reversal(lines)
+}
+
+/// اعتبارسنجی ابعاد مالی همه‌ی سطرهای یک سند چندسطری.
+///
+/// نگاشت `accounts` باید برای هر `account_id` تعریف حساب را برگرداند.
+pub fn validate_journal_dimensions(
+    scheme: &CodingScheme,
+    lines: &[JournalLine],
+    resolve: impl Fn(&str) -> Option<(AccountDefinition, Dimensions)>,
+) -> Result<(), AccountingError> {
+    for line in lines {
+        let (account, dimensions) =
+            resolve(&line.account_id).ok_or(AccountingError::MissingAccount)?;
+        validate_posting(scheme, &account, &dimensions)?;
+    }
+    Ok(())
 }

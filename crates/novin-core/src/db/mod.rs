@@ -347,6 +347,98 @@ pub fn migrate(conn: &Connection) -> Result<()> {
       ('purchase.invoice.create','purchase.invoice.create'),('purchase.invoice.post','purchase.invoice.post'),('purchase.invoice.cancel','purchase.invoice.cancel'),
       ('reports.view','reports.view'),('reports.builder.manage','reports.builder.manage'),('printing.template.view','printing.template.view'),('printing.template.manage','printing.template.manage'),('treasury.receipt.create','treasury.receipt.create'),('treasury.payment.create','treasury.payment.create'),('treasury.account.create','treasury.account.create'),('treasury.account.view','treasury.account.view'),('treasury.account.edit','treasury.account.edit'),('treasury.check.view','treasury.check.view'),('treasury.check.create','treasury.check.create'),('treasury.check.update','treasury.check.update'),('sales.return.create','sales.return.create'),('sales.return.post','sales.return.post'),('purchase.return.create','purchase.return.create'),('purchase.return.post','purchase.return.post');
     "#)?;
+    // --- مهاجرت نسخه‌ی ۲: کدینگ چندسطحی، تفصیلی شناور و ابعاد مالی ---
+    conn.execute_batch(
+        r#"
+    CREATE TABLE IF NOT EXISTS coding_schemes(
+      company_id TEXT PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
+      level_widths TEXT NOT NULL DEFAULT '1,2,2,2',
+      level_titles TEXT NOT NULL DEFAULT 'گروه,کل,معین,تفصیلی'
+    );
+    CREATE TABLE IF NOT EXISTS subsidiary_groups(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      is_system INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS subsidiaries(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      group_id TEXT NOT NULL REFERENCES subsidiary_groups(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS cost_centers(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      parent_id TEXT REFERENCES cost_centers(id),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS projects(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      start_date TEXT,
+      end_date TEXT,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','closed')),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_subsidiaries_group ON subsidiaries(group_id);
+    CREATE INDEX IF NOT EXISTS idx_cost_centers_company ON cost_centers(company_id);
+    CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id);
+    "#,
+    )?;
+    for (table, column, definition) in [
+        (
+            "accounts",
+            "requires_subsidiary",
+            "ALTER TABLE accounts ADD COLUMN requires_subsidiary INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "accounts",
+            "subsidiary_group_id",
+            "ALTER TABLE accounts ADD COLUMN subsidiary_group_id TEXT REFERENCES subsidiary_groups(id)",
+        ),
+        (
+            "accounts",
+            "requires_cost_center",
+            "ALTER TABLE accounts ADD COLUMN requires_cost_center INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "accounts",
+            "requires_project",
+            "ALTER TABLE accounts ADD COLUMN requires_project INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "journal_lines",
+            "subsidiary_id",
+            "ALTER TABLE journal_lines ADD COLUMN subsidiary_id TEXT REFERENCES subsidiaries(id)",
+        ),
+        (
+            "journal_lines",
+            "cost_center_id",
+            "ALTER TABLE journal_lines ADD COLUMN cost_center_id TEXT REFERENCES cost_centers(id)",
+        ),
+        (
+            "journal_lines",
+            "project_id",
+            "ALTER TABLE journal_lines ADD COLUMN project_id TEXT REFERENCES projects(id)",
+        ),
+    ] {
+        if !column_exists(conn, table, column)? {
+            conn.execute(definition, [])?;
+        }
+    }
+
     // Backward-compatible schema migrations. Check column existence first.
     if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
         conn.execute(
@@ -508,6 +600,41 @@ pub fn seed(conn: &Connection) -> Result<()> {
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-4','demo-journal-2','acc-1300','کاهش موجودی',0,19000000)",[])?;
     tx.execute("INSERT OR IGNORE INTO treasury_transactions(id,company_id,fiscal_year_id,treasury_account_id,transaction_type,amount,transaction_date,description,reference_type,reference_id,created_by) VALUES('demo-tx-1','company-demo','fy-demo','treasury-cash-demo','receipt',26400000,'1405/05/10','دریافت نمونه فروش','sales','demo-sale-1','user-demo')",[])?;
     tx.execute("INSERT OR IGNORE INTO checks(id,company_id,fiscal_year_id,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,created_by) VALUES('demo-check-1','company-demo','fy-demo','received','CHK-DEMO-001','contact-1','treasury-cash-demo',15000000,'1405/05/01','1405/06/01','registered','بانک نمونه','چک نمونه آموزشی','user-demo')",[])?;
+    // --- گروه‌های تفصیلی شناور (مطابق نرم‌افزار فعلی) ---
+    for (id, code, title) in [
+        ("subgroup-persons", "10", "اشخاص"),
+        ("subgroup-cashboxes", "2020", "صندوق ها"),
+        ("subgroup-banks", "2030", "بانک ها"),
+        ("subgroup-cost-centers", "40", "مراکز هزینه"),
+        ("subgroup-projects", "50", "پروژه ها"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO subsidiary_groups(id,company_id,code,title,is_system) VALUES(?1,'company-demo',?2,?3,1)",
+            rusqlite::params![id, code, title],
+        )?;
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO coding_schemes(company_id) VALUES('company-demo')",
+        [],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO cost_centers(id,company_id,code,title) VALUES('cc-sales','company-demo','4001','واحد فروش')",
+        [],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO cost_centers(id,company_id,code,title) VALUES('cc-admin','company-demo','4002','واحد اداری')",
+        [],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO projects(id,company_id,code,title,status) VALUES('project-demo','company-demo','5001','پروژه نمونه','open')",
+        [],
+    )?;
+    // حساب‌های دریافتنی/پرداختنی باید تفصیلی شخص داشته باشند.
+    tx.execute(
+        "UPDATE accounts SET requires_subsidiary=1, subsidiary_group_id='subgroup-persons' \
+         WHERE company_id='company-demo' AND code IN ('1201','2101')",
+        [],
+    )?;
     tx.commit()?;
     Ok(())
 }
