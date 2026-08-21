@@ -143,7 +143,7 @@ fn t03_jalali_calendar_is_exact_over_two_centuries() {
         let jalali = jalali::from_gregorian(cursor);
         assert!(jalali.is_valid(), "تاریخ شمسی تولیدشده باید معتبر باشد: {jalali:?}");
         assert_eq!(jalali.to_gregorian().unwrap(), cursor, "رفت‌وبرگشت ناسازگار");
-        cursor += chrono::Duration::days(1);
+        cursor = cursor + chrono::Duration::days(1);
         checked += 1;
     }
     assert!(checked > 73_000, "پوشش تست کافی نیست: {checked}");

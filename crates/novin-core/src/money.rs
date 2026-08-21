@@ -260,12 +260,12 @@ impl serde::Serialize for Money {
 }
 impl<'de> serde::Deserialize<'de> for Money {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        i64::deserialize(deserializer).map(Money)
+        <i64 as serde::Deserialize>::deserialize(deserializer).map(Money)
     }
 }
 impl rusqlite::types::FromSql for Money {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        i64::column_result(value).map(Money)
+        <i64 as rusqlite::types::FromSql>::column_result(value).map(Money)
     }
 }
 impl rusqlite::ToSql for Money {
