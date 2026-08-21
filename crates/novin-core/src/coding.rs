@@ -191,7 +191,11 @@ impl CodingScheme {
     }
 
     /// نخستین کد آزاد زیر یک والد.
-    pub fn next_child_code(&self, parent: &str, existing: &[String]) -> Result<String, CodingError> {
+    pub fn next_child_code(
+        &self,
+        parent: &str,
+        existing: &[String],
+    ) -> Result<String, CodingError> {
         let taken: BTreeSet<&str> = existing.iter().map(String::as_str).collect();
         let parent_level = self.level_of(parent)?;
         let width = *self
@@ -383,9 +387,7 @@ pub fn validate_posting(
         (None, Some(_)) if !account.requires_subsidiary => {
             return Err(CodingError::SubsidiaryNotAllowed)
         }
-        (None, None) if account.requires_subsidiary => {
-            return Err(CodingError::SubsidiaryRequired)
-        }
+        (None, None) if account.requires_subsidiary => return Err(CodingError::SubsidiaryRequired),
         _ => {}
     }
     if account.requires_cost_center && dimensions.cost_center.is_none() {

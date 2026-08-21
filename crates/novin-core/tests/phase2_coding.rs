@@ -60,7 +60,10 @@ fn t01_levels_match_legacy_codes() {
     assert_eq!(scheme.parent_code("1"), Err(CodingError::RootHasNoParent));
 
     // کدهای نامعتبر
-    assert_eq!(scheme.level_of("11"), Err(CodingError::UnknownLevel { code: "11".into() }));
+    assert_eq!(
+        scheme.level_of("11"),
+        Err(CodingError::UnknownLevel { code: "11".into() })
+    );
     assert_eq!(scheme.level_of("11a"), Err(CodingError::NonNumericCode));
     assert_eq!(scheme.level_of(""), Err(CodingError::NonNumericCode));
 
@@ -116,7 +119,10 @@ fn t03_child_code_generation_is_exact() {
 
     // ظرفیت سطح (۲ رقم = ۹۹ فرزند)
     assert_eq!(scheme.child_code("1", 99).unwrap(), "199");
-    assert_eq!(scheme.child_code("1", 100), Err(CodingError::LevelExhausted));
+    assert_eq!(
+        scheme.child_code("1", 100),
+        Err(CodingError::LevelExhausted)
+    );
     assert_eq!(scheme.child_code("1", 0), Err(CodingError::LevelExhausted));
     // سطح آخر فرزند ندارد
     assert!(scheme.child_code("1103101", 1).is_err());
@@ -153,7 +159,11 @@ fn t04_account_tree_is_built_and_validated() {
     assert!(!tree[0].is_postable(&scheme), "گروه قابل ثبت نیست");
 
     // والد گم‌شده
-    let orphan = vec![AccountDefinition::new("1103101", "یتیم", AccountNature::Debit)];
+    let orphan = vec![AccountDefinition::new(
+        "1103101",
+        "یتیم",
+        AccountNature::Debit,
+    )];
     assert_eq!(
         build_tree(&scheme, &orphan),
         Err(CodingError::MissingParent {
@@ -197,9 +207,7 @@ fn t05_account_nature_must_agree_with_parent() {
     ];
     assert_eq!(
         build_tree(&scheme, &conflicting),
-        Err(CodingError::NatureConflict {
-            code: "110".into()
-        })
+        Err(CodingError::NatureConflict { code: "110".into() })
     );
 
     // والد دوطرفه هر دو ماهیت را می‌پذیرد
@@ -334,8 +342,7 @@ fn t09_single_line_entry_produces_balanced_journal() {
         group: "persons".into(),
     };
     let debit_side = PostingSide::with_dimensions(
-        leaf("1103101", "اشخاص - دریافتنی", AccountNature::Debit)
-            .with_subsidiary_group("persons"),
+        leaf("1103101", "اشخاص - دریافتنی", AccountNature::Debit).with_subsidiary_group("persons"),
         Dimensions::with_subsidiary(customer.clone()),
     );
     let credit_side = PostingSide::new(leaf("4101101", "فروش کالا", AccountNature::Credit));
@@ -458,7 +465,8 @@ fn t10_database_supports_financial_dimensions() {
             .collect();
         rows
     };
-    for expected in ["اشخاص", "صندوق ها", "بانک ها", "مراکز هزینه", "پروژه ها"] {
+    for expected in ["اشخاص", "صندوق ها", "بانک ها", "مراکز هزینه", "پروژه ها"]
+    {
         assert!(
             groups.iter().any(|title| title == expected),
             "گروه تفصیلی «{expected}» در داده‌ی پایه نیست"
@@ -481,16 +489,20 @@ fn t10_database_supports_financial_dimensions() {
         .unwrap();
     assert!(cost_centers >= 2);
     let projects: i64 = conn
-        .query_row("SELECT COUNT(*) FROM projects WHERE status='open'", [], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT COUNT(*) FROM projects WHERE status='open'",
+            [],
+            |row| row.get(0),
+        )
         .unwrap();
     assert!(projects >= 1);
 
     // مهاجرت باید idempotent بماند
     novin_core::db::migrate(&conn).expect("اجرای دوباره‌ی مهاجرت نباید خطا بدهد");
     let groups_after: i64 = conn
-        .query_row("SELECT COUNT(*) FROM subsidiary_groups", [], |row| row.get(0))
+        .query_row("SELECT COUNT(*) FROM subsidiary_groups", [], |row| {
+            row.get(0)
+        })
         .unwrap();
     assert_eq!(groups_after, 5, "داده‌ی پایه نباید تکرار شود");
 }
