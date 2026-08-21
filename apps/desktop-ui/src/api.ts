@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { toAppError } from './lib/errors'
 
 export type Contact={id:string,name:string,kind:string,mobile?:string,is_customer:boolean,is_supplier:boolean}
 export type Product={id:string,sku:string,barcode?:string,name:string,unit:string,sale_price:number,purchase_price:number,min_stock:number}
@@ -7,8 +8,18 @@ export type Journal={id:string,number:number,entry_date:string,description:strin
 export type Warehouse={id:string,name:string,code:string,is_active:boolean}
 export type StockBalance={product_id:string,warehouse_id:string,quantity:number,reserved_quantity:number,available_quantity:number}
 
+/**
+ * تنها دروازه‌ی فراخوانی بک‌اند.
+ *
+ * هر خطای IPC اینجا به `AppError` ساخت‌یافته تبدیل می‌شود تا هیچ متن فنی خامی
+ * به لایه‌ی نمایش نشت نکند.
+ */
 export async function api<T>(command:string,args?:Record<string,unknown>):Promise<T>{
- return await invoke<T>(command,args)
+ try{
+  return await invoke<T>(command,args)
+ }catch(error){
+  throw toAppError(error)
+ }
 }
 export const login=(username:string,password:string)=>api<{id:string,username:string,display_name:string}>('login',{username,password})
 export const getContacts=()=>api<Contact[]>('list_contacts')

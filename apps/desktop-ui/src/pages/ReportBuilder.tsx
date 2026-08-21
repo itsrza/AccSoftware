@@ -1,6 +1,8 @@
 import {useEffect,useMemo,useState} from 'react'
 import {getAccountLedgerSummary,getInventoryValuation,getPurchaseReport,getSalesReport,listCustomReports,saveCustomReport,deleteCustomReport,SalesReportRow,PurchaseReportRow,InventoryValuation,AccountLedgerSummary} from '../api'
 import {Icon} from '../components/Icon'
+import {errorText} from '../lib/errors'
+import {formatRials as money, formatNumber as n} from '../lib/format'
 
 type Source='sales'|'purchase'|'inventory'|'ledger'
 type Row=Record<string,string|number>
@@ -14,7 +16,6 @@ const columns:Record<Source,Column[]>={
  ledger:[['code','کد'],['name','حساب'],['debit','بدهکار'],['credit','بستانکار'],['balance','مانده']].map(([key,label])=>({key,label}))
 }
 const today=()=>new Date().toISOString().slice(0,10)
-const money=(n:number)=>new Intl.NumberFormat('fa-IR').format(Math.round(n))
 const escapeHtml=(v:string)=>v.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')
 function normalize(source:Source,data:unknown):Row[]{
  if(source==='sales'||source==='purchase') return (data as (SalesReportRow|PurchaseReportRow)[]).map(x=>({...x,contact_name:x.contact_name||'بدون شخص'}))
@@ -27,14 +28,14 @@ export function ReportBuilder(){
  const [source,setSource]=useState<Source>('sales'); const [data,setData]=useState<Row[]>([]); const [config,setConfig]=useState<Config>({columns:columns.sales.map(c=>c.key),filter:'',sortKey:'',sortDir:'asc',groupKey:'',from:'',to:today()}); const [name,setName]=useState('گزارش سفارشی'); const [saved,setSaved]=useState<{id:string,name:string,source:string,config_json:string}[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState('')
  const available=columns[source]
  useEffect(()=>{setConfig(c=>({...c,columns:available.map(x=>x.key),sortKey:'',groupKey:''}));loadSource(source)},[source])
- const loadSource=async(s:Source)=>{setLoading(true);setError('');try{const d=s==='sales'?await getSalesReport(config.from||undefined,config.to||undefined):s==='purchase'?await getPurchaseReport(config.from||undefined,config.to||undefined):s==='inventory'?await getInventoryValuation():await getAccountLedgerSummary(config.from||undefined,config.to||undefined);setData(normalize(s,d))}catch(e){setError(String(e))}finally{setLoading(false)}}
- const refreshSaved=async()=>{try{setSaved(await listCustomReports())}catch(e){setError(String(e))}}
+ const loadSource=async(s:Source)=>{setLoading(true);setError('');try{const d=s==='sales'?await getSalesReport(config.from||undefined,config.to||undefined):s==='purchase'?await getPurchaseReport(config.from||undefined,config.to||undefined):s==='inventory'?await getInventoryValuation():await getAccountLedgerSummary(config.from||undefined,config.to||undefined);setData(normalize(s,d))}catch(e){setError(errorText(e))}finally{setLoading(false)}}
+ const refreshSaved=async()=>{try{setSaved(await listCustomReports())}catch(e){setError(errorText(e))}}
  useEffect(()=>{refreshSaved()},[])
  const result=useMemo(()=>{let r=data.filter(row=>!config.filter||Object.values(row).some(v=>String(v??'').toLowerCase().includes(config.filter.toLowerCase())));if(config.sortKey)r=[...r].sort((a,b)=>{const av=a[config.sortKey],bv=b[config.sortKey];const cmp=String(av??'').localeCompare(String(bv??''),'fa',{numeric:true});return config.sortDir==='asc'?cmp:-cmp});return r},[data,config.filter,config.sortKey,config.sortDir])
  const selected=available.filter(c=>config.columns.includes(c.key));
  const grouped=useMemo(()=>{if(!config.groupKey)return [{key:'',rows:result}];const m=new Map<string,Row[]>();for(const row of result){const k=String(row[config.groupKey]??'—');if(!m.has(k))m.set(k,[]);m.get(k)!.push(row)}return [...m].map(([key,rows])=>({key,rows}))},[result,config.groupKey])
- const save=async()=>{try{setError('');await saveCustomReport(undefined,name,source,JSON.stringify(config));await refreshSaved()}catch(e){setError(String(e))}}
- const remove=async(id:string)=>{try{await deleteCustomReport(id);await refreshSaved()}catch(e){setError(String(e))}}
+ const save=async()=>{try{setError('');await saveCustomReport(undefined,name,source,JSON.stringify(config));await refreshSaved()}catch(e){setError(errorText(e))}}
+ const remove=async(id:string)=>{try{await deleteCustomReport(id);await refreshSaved()}catch(e){setError(errorText(e))}}
  const loadSaved=(x:{name:string,source:string,config_json:string})=>{try{const c=JSON.parse(x.config_json) as Config;setSource(x.source as Source);setName(x.name);setConfig(c);loadSource(x.source as Source)}catch{setError('تنظیمات گزارش ذخیره‌شده نامعتبر است')}}
  const exportCsv=()=>download(`${name}.csv`,csv(result,selected),'text/csv;charset=utf-8')
  const exportExcel=()=>{const html=`<html><head><meta charset="utf-8"></head><body dir="rtl"><table border="1"><thead><tr>${selected.map(c=>`<th>${escapeHtml(c.label)}</th>`).join('')}</tr></thead><tbody>${result.map(r=>`<tr>${selected.map(c=>`<td>${escapeHtml(String(r[c.key]??''))}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;download(`${name}.xls`,html,'application/vnd.ms-excel;charset=utf-8')}

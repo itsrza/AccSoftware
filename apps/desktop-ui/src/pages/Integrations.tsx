@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react'
 import {createApiProfile,getApiProfiles,getPlugins,setApiProfileEnabled,setPluginEnabled,ApiProfile,PluginInfo} from '../api'
+import {errorText} from '../lib/errors'
 
 export function Integrations(){
   const [profiles,setProfiles]=useState<ApiProfile[]>([])
@@ -7,9 +8,9 @@ export function Integrations(){
   const [loading,setLoading]=useState(true)
   const [form,setForm]=useState({name:'',baseUrl:'https://',authType:'none' as ApiProfile['auth_type'],authHeader:'',timeout:'10000',domains:'',secret:''})
   const [error,setError]=useState('')
-  const load=async()=>{setLoading(true);setError('');try{const [p,g]=await Promise.all([getApiProfiles(),getPlugins()]);setProfiles(p);setPlugins(g)}catch(e){setError(String(e))}finally{setLoading(false)}}
+  const load=async()=>{setLoading(true);setError('');try{const [p,g]=await Promise.all([getApiProfiles(),getPlugins()]);setProfiles(p);setPlugins(g)}catch(e){setError(errorText(e))}finally{setLoading(false)}}
   useEffect(()=>{void load()},[])
-  const create=async()=>{try{setError('');await createApiProfile(form.name,form.baseUrl,form.authType,form.authHeader||undefined,Number(form.timeout),form.domains,form.secret||undefined);setForm({...form,name:'',secret:''});await load()}catch(e){setError(String(e))}}
+  const create=async()=>{try{setError('');await createApiProfile(form.name,form.baseUrl,form.authType,form.authHeader||undefined,Number(form.timeout),form.domains,form.secret||undefined);setForm({...form,name:'',secret:''});await load()}catch(e){setError(errorText(e))}}
   return <section className="page" dir="rtl"><div className="page-head"><div><h1>اتصالات و افزونه‌ها</h1><p>مدیریت API و Native Workerها با کنترل دسترسی</p></div></div>
     {error&&<div className="error-box">{error}</div>}
     <div className="panel"><div className="panel-head"><h2>اتصالات API</h2></div><div className="form-grid">

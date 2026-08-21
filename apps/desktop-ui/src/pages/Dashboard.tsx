@@ -1,7 +1,8 @@
 import {useEffect,useMemo,useState} from 'react'
 import {Icon} from '../components/Icon'
 import {DashboardKpi,SalesTrend,TopProduct,LowStock,RecentInvoice,getDashboardKpis,getSalesTrend,getTopProducts,getLowStockReport,getRecentInvoices} from '../api'
-const money=(n:number)=>new Intl.NumberFormat('fa-IR').format(Math.round(n))
+import {errorText} from '../lib/errors'
+import {formatRials as money, formatNumber as n} from '../lib/format'
 const pct=(n:number)=>new Intl.NumberFormat('fa-IR',{maximumFractionDigits:1}).format(n)
 
 function Chart({data}:{data:SalesTrend[]}){
@@ -21,7 +22,7 @@ function Chart({data}:{data:SalesTrend[]}){
 
 export function Dashboard({demo,onSettings,onNavigate}:{demo:boolean,onSettings:()=>void,onNavigate:(p:string)=>void}){
  const [kpi,setKpi]=useState<DashboardKpi>(); const [trend,setTrend]=useState<SalesTrend[]>([]); const [products,setProducts]=useState<TopProduct[]>([]); const [low,setLow]=useState<LowStock[]>([]); const [recent,setRecent]=useState<RecentInvoice[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('')
- const load=async()=>{setLoading(true);setError('');try{const [a,b,c,d,e]=await Promise.all([getDashboardKpis(),getSalesTrend(),getTopProducts(),getLowStockReport(),getRecentInvoices()]);setKpi(a);setTrend(b.slice(-6));setProducts(c);setLow(d);setRecent(e)}catch(e){setError(String(e))}finally{setLoading(false)}}
+ const load=async()=>{setLoading(true);setError('');try{const [a,b,c,d,e]=await Promise.all([getDashboardKpis(),getSalesTrend(),getTopProducts(),getLowStockReport(),getRecentInvoices()]);setKpi(a);setTrend(b.slice(-6));setProducts(c);setLow(d);setRecent(e)}catch(e){setError(errorText(e))}finally{setLoading(false)}}
  useEffect(()=>{if(demo)load();else setLoading(false)},[demo])
  if(!demo)return <section className="page"><div className="empty-state"><div className="empty-icon"><Icon name="grid" size={28}/></div><h2>داشبورد آماده است</h2><p>داده‌های نمونه حذف شده‌اند. پس از ثبت اطلاعات واقعی، شاخص‌ها اینجا نمایش داده می‌شوند.</p><button className="primary" onClick={onSettings}><Icon name="settings"/> مدیریت داده‌ها</button></div></section>
  const stats=kpi?[{title:'فروش',value:kpi.sales,tone:'gold',icon:'receipt'},{title:'سود ناخالص',value:kpi.gross_profit,tone:'green',icon:'trend'},{title:'مطالبات مشتریان',value:kpi.receivables,tone:'purple',icon:'users'},{title:'ارزش موجودی',value:kpi.inventory_value,tone:'red',icon:'package'}]:[]

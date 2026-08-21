@@ -16,6 +16,7 @@ import {DataTools} from './pages/DataTools'
 import {PrintTemplates} from './pages/PrintTemplates'
 import {getDemoStatus,deleteDemo,login} from './api'
 import './styles.css'
+import {errorText} from './lib/errors'
 
 const menu = [
   {id:'dashboard',label:'داشبورد',icon:'grid'},
@@ -56,7 +57,7 @@ export default function App(){
           if(alive)setDemo(status)
         }
       }catch(e){
-        if(alive)setBootError(String(e))
+        if(alive)setBootError(errorText(e))
       }finally{
         if(alive)setBooting(false)
       }
@@ -90,7 +91,7 @@ export default function App(){
     </aside>
     <main className="main">
       <header className="topbar">
-        <div className="demo-control">{DEMO_BUILD&&demo&&<button className="demo-delete" disabled={demoBusy} onClick={async()=>{if(!confirm('تمام محتوای نمونه حذف می‌شود. این عملیات برای نسخه توسعه است. ادامه می‌دهید؟'))return;setDemoBusy(true);try{await deleteDemo();setDemo(false);window.location.reload()}catch(e){alert(String(e))}finally{setDemoBusy(false)}}}>{demoBusy?'در حال حذف...':'حذف محتوای دمو'}</button>}</div>
+        <div className="demo-control">{DEMO_BUILD&&demo&&<button className="demo-delete" disabled={demoBusy} onClick={async()=>{if(!confirm('تمام محتوای نمونه حذف می‌شود. این عملیات برای نسخه توسعه است. ادامه می‌دهید؟'))return;setDemoBusy(true);try{await deleteDemo();setDemo(false);window.location.reload()}catch(e){alert(errorText(e))}finally{setDemoBusy(false)}}}>{demoBusy?'در حال حذف...':'حذف محتوای دمو'}</button>}</div>
         <div className="breadcrumbs"><span>شرکت نوین پرداز</span><b>/</b><strong>{page==='dashboard'?'داشبورد':page==='sales'?'فروش':page==='inventory'?'انبار و کالا':page==='contacts'?'اشخاص':page==='treasury'?'خزانه':page==='checks'?'چک‌ها':page==='accounting'?'حسابداری':page==='integrations'?'اتصالات و افزونه‌ها':page==='data-tools'?'ورود و خروج اطلاعات':page==='print-templates'?'قالب‌های چاپ':'گزارشات'}</strong></div>
         <div className="top-actions">
           <button className="global-search command-trigger" onClick={()=>setPalette(true)}><Icon name="search" size={17}/><span>جستجوی سریع یا اجرای دستور...</span><kbd>Ctrl K</kbd></button>

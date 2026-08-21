@@ -131,6 +131,10 @@ jobs:
         working-directory: apps/desktop-ui
         run: npx tsc --noEmit
 
+      - name: تست‌های لایه‌ی ارائه
+        working-directory: apps/desktop-ui
+        run: npm test
+
       - name: بیلد تولیدی
         working-directory: apps/desktop-ui
         run: npm run build
