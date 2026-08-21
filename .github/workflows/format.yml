@@ -1,0 +1,42 @@
+name: Auto Format
+
+# چون محیط توسعه‌ی عامل به crates.io دسترسی ندارد، قالب‌بندی کد Rust
+# به‌صورت خودکار در CI اعمال و commit می‌شود تا سبک کد همیشه یکدست بماند.
+
+on:
+  push:
+    branches: ["arena/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fmt-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rustfmt:
+    name: قالب‌بندی خودکار Rust
+    if: "!contains(github.event.head_commit.message, '[skip fmt]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - run: rustup component add rustfmt
+
+      - name: اعمال قالب‌بندی
+        run: cargo fmt --all
+
+      - name: ثبت تغییرات در صورت وجود
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "novin-ci"
+            git config user.email "ci@novinacc.local"
+            git commit -am "style: apply rustfmt [skip fmt]"
+            git push origin HEAD:${{ github.ref_name }}
+          else
+            echo "کد از قبل قالب‌بندی شده است."
+          fi
