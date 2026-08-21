@@ -358,11 +358,11 @@ pub fn validate_check(
 }
 
 /// چک‌های نزدیک سررسید برای هشدار و پیامک یادآوری.
-pub fn due_within<'a>(
+pub fn due_within(
     base: NaiveDate,
     horizon_days: i64,
-    items: &'a [(CheckItem, CheckStatus)],
-) -> Vec<&'a CheckItem> {
+    items: &[(CheckItem, CheckStatus)],
+) -> Vec<&CheckItem> {
     items
         .iter()
         .filter(|(item, status)| {
