@@ -2895,12 +2895,16 @@ fn create_stocktake(
                  WHERE p.company_id=?1 AND p.is_service=0 ORDER BY p.sku",
             )
             .map_err(|e| e.to_string())?;
-        st.query_map(params![company, warehouse_id], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(Result::ok)
-        .collect()
+        // نتیجه پیش از پایان بلوک به متغیر بسته می‌شود تا `st` زودتر از
+        // مصرف‌کننده‌ی خود از بین نرود.
+        let rows: Vec<(String, f64)> = st
+            .query_map(params![company, warehouse_id], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .collect();
+        rows
     };
     if products.is_empty() {
         return Err("STK-011: کالایی برای انبارگردانی یافت نشد".into());
