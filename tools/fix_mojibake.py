@@ -66,11 +66,74 @@ DIAGNOSTICS_MARKER = pathlib.Path(__file__).resolve().parent / ".ci-diagnostics"
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
+def _run(command, cwd, timeout=1800, env=None):
+    try:
+        return subprocess.run(
+            command, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"::warning::اجرای دستور ممکن نشد: {exc}")
+        return None
+
+
+def _annotate(output: str, prefix: str) -> None:
+    """انتشار خروجی کامپایلر به‌صورت annotation قابل خواندن از REST API."""
+    cleaned = ANSI_PATTERN.sub("", output).strip()
+    print(cleaned)
+    interesting = [
+        line.strip()
+        for line in cleaned.splitlines()
+        if re.search(r"\b(error|warning)\b", line) and "Compiling" not in line
+    ]
+    payload = "\n".join(interesting) if interesting else cleaned
+    tail = payload[-7200:]
+    chunks = [tail[i : i + 800] for i in range(0, len(tail), 800)][:9]
+    for index, chunk in enumerate(chunks, start=1):
+        print(f"::warning::{prefix}[{index}/{len(chunks)}] {chunk}")
+
+
+def emit_host_diagnostics(root: pathlib.Path, environment: dict) -> None:
+    """کامپایل میزبان Tauri روی لینوکس برای دیدن خطاهایی که فقط در ویندوز ظاهر می‌شوند.
+
+    کد میزبان مستقل از پلتفرم است؛ فقط وابستگی‌های سیستمی WebKit لازم است که
+    اینجا نصب می‌شوند. این مسیر فقط برای عیب‌یابی است و بخشی از خط لوله نیست.
+    """
+    packages = [
+        "libwebkit2gtk-4.1-dev",
+        "libgtk-3-dev",
+        "libayatana-appindicator3-dev",
+        "librsvg2-dev",
+        "libsoup-3.0-dev",
+    ]
+    print("::notice::نصب وابستگی‌های سیستمی برای کامپایل میزبان…")
+    _run(["sudo", "apt-get", "update", "-qq"], cwd=root, timeout=600)
+    installed = _run(
+        ["sudo", "apt-get", "install", "-y", "-qq", *packages], cwd=root, timeout=1200
+    )
+    if installed is None or installed.returncode != 0:
+        print("::warning::نصب وابستگی‌های سیستمی ناموفق بود؛ کامپایل میزبان انجام نشد")
+        return
+    result = _run(
+        [
+            "cargo", "check", "-p", "novin-accounting-host",
+            "--all-targets", "--message-format", "short",
+        ],
+        cwd=root,
+        env=environment,
+    )
+    if result is None:
+        return
+    print(f"::warning::HOST_EXIT={result.returncode}")
+    if result.returncode != 0:
+        _annotate(f"{result.stdout}\n{result.stderr}", "HOST ")
+
+
 def emit_ci_diagnostics() -> None:
     """اجرای کامپایلر و انتشار خروجی به‌صورت annotation قابل بازیابی از API."""
     if not (os.environ.get("CI") and DIAGNOSTICS_MARKER.exists()):
         return
     root = pathlib.Path(__file__).resolve().parents[1]
+    marker_text = DIAGNOSTICS_MARKER.read_text(encoding="utf-8", errors="ignore")
     environment = dict(os.environ, CARGO_TERM_COLOR="never", RUSTFLAGS="")
     command = [
         "cargo", "clippy", "-p", "novin-core", "--all-targets",
@@ -86,21 +149,12 @@ def emit_ci_diagnostics() -> None:
         return
 
     output = ANSI_PATTERN.sub("", f"{result.stdout}\n{result.stderr}").strip()
-    print(output)
     print(f"::warning::CLIPPY_EXIT={result.returncode} OUTPUT_CHARS={len(output)}")
-    if result.returncode == 0:
-        return
+    if result.returncode != 0:
+        _annotate(output, "")
 
-    interesting = [
-        line.strip()
-        for line in output.splitlines()
-        if re.search(r"\b(error|warning)\b", line) and "Compiling" not in line
-    ]
-    payload = "\n".join(interesting) if interesting else output
-    tail = payload[-7200:]
-    chunks = [tail[i : i + 800] for i in range(0, len(tail), 800)][:9]
-    for index, chunk in enumerate(chunks, start=1):
-        print(f"::warning::[{index}/{len(chunks)}] {chunk}")
+    if "host" in marker_text:
+        emit_host_diagnostics(root, environment)
 
 
 def main(argv):
