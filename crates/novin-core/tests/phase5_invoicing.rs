@@ -16,7 +16,6 @@
 //! | ۹ | اقساط | سررسید ماه شمسی و جمع دقیق |
 //! | ۱۰ | مانده و تسویه | نمایش زنده‌ی مانده و تفکیک روش‌های پرداخت |
 
-use chrono::NaiveDate;
 use novin_core::invoicing::{
     balance_view, calculate, installment_plan, resolve_tier_discount, validate_serials, Coupon,
     CouponKind, DiscountTier, FreightMode, InvoiceError, InvoiceInput, InvoiceLine,
