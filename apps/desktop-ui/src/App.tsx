@@ -448,7 +448,7 @@ export default function App() {
                     <div className="nav-row">
                       <button
                         className={`nav-item${isActive ? ' active' : ''}`}
-                        data-tip={item.label}
+                        title={item.label}
                         onClick={() => go(item.page)}
                       >
                         <span className="nav-icon">
@@ -488,22 +488,30 @@ export default function App() {
 
         <div className="sidebar-foot">
           <div className="nav-row">
-            <button className="nav-item" data-tip="تنظیمات برنامه" onClick={() => setSettings(true)}>
+            <button
+              className="nav-item"
+              title="تنظیمات برنامه"
+              onClick={() => setSettings(true)}
+            >
               <span className="nav-icon">
                 <Icon name="settings" size={19} />
               </span>
               <span className="nav-label">تنظیمات برنامه</span>
             </button>
           </div>
+          <div className="nav-row">
+            <button
+              className="nav-item sidebar-toggle-item"
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+            >
+              <span className={`nav-icon toggle-icon${collapsed ? ' flipped' : ''}`}>
+                <Icon name="chevron" size={18} />
+              </span>
+              <span className="nav-label">جمع کردن منو</span>
+            </button>
+          </div>
         </div>
-
-        <button
-          className="sidebar-toggle"
-          onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? 'باز کردن منو' : 'جمع کردن منو'}
-        >
-          <Icon name="chevron" size={14} />
-        </button>
       </aside>
 
       <main className="main">
