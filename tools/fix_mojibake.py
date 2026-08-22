@@ -175,8 +175,9 @@ def emit_ci_diagnostics() -> None:
             failures = [
                 line.strip()
                 for line in combined.splitlines()
-                if re.search(r"^(test .*FAILED|---- .* stdout ----|assertion|thread .* panicked|\s+left:|\s+right:|panicked at)", line.strip())
-                or "test result: FAILED" in line
+                if re.search(
+                    r"FAILED|panicked|assertion|left:|right:|stdout ----", line
+                )
             ]
             payload = "\n".join(failures) if failures else combined[-4000:]
             head = payload[:7200]
