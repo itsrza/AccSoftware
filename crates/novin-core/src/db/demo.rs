@@ -97,6 +97,13 @@ fn demo_date(offset: usize) -> String {
     format!("{year}/{month:02}/{day:02}")
 }
 
+/// برچسب‌گذاری خطای هر مرحله تا در صورت شکست، دقیقاً بدانیم کجا بوده است.
+fn step(name: &str, outcome: Result<()>) -> Result<()> {
+    outcome.map_err(|error| {
+        rusqlite::Error::ModuleError(format!("مرحله‌ی داده‌ی نمونه «{name}»: {error}"))
+    })
+}
+
 /// خواندن شناسه‌های واقعی یک جدول پس از درج.
 ///
 /// چرا لازم است: اگر درجی به‌خاطر یکتا بودن نام یا کد نادیده گرفته شود،
@@ -126,9 +133,9 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
 
     let tx = conn.unchecked_transaction()?;
 
-    seed_required_accounts(&tx)?;
-    seed_warehouses(&tx)?;
-    seed_treasury(&tx)?;
+    step("accounts", seed_required_accounts(&tx))?;
+    step("warehouses", seed_warehouses(&tx))?;
+    step("treasury", seed_treasury(&tx))?;
 
     // شناسه‌های واقعی پس از درج خوانده می‌شوند تا ارجاع‌ها همیشه معتبر باشند.
     let warehouse_ids = collect_ids(
@@ -143,13 +150,13 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
         return Ok(());
     }
 
-    seed_products(&tx)?;
-    seed_contacts(&tx)?;
-    seed_inventory(&tx, &warehouse_ids)?;
-    seed_sales(&tx, &warehouse_ids)?;
-    seed_purchases(&tx, &warehouse_ids)?;
-    seed_treasury_documents(&tx, &treasury_ids)?;
-    seed_checks(&tx, &treasury_ids)?;
+    step("products", seed_products(&tx))?;
+    step("contacts", seed_contacts(&tx))?;
+    step("inventory", seed_inventory(&tx, &warehouse_ids))?;
+    step("sales", seed_sales(&tx, &warehouse_ids))?;
+    step("purchases", seed_purchases(&tx, &warehouse_ids))?;
+    step("treasury_documents", seed_treasury_documents(&tx, &treasury_ids))?;
+    step("checks", seed_checks(&tx, &treasury_ids))?;
 
     tx.commit()?;
     Ok(())
