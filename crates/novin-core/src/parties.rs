@@ -34,7 +34,9 @@ pub enum PartyError {
     MissingCompanyName,
     #[error("PRT-010: سقف اعتبار نمی‌تواند منفی باشد")]
     NegativeCreditLimit,
-    #[error("PRT-011: سقف اعتبار مشتری تمام شده است؛ مانده بدهی: {balance} ریال، سقف: {limit} ریال")]
+    #[error(
+        "PRT-011: سقف اعتبار مشتری تمام شده است؛ مانده بدهی: {balance} ریال، سقف: {limit} ریال"
+    )]
     CreditLimitExceeded { balance: i64, limit: i64 },
     #[error("PRT-012: شخص باید حداقل یکی از نقش‌های مشتری یا تأمین‌کننده را داشته باشد")]
     NoCommercialRole,
@@ -163,7 +165,11 @@ pub fn national_id_is_valid(input: &str) -> bool {
     }
     let sum: u32 = (0..9).map(|index| bytes[index] * (10 - index as u32)).sum();
     let remainder = sum % 11;
-    let expected = if remainder < 2 { remainder } else { 11 - remainder };
+    let expected = if remainder < 2 {
+        remainder
+    } else {
+        11 - remainder
+    };
     bytes[9] == expected
 }
 
@@ -179,7 +185,9 @@ pub fn legal_id_is_valid(input: &str) -> bool {
     }
     let offset = bytes[9] + 2;
     const WEIGHTS: [u32; 10] = [29, 27, 23, 19, 17, 29, 27, 23, 19, 17];
-    let sum: u32 = (0..10).map(|index| (bytes[index] + offset) * WEIGHTS[index]).sum();
+    let sum: u32 = (0..10)
+        .map(|index| (bytes[index] + offset) * WEIGHTS[index])
+        .sum();
     let remainder = sum % 11;
     let expected = if remainder == 10 { 0 } else { remainder };
     bytes[10] == expected

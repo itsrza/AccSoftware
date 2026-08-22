@@ -296,7 +296,10 @@ fn t07_party_validation_combines_all_rules() {
 #[test]
 fn t08_balance_summary_reproduces_legacy_panel() {
     // وضعیت تک‌تک مانده‌ها
-    assert_eq!(BalanceStatus::of(Money::from_rials(1)), BalanceStatus::Debtor);
+    assert_eq!(
+        BalanceStatus::of(Money::from_rials(1)),
+        BalanceStatus::Debtor
+    );
     assert_eq!(
         BalanceStatus::of(Money::from_rials(-1)),
         BalanceStatus::Creditor
@@ -307,14 +310,14 @@ fn t08_balance_summary_reproduces_legacy_panel() {
 
     // نمونه‌ی واقعی از تصویر: بدهکاران با علامت مثبت، بستانکاران با منفی
     let balances = [
-        Money::from_rials(5_749_885_636),  // _متفرقه
-        Money::from_rials(659_375_489),    // حسن باصری
-        Money::from_rials(1_983_672),      // پرداختی های نامشخص
-        Money::from_rials(-610_541_527),   // فرهاد ترابی (بستانکار)
-        Money::from_rials(-67_930_542),    // خاکپور (بستانکار)
-        Money::from_rials(10_687_500),     // محمدعلی رشیدی
-        Money::ZERO,                       // بی‌حساب
-        Money::ZERO,                       // بی‌حساب
+        Money::from_rials(5_749_885_636), // _متفرقه
+        Money::from_rials(659_375_489),   // حسن باصری
+        Money::from_rials(1_983_672),     // پرداختی های نامشخص
+        Money::from_rials(-610_541_527),  // فرهاد ترابی (بستانکار)
+        Money::from_rials(-67_930_542),   // خاکپور (بستانکار)
+        Money::from_rials(10_687_500),    // محمدعلی رشیدی
+        Money::ZERO,                      // بی‌حساب
+        Money::ZERO,                      // بی‌حساب
     ];
     let summary = summarize_balances(&balances);
 
