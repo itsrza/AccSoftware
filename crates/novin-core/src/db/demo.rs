@@ -51,10 +51,28 @@ const PRODUCT_NAMES: [(&str, &str, &str, i64); 12] = [
 
 /// نام‌های ایرانی برای تولید اشخاص.
 const FIRST_NAMES: [&str; 10] = [
-    "محمد", "علی", "رضا", "حسین", "مهدی", "فاطمه", "زهرا", "مریم", "سارا", "نگار",
+    "محمد",
+    "علی",
+    "رضا",
+    "حسین",
+    "مهدی",
+    "فاطمه",
+    "زهرا",
+    "مریم",
+    "سارا",
+    "نگار",
 ];
 const LAST_NAMES: [&str; 10] = [
-    "محمدی", "احمدی", "رضایی", "حسینی", "کریمی", "موسوی", "جعفری", "قاسمی", "نوری", "صادقی",
+    "محمدی",
+    "احمدی",
+    "رضایی",
+    "حسینی",
+    "کریمی",
+    "موسوی",
+    "جعفری",
+    "قاسمی",
+    "نوری",
+    "صادقی",
 ];
 const COMPANY_NAMES: [&str; 8] = [
     "بازرگانی پارس",
@@ -117,8 +135,18 @@ fn seed_treasury(tx: &Connection) -> Result<()> {
     let accounts: [(&str, &str, &str, &str); 5] = [
         ("treasury-cash-1", "صندوق مرکزی", "cash", "acc-1101"),
         ("treasury-cash-2", "صندوق فروشگاه", "cash", "acc-1101"),
-        ("treasury-bank-mellat", "بانک ملت — جاری ۱۲۳۴", "bank", "acc-1101"),
-        ("treasury-bank-saderat", "بانک صادرات — جاری ۵۶۷۸", "bank", "acc-1101"),
+        (
+            "treasury-bank-mellat",
+            "بانک ملت — جاری ۱۲۳۴",
+            "bank",
+            "acc-1101",
+        ),
+        (
+            "treasury-bank-saderat",
+            "بانک صادرات — جاری ۵۶۷۸",
+            "bank",
+            "acc-1101",
+        ),
         ("treasury-petty", "تنخواه اداری", "petty_cash", "acc-1101"),
     ];
     for (index, (id, name, kind, linked)) in accounts.iter().enumerate() {
@@ -213,7 +241,11 @@ fn seed_contacts(tx: &Connection) -> Result<()> {
         let id = format!("demo-contact-{index:03}");
         let is_legal = index % 4 == 0;
         let name = if is_legal {
-            format!("{} {}", COMPANY_NAMES[index % COMPANY_NAMES.len()], index / 8 + 1)
+            format!(
+                "{} {}",
+                COMPANY_NAMES[index % COMPANY_NAMES.len()],
+                index / 8 + 1
+            )
         } else {
             format!(
                 "{} {}",
@@ -237,7 +269,11 @@ fn seed_contacts(tx: &Connection) -> Result<()> {
                 name,
                 format!("0912{:07}", 1_000_000 + index * 137),
                 format!("021{:08}", 22_000_000 + index * 371),
-                format!("{}، خیابان نمونه، پلاک {}", CITIES[index % CITIES.len()], index + 1),
+                format!(
+                    "{}، خیابان نمونه، پلاک {}",
+                    CITIES[index % CITIES.len()],
+                    index + 1
+                ),
                 is_customer,
                 is_supplier,
                 (index as i64 % 5 + 1) * 200_000_000
@@ -249,7 +285,11 @@ fn seed_contacts(tx: &Connection) -> Result<()> {
             params![
                 if is_legal { "private_legal" } else { "natural" },
                 if is_legal { Some(name.as_str()) } else { None },
-                if index % 2 == 0 { "route-center" } else { "route-north" },
+                if index % 2 == 0 {
+                    "route-center"
+                } else {
+                    "route-north"
+                },
                 id
             ],
         )?;
@@ -304,7 +344,16 @@ fn insert_journal(
     tx.execute(
         "INSERT OR IGNORE INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,\
          description,status,source_type,created_by) VALUES(?1,?2,?3,?4,?5,?6,'posted',?7,?8)",
-        params![id, COMPANY, FISCAL_YEAR, number, date, description, source, USER],
+        params![
+            id,
+            COMPANY,
+            FISCAL_YEAR,
+            number,
+            date,
+            description,
+            source,
+            USER
+        ],
     )?;
     for (index, (account, debit, credit)) in lines.iter().enumerate() {
         tx.execute(
@@ -431,8 +480,17 @@ fn seed_purchases(tx: &Connection) -> Result<()> {
              invoice_date,contact_id,warehouse_id,status,payment_status,subtotal,discount,tax,\
              total,created_by) VALUES(?1,?2,?3,?4,?5,?6,?7,'posted','paid',?8,0,?9,?10,?11)",
             params![
-                invoice_id, COMPANY, FISCAL_YEAR, 500 + index as i64, date, contact,
-                warehouse, subtotal, tax, total, USER
+                invoice_id,
+                COMPANY,
+                FISCAL_YEAR,
+                500 + index as i64,
+                date,
+                contact,
+                warehouse,
+                subtotal,
+                tax,
+                total,
+                USER
             ],
         )?;
         tx.execute(
@@ -495,7 +553,16 @@ fn seed_treasury_documents(tx: &Connection) -> Result<()> {
             "INSERT OR IGNORE INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,\
              document_date,party_id,description,total,status,created_by) \
              VALUES(?1,?2,?3,'receipt',?4,?5,?6,'دریافت از مشتری',?7,'posted',?8)",
-            params![doc_id, COMPANY, FISCAL_YEAR, 100 + index as i64, date, contact, amount, USER],
+            params![
+                doc_id,
+                COMPANY,
+                FISCAL_YEAR,
+                100 + index as i64,
+                date,
+                contact,
+                amount,
+                USER
+            ],
         )?;
         tx.execute(
             "INSERT OR IGNORE INTO treasury_document_lines(id,document_id,method,amount,\
@@ -503,7 +570,11 @@ fn seed_treasury_documents(tx: &Connection) -> Result<()> {
             params![
                 format!("{doc_id}-l0"),
                 doc_id,
-                if index % 3 == 0 { "bank_transfer" } else { "cash" },
+                if index % 3 == 0 {
+                    "bank_transfer"
+                } else {
+                    "cash"
+                },
                 amount,
                 treasury
             ],
