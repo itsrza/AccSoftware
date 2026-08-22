@@ -371,3 +371,103 @@ export const buildInstallmentPlan = (
   count: number,
   firstDueJalali: string,
 ) => api<InstallmentRow[]>('build_installment_plan', {total, downPayment, count, firstDueJalali})
+
+// --- فاز ۶: انبارگردانی و عملیات جمعی ---
+export type StocktakeSessionRow = {
+  id: string
+  title: string
+  warehouse_name: string
+  count_date: string
+  status: string
+  status_label: string
+  total_lines: number
+  counted_lines: number
+  variance_lines: number
+}
+export type StocktakeLineRow = {
+  id: string
+  product_id: string
+  product_name: string
+  sku: string
+  frozen_quantity: number
+  counted_quantity: number | null
+  recount_quantity: number | null
+  final_quantity: number | null
+  variance: number | null
+  variance_value: number
+  variance_approved: boolean
+  needs_recount: boolean
+  unit_cost: number
+}
+export type StocktakeDetail = {
+  id: string
+  title: string
+  status: string
+  status_label: string
+  warehouse_name: string
+  count_date: string
+  lines: StocktakeLineRow[]
+  total_lines: number
+  counted_lines: number
+  uncounted_lines: number
+  surplus_lines: number
+  shortage_lines: number
+  unapproved_variances: number
+  surplus_value: number
+  shortage_value: number
+  net_value: number
+  recount_threshold_percent: number
+  can_post: boolean
+  blocking_reason: string | null
+}
+export type BulkPriceRow = {
+  product_id: string
+  product_name: string
+  old_price: number
+  new_price: number
+  difference: number
+}
+export type LowStockRow = {
+  product_id: string
+  product_name: string
+  sku: string
+  quantity: number
+  reorder_point: number
+}
+export type ValuationInfo = {
+  method: string
+  label: string
+  explanation: string
+  is_active: boolean
+}
+
+export const getStocktakes = () => api<StocktakeSessionRow[]>('list_stocktakes')
+export const getStocktake = (sessionId: string) =>
+  api<StocktakeDetail>('get_stocktake', {sessionId})
+export const createStocktake = (warehouseId: string, title: string, countDate: string) =>
+  api<string>('create_stocktake', {warehouseId, title, countDate})
+export const setStocktakeCount = (
+  lineId: string,
+  quantity: number | null,
+  isRecount: boolean,
+  approve: boolean | null,
+) => api<void>('set_stocktake_count', {lineId, quantity, isRecount, approve})
+export const approveAllVariances = (sessionId: string) =>
+  api<number>('approve_all_variances', {sessionId})
+export const postStocktake = (sessionId: string) => api<string>('post_stocktake', {sessionId})
+
+export const previewBulkPrice = (
+  productIds: string[],
+  mode: 'percent' | 'amount' | 'set',
+  value: number,
+  roundTo: number,
+) => api<BulkPriceRow[]>('preview_bulk_price_change', {productIds, mode, value, roundTo})
+export const applyBulkPrice = (
+  productIds: string[],
+  mode: 'percent' | 'amount' | 'set',
+  value: number,
+  roundTo: number,
+) => api<number>('apply_bulk_price_change', {productIds, mode, value, roundTo})
+
+export const getLowStock = () => api<LowStockRow[]>('get_low_stock')
+export const getValuationMethods = () => api<ValuationInfo[]>('list_valuation_methods')

@@ -12,6 +12,9 @@ use novin_core::invoicing::{
     InvoiceLine as CoreInvoiceLine,
 };
 use novin_core::jalali;
+use novin_core::stocktaking::{
+    self, BulkPriceChange, CountLine, StocktakeStatus, VarianceAccounts,
+};
 use novin_core::parties::{self, BalanceStatus, PartyDefinition, PartyFunction, PartyType};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -2672,6 +2675,700 @@ fn build_installment_plan(
             amount: item.amount.rials(),
         })
         .collect())
+}
+
+
+// ===========================================================================
+// فاز ۶ — انبارگردانی اصولی و عملیات جمعی
+// مرجع: منوی «عملیات انبار» نرم‌افزار فعلی + بازخورد کارفرما
+// ===========================================================================
+
+#[derive(Serialize)]
+struct StocktakeSessionRow {
+    id: String,
+    title: String,
+    warehouse_name: String,
+    count_date: String,
+    status: String,
+    status_label: String,
+    total_lines: i64,
+    counted_lines: i64,
+    variance_lines: i64,
+}
+
+#[derive(Serialize)]
+struct StocktakeLineRow {
+    id: String,
+    product_id: String,
+    product_name: String,
+    sku: String,
+    frozen_quantity: f64,
+    counted_quantity: Option<f64>,
+    recount_quantity: Option<f64>,
+    final_quantity: Option<f64>,
+    variance: Option<f64>,
+    variance_value: i64,
+    variance_approved: bool,
+    needs_recount: bool,
+    unit_cost: i64,
+}
+
+#[derive(Serialize)]
+struct StocktakeDetail {
+    id: String,
+    title: String,
+    status: String,
+    status_label: String,
+    warehouse_name: String,
+    count_date: String,
+    lines: Vec<StocktakeLineRow>,
+    total_lines: usize,
+    counted_lines: usize,
+    uncounted_lines: usize,
+    surplus_lines: usize,
+    shortage_lines: usize,
+    unapproved_variances: usize,
+    surplus_value: i64,
+    shortage_value: i64,
+    net_value: i64,
+    recount_threshold_percent: f64,
+    can_post: bool,
+    blocking_reason: Option<String>,
+}
+
+fn setting_value(c: &Connection, key: &str, fallback: &str) -> String {
+    c.query_row(
+        "SELECT value FROM app_settings WHERE key=?1",
+        params![key],
+        |r| r.get(0),
+    )
+    .unwrap_or_else(|_| fallback.to_string())
+}
+
+/// خواندن اقلام یک دوره به‌همراه محاسبات هسته.
+fn load_stocktake_lines(
+    c: &Connection,
+    session_id: &str,
+) -> Result<(Vec<StocktakeLineRow>, Vec<CountLine>), String> {
+    let mut st = c
+        .prepare(
+            "SELECT l.id,l.product_id,p.name,p.sku,l.frozen_quantity,l.counted_quantity,\
+                    l.recount_quantity,l.unit_cost,l.variance_approved \
+             FROM stocktake_lines l JOIN products p ON p.id=l.product_id \
+             WHERE l.session_id=?1 ORDER BY p.sku",
+        )
+        .map_err(|e| e.to_string())?;
+    let raw: Vec<(String, String, String, String, f64, Option<f64>, Option<f64>, i64, i64)> = st
+        .query_map(params![session_id], |r| {
+            Ok((
+                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?,
+                r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    let core: Vec<CountLine> = raw
+        .iter()
+        .map(|row| CountLine {
+            product_id: row.1.clone(),
+            frozen_quantity: row.4,
+            counted_quantity: row.5,
+            recount_quantity: row.6,
+            variance_approved: row.8 != 0,
+            unit_cost: novin_core::money::Money::from_rials(row.7),
+        })
+        .collect();
+
+    let threshold: f64 = setting_value(c, "inventory.recount_threshold_percent", "5")
+        .parse()
+        .unwrap_or(5.0);
+    let needing: std::collections::BTreeSet<String> =
+        stocktaking::lines_needing_recount(&core, threshold)
+            .into_iter()
+            .map(|line| line.product_id.clone())
+            .collect();
+
+    let rows = raw
+        .iter()
+        .zip(&core)
+        .map(|(row, line)| StocktakeLineRow {
+            id: row.0.clone(),
+            product_id: row.1.clone(),
+            product_name: row.2.clone(),
+            sku: row.3.clone(),
+            frozen_quantity: row.4,
+            counted_quantity: row.5,
+            recount_quantity: row.6,
+            final_quantity: line.final_quantity(),
+            variance: line.variance(),
+            variance_value: line.variance_value().map(|v| v.rials()).unwrap_or(0),
+            variance_approved: row.8 != 0,
+            needs_recount: needing.contains(&row.1),
+            unit_cost: row.7,
+        })
+        .collect();
+    Ok((rows, core))
+}
+
+#[tauri::command]
+fn list_stocktakes(state: State<AppState>) -> Result<Vec<StocktakeSessionRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "inventory.count.create")?;
+    let (company, _) = active_company(&state, &c)?;
+    let mut st = c
+        .prepare(
+            "SELECT s.id,s.title,w.name,s.count_date,s.status,\
+                    (SELECT COUNT(*) FROM stocktake_lines l WHERE l.session_id=s.id),\
+                    (SELECT COUNT(*) FROM stocktake_lines l WHERE l.session_id=s.id \
+                       AND COALESCE(l.recount_quantity,l.counted_quantity) IS NOT NULL),\
+                    (SELECT COUNT(*) FROM stocktake_lines l WHERE l.session_id=s.id \
+                       AND COALESCE(l.recount_quantity,l.counted_quantity) IS NOT NULL \
+                       AND ABS(COALESCE(l.recount_quantity,l.counted_quantity)-l.frozen_quantity)>0.000001) \
+             FROM stocktake_sessions s JOIN warehouses w ON w.id=s.warehouse_id \
+             WHERE s.company_id=?1 ORDER BY s.created_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            let status: String = r.get(4)?;
+            Ok(StocktakeSessionRow {
+                id: r.get(0)?,
+                title: r.get(1)?,
+                warehouse_name: r.get(2)?,
+                count_date: r.get(3)?,
+                status_label: StocktakeStatus::parse(&status)
+                    .map(|s| s.label())
+                    .unwrap_or("نامشخص")
+                    .to_string(),
+                status,
+                total_lines: r.get(5)?,
+                counted_lines: r.get(6)?,
+                variance_lines: r.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// ایجاد دوره‌ی انبارگردانی و **فریز موجودی** در همان لحظه.
+///
+/// موجودی سیستمی و بهای واحد هر کالا با موتور ارزش‌گذاری فعلی عکس‌برداری
+/// می‌شود تا فروش حین شمارش، مبنای مقایسه را خراب نکند.
+#[tauri::command]
+fn create_stocktake(
+    state: State<AppState>,
+    warehouse_id: String,
+    title: String,
+    count_date: String,
+) -> Result<String, String> {
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "inventory.count.create")?;
+    let (company, _) = active_company(&state, &c)?;
+    let method = inventory_method(&c, &company);
+
+    // بهای واحد هر کالا پیش از باز کردن تراکنش محاسبه می‌شود.
+    let products: Vec<(String, f64)> = {
+        let mut st = c
+            .prepare(
+                "SELECT p.id, COALESCE(ib.quantity,0) FROM products p \
+                 LEFT JOIN inventory_balances ib ON ib.product_id=p.id AND ib.warehouse_id=?2 \
+                 WHERE p.company_id=?1 AND p.is_service=0 ORDER BY p.sku",
+            )
+            .map_err(|e| e.to_string())?;
+        st.query_map(params![company, warehouse_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .collect()
+    };
+    if products.is_empty() {
+        return Err("STK-011: کالایی برای انبارگردانی یافت نشد".into());
+    }
+    let mut costs = Vec::with_capacity(products.len());
+    for (product_id, quantity) in &products {
+        let cost = valuation_cost(&c, &company, product_id, &warehouse_id, &method).unwrap_or(0);
+        costs.push((product_id.clone(), *quantity, cost));
+    }
+
+    let session_id = format!("stocktake-{}", chrono::Utc::now().timestamp_millis());
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO stocktake_sessions(id,company_id,warehouse_id,title,count_date,status,\
+         frozen_at,created_by) VALUES(?1,?2,?3,?4,?5,'counting',CURRENT_TIMESTAMP,?6)",
+        params![session_id, company, warehouse_id, title, count_date, user],
+    )
+    .map_err(|e| e.to_string())?;
+    for (index, (product_id, quantity, cost)) in costs.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO stocktake_lines(id,session_id,product_id,frozen_quantity,unit_cost) \
+             VALUES(?1,?2,?3,?4,?5)",
+            params![
+                format!("{session_id}-line-{index}"),
+                session_id,
+                product_id,
+                quantity,
+                cost
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    audit(
+        &tx,
+        &user,
+        "stocktake.create",
+        "stocktake",
+        &session_id,
+        None,
+        Some(&format!("{{\"lines\":{}}}", costs.len())),
+    )?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(session_id)
+}
+
+#[tauri::command]
+fn get_stocktake(state: State<AppState>, session_id: String) -> Result<StocktakeDetail, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "inventory.count.create")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let (title, status, warehouse_name, count_date, threshold): (String, String, String, String, f64) = c
+        .query_row(
+            "SELECT s.title,s.status,w.name,s.count_date,s.recount_threshold_percent \
+             FROM stocktake_sessions s JOIN warehouses w ON w.id=s.warehouse_id \
+             WHERE s.id=?1 AND s.company_id=?2",
+            params![session_id, company],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .map_err(|_| "STK-012: دوره‌ی انبارگردانی یافت نشد".to_string())?;
+
+    let (rows, core) = load_stocktake_lines(&c, &session_id)?;
+    let summary = stocktaking::summarize(&core).map_err(|e| e.to_string())?;
+    let postable = stocktaking::ensure_postable(&core);
+    let blocking_reason = postable.as_ref().err().map(|e| e.to_string());
+
+    Ok(StocktakeDetail {
+        id: session_id,
+        title,
+        status_label: StocktakeStatus::parse(&status)
+            .map(|s| s.label())
+            .unwrap_or("نامشخص")
+            .to_string(),
+        status,
+        warehouse_name,
+        count_date,
+        lines: rows,
+        total_lines: summary.total_lines,
+        counted_lines: summary.counted_lines,
+        uncounted_lines: summary.uncounted_lines,
+        surplus_lines: summary.surplus_lines,
+        shortage_lines: summary.shortage_lines,
+        unapproved_variances: summary.unapproved_variances,
+        surplus_value: summary.surplus_value.rials(),
+        shortage_value: summary.shortage_value.rials(),
+        net_value: summary.net_value.rials(),
+        recount_threshold_percent: threshold,
+        can_post: postable.is_ok(),
+        blocking_reason,
+    })
+}
+
+/// ثبت شمارش یک قلم (شمارش اول یا مجدد) و تأیید اختلاف.
+#[tauri::command]
+fn set_stocktake_count(
+    state: State<AppState>,
+    line_id: String,
+    quantity: Option<f64>,
+    is_recount: bool,
+    approve: Option<bool>,
+) -> Result<(), String> {
+    if let Some(value) = quantity {
+        if !value.is_finite() || value < 0.0 {
+            return Err("STK-004: مقدار شمارش نمی‌تواند منفی باشد".into());
+        }
+    }
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "inventory.count.create")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let status: String = c
+        .query_row(
+            "SELECT s.status FROM stocktake_lines l \
+             JOIN stocktake_sessions s ON s.id=l.session_id \
+             WHERE l.id=?1 AND s.company_id=?2",
+            params![line_id, company],
+            |r| r.get(0),
+        )
+        .map_err(|_| "STK-013: سطر انبارگردانی یافت نشد".to_string())?;
+    let parsed = StocktakeStatus::parse(&status).unwrap_or(StocktakeStatus::Draft);
+    if parsed.is_locked() {
+        return Err("STK-006: دوره‌ی بسته‌شده قابل تغییر نیست".into());
+    }
+
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    if is_recount {
+        tx.execute(
+            "UPDATE stocktake_lines SET recount_quantity=?1 WHERE id=?2",
+            params![quantity, line_id],
+        )
+    } else {
+        tx.execute(
+            "UPDATE stocktake_lines SET counted_quantity=?1 WHERE id=?2",
+            params![quantity, line_id],
+        )
+    }
+    .map_err(|e| e.to_string())?;
+
+    if let Some(approved) = approve {
+        tx.execute(
+            "UPDATE stocktake_lines SET variance_approved=?1, approved_by=?2 WHERE id=?3",
+            params![i64::from(approved), user, line_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// تأیید گروهی همه‌ی اختلاف‌های یک دوره.
+#[tauri::command]
+fn approve_all_variances(state: State<AppState>, session_id: String) -> Result<usize, String> {
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "inventory.count.post")?;
+    let (company, _) = active_company(&state, &c)?;
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let affected = tx
+        .execute(
+            "UPDATE stocktake_lines SET variance_approved=1, approved_by=?1 \
+             WHERE session_id=?2 AND session_id IN \
+               (SELECT id FROM stocktake_sessions WHERE company_id=?3 AND status IN ('counting','review'))",
+            params![user, session_id, company],
+        )
+        .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(affected)
+}
+
+/// ثبت نهایی انبارگردانی: اصلاح موجودی + سند تعدیل.
+#[tauri::command]
+fn post_stocktake(state: State<AppState>, session_id: String) -> Result<String, String> {
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "inventory.count.post")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let (status, warehouse_id): (String, String) = c
+        .query_row(
+            "SELECT status,warehouse_id FROM stocktake_sessions WHERE id=?1 AND company_id=?2",
+            params![session_id, company],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "STK-012: دوره‌ی انبارگردانی یافت نشد".to_string())?;
+    let current = StocktakeStatus::parse(&status).unwrap_or(StocktakeStatus::Draft);
+    // گذار وضعیت از طریق ماشین حالت هسته اعتبارسنجی می‌شود.
+    let target = if current == StocktakeStatus::Counting {
+        stocktaking::transition(current, StocktakeStatus::Review).map_err(|e| e.to_string())?
+    } else {
+        current
+    };
+    stocktaking::transition(target, StocktakeStatus::Posted).map_err(|e| e.to_string())?;
+
+    let (_, core) = load_stocktake_lines(&c, &session_id)?;
+    let accounts = VarianceAccounts {
+        inventory: account_id_by_code(&c, &company, "1300")?,
+        shortage_expense: account_id_by_code(&c, &company, "6300")?,
+        surplus_income: account_id_by_code(&c, &company, "4300")?,
+    };
+    let journal_lines =
+        stocktaking::build_adjustment_journal(&core, &accounts).map_err(|e| e.to_string())?;
+
+    // اصلاح موجودی انبار بر اساس اختلاف تأییدشده
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    for line in &core {
+        let variance = line.variance().unwrap_or(0.0);
+        if variance.abs() < 1e-9 {
+            continue;
+        }
+        tx.execute(
+            "INSERT INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,\
+             quantity,unit_cost,reference_type,reference_id,note,created_by) \
+             VALUES(?1,?2,?3,?4,'adjustment',?5,?6,'stocktake',?7,?8,?9)",
+            params![
+                format!("stk-move-{}-{}", session_id, line.product_id),
+                company,
+                line.product_id,
+                warehouse_id,
+                variance.abs(),
+                line.unit_cost.rials(),
+                session_id,
+                format!("variance:{variance}"),
+                user
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.execute(
+            "INSERT INTO inventory_balances(product_id,warehouse_id,quantity) VALUES(?1,?2,?3) \
+             ON CONFLICT(product_id,warehouse_id) DO UPDATE SET quantity=?3",
+            params![
+                line.product_id,
+                warehouse_id,
+                line.final_quantity().unwrap_or(line.frozen_quantity)
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.execute(
+        "UPDATE stocktake_sessions SET status='posted',posted_at=CURRENT_TIMESTAMP,approved_by=?1 \
+         WHERE id=?2",
+        params![user, session_id],
+    )
+    .map_err(|e| e.to_string())?;
+    audit(
+        &tx,
+        &user,
+        "stocktake.post",
+        "stocktake",
+        &session_id,
+        None,
+        Some(&format!("{{\"journal_lines\":{}}}", journal_lines.len())),
+    )?;
+    tx.commit().map_err(|e| e.to_string())?;
+
+    // سند تعدیل پس از اصلاح موجودی صادر می‌شود.
+    if journal_lines.is_empty() {
+        return Ok(String::new());
+    }
+    let lines: Vec<(String, i64, i64)> = journal_lines
+        .iter()
+        .map(|line| {
+            (
+                line.account_id.clone(),
+                line.debit.rials(),
+                line.credit.rials(),
+            )
+        })
+        .collect();
+    let journal_id = create_journal_internal(
+        &state,
+        &jalali::jalali_string(chrono::Local::now().date_naive()),
+        &format!("سند تعدیل انبارگردانی {session_id}"),
+        &lines,
+        "draft",
+    )?;
+    {
+        let c = conn(&state)?;
+        c.execute(
+            "UPDATE stocktake_sessions SET journal_id=?1 WHERE id=?2",
+            params![journal_id, session_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    post_journal(state, journal_id.clone())?;
+    Ok(journal_id)
+}
+
+fn account_id_by_code(c: &Connection, company: &str, code: &str) -> Result<String, String> {
+    c.query_row(
+        "SELECT id FROM accounts WHERE company_id=?1 AND code=?2",
+        params![company, code],
+        |r| r.get(0),
+    )
+    .map_err(|_| format!("STK-014: حساب با کد {code} تعریف نشده است"))
+}
+
+/// پیش‌نمایش تغییر جمعی قیمت — پیش از اعمال همیشه نمایش داده می‌شود.
+#[derive(Serialize)]
+struct BulkPriceRow {
+    product_id: String,
+    product_name: String,
+    old_price: i64,
+    new_price: i64,
+    difference: i64,
+}
+
+#[tauri::command]
+fn preview_bulk_price_change(
+    state: State<AppState>,
+    product_ids: Vec<String>,
+    mode: String,
+    value: i64,
+    round_to: i64,
+) -> Result<Vec<BulkPriceRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "products.edit")?;
+    let (company, _) = active_company(&state, &c)?;
+    if product_ids.is_empty() {
+        return Err("BLK-003: هیچ کالایی انتخاب نشده است".into());
+    }
+
+    let mut names = std::collections::BTreeMap::new();
+    let mut products = Vec::new();
+    for id in &product_ids {
+        let row: Result<(String, i64), _> = c.query_row(
+            "SELECT name,sale_price FROM products WHERE id=?1 AND company_id=?2",
+            params![id, company],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        );
+        if let Ok((name, price)) = row {
+            names.insert(id.clone(), name);
+            products.push((id.clone(), novin_core::money::Money::from_rials(price)));
+        }
+    }
+
+    let change = match mode.as_str() {
+        "percent" => BulkPriceChange::Percent(value),
+        "amount" => BulkPriceChange::Amount(novin_core::money::Money::from_rials(value)),
+        "set" => BulkPriceChange::Set(novin_core::money::Money::from_rials(value)),
+        _ => return Err("BLK-005: نوع تغییر نامعتبر است".into()),
+    };
+    let results = stocktaking::preview_bulk_price(&products, change, round_to)
+        .map_err(|e| e.to_string())?;
+
+    Ok(results
+        .into_iter()
+        .map(|item| BulkPriceRow {
+            product_name: names.get(&item.product_id).cloned().unwrap_or_default(),
+            product_id: item.product_id,
+            old_price: item.old_price.rials(),
+            new_price: item.new_price.rials(),
+            difference: item.difference.rials(),
+        })
+        .collect())
+}
+
+/// اعمال تغییر جمعی قیمت پس از تأیید کاربر.
+#[tauri::command]
+fn apply_bulk_price_change(
+    state: State<AppState>,
+    product_ids: Vec<String>,
+    mode: String,
+    value: i64,
+    round_to: i64,
+) -> Result<usize, String> {
+    let preview = preview_bulk_price_change(
+        state.clone(),
+        product_ids,
+        mode.clone(),
+        value,
+        round_to,
+    )?;
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "products.edit")?;
+    let (company, _) = active_company(&state, &c)?;
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    for row in &preview {
+        tx.execute(
+            "UPDATE products SET sale_price=?1 WHERE id=?2 AND company_id=?3",
+            params![row.new_price, row.product_id, company],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.execute(
+            "INSERT INTO product_prices(product_id,level,price) VALUES(?1,'retail',?2) \
+             ON CONFLICT(product_id,level) DO UPDATE SET price=excluded.price",
+            params![row.product_id, row.new_price],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.execute(
+        "INSERT INTO bulk_operations(id,company_id,operation,payload,affected_count,performed_by) \
+         VALUES(?1,?2,'price_change',?3,?4,?5)",
+        params![
+            format!("bulk-{}", chrono::Utc::now().timestamp_millis()),
+            company,
+            format!("{{\"mode\":\"{mode}\",\"value\":{value},\"round_to\":{round_to}}}"),
+            preview.len() as i64,
+            user
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(preview.len())
+}
+
+/// کالاهای نزدیک به اتمام موجودی با آستانه‌ی قابل تنظیم.
+#[derive(Serialize)]
+struct LowStockRow {
+    product_id: String,
+    product_name: String,
+    sku: String,
+    quantity: f64,
+    reorder_point: f64,
+}
+
+#[tauri::command]
+fn get_low_stock(state: State<AppState>) -> Result<Vec<LowStockRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "reports.view")?;
+    let (company, _) = active_company(&state, &c)?;
+    let threshold: f64 = setting_value(&c, "inventory.low_stock_threshold", "5")
+        .parse()
+        .unwrap_or(5.0);
+
+    let mut st = c
+        .prepare(
+            "SELECT p.id,p.name,p.sku,COALESCE(SUM(ib.quantity),0),\
+                    MAX(COALESCE(p.reorder_point,0),COALESCE(p.min_stock,0)) \
+             FROM products p LEFT JOIN inventory_balances ib ON ib.product_id=p.id \
+             WHERE p.company_id=?1 AND p.is_service=0 GROUP BY p.id",
+        )
+        .map_err(|e| e.to_string())?;
+    let raw: Vec<(String, String, String, f64, f64)> = st
+        .query_map(params![company], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    let tuples: Vec<(String, String, f64, f64)> = raw
+        .iter()
+        .map(|row| (row.0.clone(), row.1.clone(), row.3, row.4))
+        .collect();
+    let items = stocktaking::low_stock_items(&tuples, threshold);
+    let sku_of: std::collections::BTreeMap<&str, &str> =
+        raw.iter().map(|row| (row.0.as_str(), row.2.as_str())).collect();
+
+    Ok(items
+        .into_iter()
+        .map(|item| LowStockRow {
+            sku: sku_of.get(item.product_id.as_str()).copied().unwrap_or("").to_string(),
+            product_id: item.product_id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            reorder_point: item.reorder_point,
+        })
+        .collect())
+}
+
+/// توضیح ساده‌ی روش‌های ارزش‌گذاری برای نمایش در تنظیمات انبار.
+#[derive(Serialize)]
+struct ValuationInfo {
+    method: String,
+    label: String,
+    explanation: String,
+    is_active: bool,
+}
+
+#[tauri::command]
+fn list_valuation_methods(state: State<AppState>) -> Result<Vec<ValuationInfo>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "inventory.valuation.manage")?;
+    let (company, _) = active_company(&state, &c)?;
+    let active = inventory_method(&c, &company);
+    Ok([
+        ValuationMethod::Fifo,
+        ValuationMethod::MovingAverage,
+        ValuationMethod::WeightedAverage,
+    ]
+    .into_iter()
+    .map(|method| ValuationInfo {
+        is_active: method.as_str() == active,
+        method: method.as_str().to_string(),
+        label: method.label().to_string(),
+        explanation: method.plain_explanation().to_string(),
+    })
+    .collect())
 }
 
 #[tauri::command]
@@ -6602,6 +7299,16 @@ fn main() {
             list_product_groups,
             list_parties,
             preview_invoice,
+            list_stocktakes,
+            create_stocktake,
+            get_stocktake,
+            set_stocktake_count,
+            approve_all_variances,
+            post_stocktake,
+            preview_bulk_price_change,
+            apply_bulk_price_change,
+            get_low_stock,
+            list_valuation_methods,
             build_installment_plan,
             list_party_routes,
             validate_party_identity,

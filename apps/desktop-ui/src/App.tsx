@@ -19,6 +19,7 @@ import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {UnderConstruction} from './components/UnderConstruction'
+import {Stocktaking} from './pages/Stocktaking'
 import {getDemoStatus, deleteDemo, login} from './api'
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
@@ -297,14 +298,7 @@ export default function App() {
           />
         )
       case 'inventory-count':
-        return (
-          <UnderConstruction
-            title="انبارگردانی"
-            description="دوره‌ی انبارگردانی با فریز منطقی موجودی، شمارش، شمارش مجدد، ثبت و تأیید اختلاف و صدور سند تعدیل — دقیقاً بر اساس منطق حسابداری انبار. بازنویسی کامل این بخش در فاز انبار انجام می‌شود."
-            reference="8Xmc1p"
-            phase="فاز ۷ — انبار"
-          />
-        )
+        return <Stocktaking />
       case 'sales-return':
         return (
           <UnderConstruction

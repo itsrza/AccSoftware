@@ -1310,3 +1310,17 @@ tr.clickable:hover td {
   text-align: center;
   box-shadow: var(--shadow);
 }
+
+/* --- انبارگردانی --- */
+.count-input {
+  width: 92px;
+  padding: 5px 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+tr.needs-recount td {
+  background: var(--warning-bg);
+}
+tr.needs-recount .count-input {
+  border-color: var(--warning);
+}
