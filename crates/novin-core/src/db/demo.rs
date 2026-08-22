@@ -115,6 +115,38 @@ fn step(name: &str, outcome: Result<()>) -> Result<()> {
 /// شناسه‌ی hardcode شده وجود نخواهد داشت و هر ارجاع بعدی کلید خارجی را
 /// می‌شکند. با خواندن شناسه‌های واقعی، داده‌ی نمونه در برابر تداخل با داده‌ی
 /// پایه مقاوم می‌شود.
+/// نخستین شماره‌ی آزاد یک دفتر شماره‌گذاری‌شده.
+///
+/// چرا لازم است: جدول‌های سند و فاکتور قید `UNIQUE(company_id,fiscal_year_id,number)`
+/// دارند. اگر داده‌ی نمونه شماره‌ای بسازد که داده‌ی پایه از قبل مصرف کرده،
+/// `INSERT OR IGNORE` سطر والد را **بی‌صدا** رد می‌کند و سطرهای فرزند
+/// (اقلام فاکتور، سطور سند) کلید خارجی را می‌شکنند. با شروع از یک شماره‌ی
+/// بالاتر از بیشینه‌ی موجود، تداخل شماره از اساس ممکن نیست.
+///
+/// این همان قاعده‌ی دفترنویسی است: شماره‌ی سند در هر سال مالی یکتا و پیوسته.
+fn next_number(tx: &Connection, table: &str) -> Result<i64> {
+    let sql = format!(
+        "SELECT COALESCE(MAX(number),0)+1 FROM {table} WHERE company_id=?1 AND fiscal_year_id=?2"
+    );
+    tx.query_row(&sql, params![COMPANY, FISCAL_YEAR], |row| row.get(0))
+}
+
+/// اطمینان از اینکه سطر والد واقعاً درج شده است.
+///
+/// اگر `INSERT OR IGNORE` سطر را رد کرده باشد، به‌جای خطای مبهم کلید خارجی در
+/// چند سطر بعد، همین‌جا با نام جدول و شناسه خطا می‌دهیم.
+fn require_row(tx: &Connection, table: &str, id: &str) -> Result<()> {
+    let sql = format!("SELECT COUNT(*) FROM {table} WHERE id=?1");
+    let exists: i64 = tx.query_row(&sql, params![id], |row| row.get(0))?;
+    if exists == 0 {
+        let message = format!("سطر والد «{id}» در جدول «{table}» درج نشد");
+        return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(
+            std::io::Error::other(message),
+        )));
+    }
+    Ok(())
+}
+
 fn collect_ids(tx: &Connection, sql: &str) -> Result<Vec<String>> {
     let mut statement = tx.prepare(sql)?;
     let rows = statement
@@ -527,6 +559,10 @@ fn insert_journal(
 }
 
 fn seed_sales(tx: &Connection, warehouses: &[String]) -> Result<()> {
+    // شماره‌ی فاکتور و شماره‌ی سند از بیشینه‌ی موجود ادامه می‌یابند تا با
+    // داده‌ی پایه تداخل نکنند.
+    let first_invoice_number = next_number(tx, "sales_invoices")?;
+    let first_journal_number = next_number(tx, "journal_entries")?;
     for index in 0..SALES_INVOICE_COUNT {
         let invoice_id = format!("demo-sale-{index:03}");
         let contact = format!("demo-contact-{:03}", index % CONTACT_COUNT);
@@ -559,10 +595,11 @@ fn seed_sales(tx: &Connection, warehouses: &[String]) -> Result<()> {
              contact_id,warehouse_id,status,payment_status,subtotal,discount,tax,total,created_by) \
              VALUES(?1,?2,?3,?4,?5,?6,?7,'posted',?8,?9,0,?10,?11,?12)",
             params![
-                invoice_id, COMPANY, FISCAL_YEAR, 1000 + index as i64, date, contact,
+                invoice_id, COMPANY, FISCAL_YEAR, first_invoice_number + index as i64, date, contact,
                 warehouse, payment_status, subtotal, tax, total, USER
             ],
         )?;
+        require_row(tx, "sales_invoices", &invoice_id)?;
         for (line_index, (product, quantity, price, line_total)) in lines.iter().enumerate() {
             tx.execute(
                 "INSERT OR IGNORE INTO sales_invoice_lines(id,invoice_id,product_id,quantity,\
@@ -595,9 +632,9 @@ fn seed_sales(tx: &Connection, warehouses: &[String]) -> Result<()> {
         insert_journal(
             tx,
             &format!("demo-jrn-sale-{index:03}"),
-            2000 + index as i64,
+            first_journal_number + index as i64,
             &date,
-            &format!("فاکتور فروش شماره {}", 1000 + index),
+            &format!("فاکتور فروش شماره {}", first_invoice_number + index as i64),
             "sales_invoice",
             &[
                 ("acc-1201", total, 0),
@@ -610,6 +647,8 @@ fn seed_sales(tx: &Connection, warehouses: &[String]) -> Result<()> {
 }
 
 fn seed_purchases(tx: &Connection, warehouses: &[String]) -> Result<()> {
+    let first_invoice_number = next_number(tx, "purchase_invoices")?;
+    let first_journal_number = next_number(tx, "journal_entries")?;
     for index in 0..PURCHASE_INVOICE_COUNT {
         let invoice_id = format!("demo-purchase-{index:03}");
         // تأمین‌کننده‌ها اندیس‌هایی هستند که is_supplier دارند
@@ -637,7 +676,7 @@ fn seed_purchases(tx: &Connection, warehouses: &[String]) -> Result<()> {
                 invoice_id,
                 COMPANY,
                 FISCAL_YEAR,
-                500 + index as i64,
+                first_invoice_number + index as i64,
                 date,
                 contact,
                 warehouse,
@@ -647,6 +686,7 @@ fn seed_purchases(tx: &Connection, warehouses: &[String]) -> Result<()> {
                 USER
             ],
         )?;
+        require_row(tx, "purchase_invoices", &invoice_id)?;
         tx.execute(
             "INSERT OR IGNORE INTO purchase_invoice_lines(id,invoice_id,product_id,quantity,\
              unit_price,line_total) VALUES(?1,?2,?3,?4,?5,?6)",
@@ -677,9 +717,9 @@ fn seed_purchases(tx: &Connection, warehouses: &[String]) -> Result<()> {
         insert_journal(
             tx,
             &format!("demo-jrn-purchase-{index:03}"),
-            3000 + index as i64,
+            first_journal_number + index as i64,
             &date,
-            &format!("فاکتور خرید شماره {}", 500 + index),
+            &format!("فاکتور خرید شماره {}", first_invoice_number + index as i64),
             "purchase_invoice",
             &[
                 ("acc-1300", subtotal, 0),
@@ -692,6 +732,8 @@ fn seed_purchases(tx: &Connection, warehouses: &[String]) -> Result<()> {
 }
 
 fn seed_treasury_documents(tx: &Connection, treasury: &[String]) -> Result<()> {
+    let first_document_number = next_number(tx, "treasury_documents")?;
+    let first_journal_number = next_number(tx, "journal_entries")?;
     for index in 0..20 {
         let doc_id = format!("demo-receipt-{index:03}");
         let contact = format!("demo-contact-{:03}", (index * 3) % CONTACT_COUNT);
@@ -707,13 +749,14 @@ fn seed_treasury_documents(tx: &Connection, treasury: &[String]) -> Result<()> {
                 doc_id,
                 COMPANY,
                 FISCAL_YEAR,
-                100 + index as i64,
+                first_document_number + index as i64,
                 date,
                 contact,
                 amount,
                 USER
             ],
         )?;
+        require_row(tx, "treasury_documents", &doc_id)?;
         tx.execute(
             "INSERT OR IGNORE INTO treasury_document_lines(id,document_id,method,amount,\
              treasury_account_id) VALUES(?1,?2,?3,?4,?5)",
@@ -748,7 +791,7 @@ fn seed_treasury_documents(tx: &Connection, treasury: &[String]) -> Result<()> {
         insert_journal(
             tx,
             &format!("demo-jrn-receipt-{index:03}"),
-            4000 + index as i64,
+            first_journal_number + index as i64,
             &date,
             "سند دریافت",
             "treasury_document",
