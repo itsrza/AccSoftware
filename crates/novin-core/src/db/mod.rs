@@ -3,7 +3,7 @@
 //! تمام دسترسی به SQLite از این ماژول عبور می‌کند تا PRAGMAها، مهاجرت‌ها و
 //! یکپارچگی داده در یک نقطه تضمین شود.
 
-mod demo;
+pub mod demo;
 
 use rusqlite::{Connection, Result};
 use std::path::Path;
@@ -1240,8 +1240,15 @@ pub fn seed(conn: &Connection) -> Result<()> {
         [],
     )?;
     tx.commit()?;
+
     // داده‌ی نمونه‌ی گسترده برای تست واقعی محیط نرم‌افزار.
-    demo::seed_demo_dataset(conn)?;
+    //
+    // قاعده: داده‌ی نمونه **اختیاری** است و هرگز نباید راه‌اندازی برنامه یا
+    // مهاجرت پایگاه داده را بشکند. اگر ساخت آن به هر دلیلی ناموفق باشد، برنامه
+    // با پایگاه داده‌ی سالم بالا می‌آید و خطا فقط گزارش می‌شود.
+    if let Err(error) = demo::seed_demo_dataset(conn) {
+        eprintln!("[novin-core] ساخت داده‌ی نمونه انجام نشد: {error}");
+    }
     Ok(())
 }
 
