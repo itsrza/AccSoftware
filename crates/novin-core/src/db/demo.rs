@@ -98,9 +98,14 @@ fn demo_date(offset: usize) -> String {
 }
 
 /// برچسب‌گذاری خطای هر مرحله تا در صورت شکست، دقیقاً بدانیم کجا بوده است.
+///
+/// از `ToSqlConversionFailure` استفاده می‌کنیم چون تنها گونه‌ی `rusqlite::Error`
+/// است که بدون فیچر اضافی می‌پذیرد پیام دلخواه را حمل کند
+/// (`ModuleError` تنها با فیچر `vtab` در دسترس است).
 fn step(name: &str, outcome: Result<()>) -> Result<()> {
     outcome.map_err(|error| {
-        rusqlite::Error::ModuleError(format!("مرحله‌ی داده‌ی نمونه «{name}»: {error}"))
+        let labelled = format!("مرحله‌ی داده‌ی نمونه «{name}»: {error}");
+        rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(labelled)))
     })
 }
 
