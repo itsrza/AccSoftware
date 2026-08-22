@@ -84,9 +84,8 @@ def _annotate(output: str, prefix: str) -> None:
     errors = [
         line.strip()
         for line in cleaned.splitlines()
-        if re.search(r"error|message:|help:|panicked|note:", line, re.I)
-        and "Compiling" not in line
-        and "Downloaded" not in line
+        if re.search(r"error\[E\d+\]|: error:", line)
+        and "proc macro panicked" not in line
     ]
     payload = "\n".join(errors) if errors else cleaned[-4000:]
     head = payload[:7200]
@@ -127,6 +126,7 @@ def emit_host_diagnostics(root: pathlib.Path, environment: dict) -> None:
     result = _run(
         [
             "cargo", "check", "-p", "novin-accounting-host", "--all-targets",
+            "--message-format", "short",
         ],
         cwd=root,
         env=environment,
