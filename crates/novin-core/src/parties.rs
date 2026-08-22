@@ -290,7 +290,7 @@ pub fn card_number_is_valid(input: &str) -> bool {
             }
         })
         .sum();
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 // ---------------------------------------------------------------------------
