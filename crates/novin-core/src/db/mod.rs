@@ -439,6 +439,126 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         }
     }
 
+    // --- مهاجرت نسخه‌ی ۳: کاتالوگ کالا (گروه درختی، سطوح قیمت، چند واحدی، مالیات) ---
+    conn.execute_batch(
+        r#"
+    CREATE TABLE IF NOT EXISTS product_groups(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      parent_id TEXT REFERENCES product_groups(id),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS product_prices(
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      level TEXT NOT NULL CHECK(level IN
+        ('retail','wholesale','partner','partner_tier2','partner_tier3','seasonal','exhibition')),
+      price INTEGER NOT NULL CHECK(price >= 0),
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(product_id, level)
+    );
+    CREATE TABLE IF NOT EXISTS product_units(
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      unit_name TEXT NOT NULL,
+      factor REAL NOT NULL CHECK(factor > 0),
+      is_default_sale INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(product_id, unit_name)
+    );
+    CREATE TABLE IF NOT EXISTS product_components(
+      parent_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      component_id TEXT NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL CHECK(quantity > 0),
+      PRIMARY KEY(parent_id, component_id),
+      CHECK(parent_id <> component_id)
+    );
+    CREATE TABLE IF NOT EXISTS product_attributes(
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      values_csv TEXT NOT NULL,
+      UNIQUE(product_id, name)
+    );
+    CREATE TABLE IF NOT EXISTS product_variants(
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      sku TEXT NOT NULL,
+      attribute_values TEXT NOT NULL,
+      barcode TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(product_id, sku)
+    );
+    CREATE TABLE IF NOT EXISTS product_gold_specs(
+      product_id TEXT PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+      weight_grams REAL NOT NULL CHECK(weight_grams > 0),
+      carat INTEGER NOT NULL DEFAULT 18,
+      making_charge_bp INTEGER NOT NULL DEFAULT 0,
+      profit_bp INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_product_prices_level ON product_prices(level);
+    CREATE INDEX IF NOT EXISTS idx_product_groups_parent ON product_groups(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
+    "#,
+    )?;
+    for (table, column, definition) in [
+        (
+            "products",
+            "kind",
+            "ALTER TABLE products ADD COLUMN kind TEXT NOT NULL DEFAULT 'simple'",
+        ),
+        (
+            "products",
+            "group_id",
+            "ALTER TABLE products ADD COLUMN group_id TEXT REFERENCES product_groups(id)",
+        ),
+        (
+            "products",
+            "vat_basis_points",
+            "ALTER TABLE products ADD COLUMN vat_basis_points INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "products",
+            "duty_basis_points",
+            "ALTER TABLE products ADD COLUMN duty_basis_points INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "products",
+            "tax_code",
+            "ALTER TABLE products ADD COLUMN tax_code TEXT",
+        ),
+        (
+            "products",
+            "tax_exempt",
+            "ALTER TABLE products ADD COLUMN tax_exempt INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "products",
+            "display_name",
+            "ALTER TABLE products ADD COLUMN display_name TEXT",
+        ),
+        (
+            "products",
+            "brand",
+            "ALTER TABLE products ADD COLUMN brand TEXT",
+        ),
+        (
+            "products",
+            "max_stock",
+            "ALTER TABLE products ADD COLUMN max_stock REAL NOT NULL DEFAULT 0",
+        ),
+        (
+            "products",
+            "reorder_point",
+            "ALTER TABLE products ADD COLUMN reorder_point REAL NOT NULL DEFAULT 0",
+        ),
+    ] {
+        if !column_exists(conn, table, column)? {
+            conn.execute(definition, [])?;
+        }
+    }
+
     // Backward-compatible schema migrations. Check column existence first.
     if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
         conn.execute(
@@ -633,6 +753,44 @@ pub fn seed(conn: &Connection) -> Result<()> {
     tx.execute(
         "UPDATE accounts SET requires_subsidiary=1, subsidiary_group_id='subgroup-persons' \
          WHERE company_id='company-demo' AND code IN ('1201','2101')",
+        [],
+    )?;
+    // --- گروه‌های کالا (درخت نمونه مطابق لیست کالاهای نرم‌افزار فعلی) ---
+    for (id, code, title, parent) in [
+        ("pgroup-food", "1", "مواد غذایی", None),
+        ("pgroup-misc", "2", "کالاهای متفرقه", None),
+        ("pgroup-cosmetic", "3", "آرایشی بهداشتی", None),
+        ("pgroup-fashion", "4", "مد و پوشاک", None),
+        ("pgroup-restaurant", "106", "رستورانی", Some("pgroup-food")),
+        ("pgroup-raw", "9", "مواد اولیه", None),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO product_groups(id,company_id,code,title,parent_id) VALUES(?1,'company-demo',?2,?3,?4)",
+            rusqlite::params![id, code, title, parent],
+        )?;
+    }
+    // سطوح قیمت کالاهای نمونه بر پایه‌ی قیمت فروش موجود.
+    tx.execute(
+        "INSERT OR IGNORE INTO product_prices(product_id,level,price) \
+         SELECT id,'retail',sale_price FROM products WHERE company_id='company-demo'",
+        [],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO product_prices(product_id,level,price) \
+         SELECT id,'wholesale',CAST(sale_price*0.95 AS INTEGER) FROM products WHERE company_id='company-demo'",
+        [],
+    )?;
+    tx.execute(
+        "INSERT OR IGNORE INTO product_prices(product_id,level,price) \
+         SELECT id,'partner',CAST(sale_price*0.90 AS INTEGER) FROM products WHERE company_id='company-demo'",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE products SET group_id='pgroup-misc' WHERE company_id='company-demo' AND group_id IS NULL",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE products SET vat_basis_points=900 WHERE company_id='company-demo' AND is_service=0",
         [],
     )?;
     tx.commit()?;
