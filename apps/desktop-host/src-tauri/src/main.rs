@@ -3211,24 +3211,21 @@ struct BulkPriceRow {
     difference: i64,
 }
 
-#[tauri::command]
-fn preview_bulk_price_change(
-    state: State<AppState>,
-    product_ids: Vec<String>,
-    mode: String,
+/// محاسبه‌ی مشترک تغییر جمعی قیمت — هم برای پیش‌نمایش و هم برای اعمال.
+fn compute_bulk_price(
+    c: &Connection,
+    company: &str,
+    product_ids: &[String],
+    mode: &str,
     value: i64,
     round_to: i64,
 ) -> Result<Vec<BulkPriceRow>, String> {
-    let c = conn(&state)?;
-    require_permission(&state, &c, "products.edit")?;
-    let (company, _) = active_company(&state, &c)?;
     if product_ids.is_empty() {
         return Err("BLK-003: هیچ کالایی انتخاب نشده است".into());
     }
-
     let mut names = std::collections::BTreeMap::new();
     let mut products = Vec::new();
-    for id in &product_ids {
+    for id in product_ids {
         let row: Result<(String, i64), _> = c.query_row(
             "SELECT name,sale_price FROM products WHERE id=?1 AND company_id=?2",
             params![id, company],
@@ -3240,7 +3237,7 @@ fn preview_bulk_price_change(
         }
     }
 
-    let change = match mode.as_str() {
+    let change = match mode {
         "percent" => BulkPriceChange::Percent(value),
         "amount" => BulkPriceChange::Amount(novin_core::money::Money::from_rials(value)),
         "set" => BulkPriceChange::Set(novin_core::money::Money::from_rials(value)),
@@ -3261,6 +3258,20 @@ fn preview_bulk_price_change(
         .collect())
 }
 
+#[tauri::command]
+fn preview_bulk_price_change(
+    state: State<AppState>,
+    product_ids: Vec<String>,
+    mode: String,
+    value: i64,
+    round_to: i64,
+) -> Result<Vec<BulkPriceRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "products.edit")?;
+    let (company, _) = active_company(&state, &c)?;
+    compute_bulk_price(&c, &company, &product_ids, &mode, value, round_to)
+}
+
 /// اعمال تغییر جمعی قیمت پس از تأیید کاربر.
 #[tauri::command]
 fn apply_bulk_price_change(
@@ -3270,11 +3281,11 @@ fn apply_bulk_price_change(
     value: i64,
     round_to: i64,
 ) -> Result<usize, String> {
-    let preview =
-        preview_bulk_price_change(state.clone(), product_ids, mode.clone(), value, round_to)?;
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "products.edit")?;
     let (company, _) = active_company(&state, &c)?;
+    let preview = compute_bulk_price(&c, &company, &product_ids, &mode, value, round_to)?;
+
     let tx = c.transaction().map_err(|e| e.to_string())?;
     for row in &preview {
         tx.execute(
