@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { designPreviewInvoke, isDesignPreview } from './lib/devPreview'
 import { toAppError } from './lib/errors'
 
 export type Contact={id:string,name:string,kind:string,mobile?:string,is_customer:boolean,is_supplier:boolean}
@@ -16,6 +17,9 @@ export type StockBalance={product_id:string,warehouse_id:string,quantity:number,
  */
 export async function api<T>(command:string,args?:Record<string,unknown>):Promise<T>{
  try{
+  // در مرورگرِ حالت توسعه پل IPC وجود ندارد؛ فقط برای بازبینی چیدمان از
+  // شبیه‌ساز پیش‌نمایش استفاده می‌شود. در بیلد Tauri هرگز اجرا نمی‌شود.
+  if(isDesignPreview()) return await designPreviewInvoke<T>(command,args)
   return await invoke<T>(command,args)
  }catch(error){
   throw toAppError(error)

@@ -62,3 +62,23 @@ button{font:inherit}.command-trigger{border:0;cursor:pointer;text-align:right}.c
 .modal .form-row label{flex:1;min-width:180px}
 .modal select,.modal input{padding:8px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit;width:100%}
 .green-text{color:#00875f}
+
+/* --- فرم فاکتور (فاز ۵) --- */
+.invoice-bottom{display:grid;grid-template-columns:1fr 380px;gap:16px;margin-top:16px}
+.invoice-bottom h3{margin:0 0 10px;font-size:13px;color:#21254E}
+.totals-panel{position:sticky;top:16px;align-self:start}
+.totals-table{width:100%;font-size:13px}
+.totals-table td{padding:5px 0}
+.totals-table td:last-child{text-align:left;font-variant-numeric:tabular-nums}
+.totals-table tr.grand td{border-top:1px solid #e1e6f5;padding-top:10px;font-weight:700;font-size:15px;color:#21254E}
+.balance-bar{display:flex;justify-content:space-between;gap:8px;margin-top:12px;padding:8px 10px;background:#F6F9FF;border-radius:8px;font-size:12px;color:#575757}
+.profit-box{margin-top:12px;padding:12px;background:#F6F9FF;border-radius:10px;font-size:13px;display:grid;gap:6px}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;margin:8px 0}
+.checkbox-row input{width:auto}
+.inline-label{display:flex;align-items:center;gap:6px;font-size:13px}
+.selected-row{background:#eaf0ff !important}
+.invoice-page tbody tr{cursor:pointer}
+@media (max-width:1100px){.invoice-bottom{grid-template-columns:1fr}}
+
+/* --- بنر پیش‌نمایش طراحی (فقط حالت توسعه) --- */
+.preview-banner{background:#FFB900;color:#3d2d00;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600}

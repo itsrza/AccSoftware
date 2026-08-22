@@ -17,7 +17,9 @@ import {PrintTemplates} from './pages/PrintTemplates'
 import {SingleLineJournal} from './pages/SingleLineJournal'
 import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
+import {InvoiceForm} from './pages/InvoiceForm'
 import {getDemoStatus,deleteDemo,login} from './api'
+import {isDesignPreview} from './lib/devPreview'
 import './styles.css'
 import {errorText} from './lib/errors'
 
@@ -33,6 +35,7 @@ const menu = [
   {id:'single-journal',label:'سند یک‌سطری',icon:'file'},
   {id:'product-pricing',label:'قیمت کالاها',icon:'package'},
   {id:'parties',label:'مدیریت اشخاص',icon:'users'},
+  {id:'invoice-form',label:'صدور فاکتور فروش',icon:'receipt'},
   {id:'reports',label:'گزارشات',icon:'bar',children:['مرکز گزارشات','گزارش‌ساز','گزارش فروش','گزارش خرید','گزارش انبار','گزارش مالی']},
   {id:'integrations',label:'اتصالات و افزونه‌ها',icon:'settings'},
   {id:'data-tools',label:'ورود و خروج اطلاعات',icon:'file'},
@@ -57,7 +60,7 @@ export default function App(){
     let alive=true
     const boot=async()=>{
       try{
-        if(DEMO_BUILD){
+        if(DEMO_BUILD && !isDesignPreview()){
           await login('admin','demo')
           const status=await getDemoStatus()
           if(alive)setDemo(status)
@@ -97,6 +100,7 @@ export default function App(){
     </aside>
     <main className="main">
       <header className="topbar">
+        {isDesignPreview()&&<div className="preview-banner">⚠ پیش‌نمایش طراحی — داده‌ها شبیه‌سازی‌شده‌اند و محاسبات واقعی از موتور مالی نمی‌آید</div>}
         <div className="demo-control">{DEMO_BUILD&&demo&&<button className="demo-delete" disabled={demoBusy} onClick={async()=>{if(!confirm('تمام محتوای نمونه حذف می‌شود. این عملیات برای نسخه توسعه است. ادامه می‌دهید؟'))return;setDemoBusy(true);try{await deleteDemo();setDemo(false);window.location.reload()}catch(e){alert(errorText(e))}finally{setDemoBusy(false)}}}>{demoBusy?'در حال حذف...':'حذف محتوای دمو'}</button>}</div>
         <div className="breadcrumbs"><span>شرکت نوین پرداز</span><b>/</b><strong>{page==='dashboard'?'داشبورد':page==='sales'?'فروش':page==='inventory'?'انبار و کالا':page==='contacts'?'اشخاص':page==='treasury'?'خزانه':page==='checks'?'چک‌ها':page==='accounting'?'حسابداری':page==='integrations'?'اتصالات و افزونه‌ها':page==='data-tools'?'ورود و خروج اطلاعات':page==='print-templates'?'قالب‌های چاپ':'گزارشات'}</strong></div>
         <div className="top-actions">
@@ -106,7 +110,7 @@ export default function App(){
           <div className="profile"><div className="avatar">م</div><div><b>مدیر سیستم</b><span>مدیریت</span></div><Icon name="chevron" size={14}/></div>
         </div>
       </header>
-      {page==='dashboard'?<Dashboard demo={demo} onSettings={()=>setSettings(true)} onNavigate={setPage}/>:page==='contacts'?<DataPage kind="contacts"/>:page==='inventory'?<AdvancedInventory/>:page==='accounting'?<Operations mode="accounting"/>:page==='reports'?<Reports/>:page==='report-builder'?<ReportBuilder/>:page==='integrations'?<Integrations/>:page==='data-tools'?<DataTools/>:page==='print-templates'?<PrintTemplates/>:page==='single-journal'?<SingleLineJournal/>:page==='product-pricing'?<ProductPricing/>:page==='parties'?<Parties/>:page==='treasury'?<Treasury/>:page==='checks'?<Checks/>:<Invoices page={page}/>} 
+      {page==='dashboard'?<Dashboard demo={demo} onSettings={()=>setSettings(true)} onNavigate={setPage}/>:page==='contacts'?<DataPage kind="contacts"/>:page==='inventory'?<AdvancedInventory/>:page==='accounting'?<Operations mode="accounting"/>:page==='reports'?<Reports/>:page==='report-builder'?<ReportBuilder/>:page==='integrations'?<Integrations/>:page==='data-tools'?<DataTools/>:page==='print-templates'?<PrintTemplates/>:page==='single-journal'?<SingleLineJournal/>:page==='product-pricing'?<ProductPricing/>:page==='parties'?<Parties/>:page==='invoice-form'?<InvoiceForm/>:page==='treasury'?<Treasury/>:page==='checks'?<Checks/>:<Invoices page={page}/>} 
     </main>
     {settings&&<SettingsCenter onClose={()=>setSettings(false)} dark={dark} setDark={setDark}/>}
     <CommandPalette open={palette} onClose={()=>setPalette(false)} onSelect={setPage}/>
