@@ -76,7 +76,9 @@ fn t01_invoice_identity_always_holds() {
     // معادله‌ی بنیادی
     assert_eq!(
         result.total,
-        result.subtotal - result.discount_total + result.duty_total + result.vat_total
+        result.subtotal - result.discount_total
+            + result.duty_total
+            + result.vat_total
             + result.freight
     );
     // تخفیف سرجمع کامل توزیع شده است
@@ -159,7 +161,11 @@ fn t03_layered_discounts_lose_no_rial() {
     assert_eq!(result.net_total, result.subtotal - result.discount_total);
 
     // تخفیف سرجمع دقیقاً ۹۷ ریال توزیع شده
-    let header: Money = result.lines.iter().map(|line| line.header_discount_share).sum();
+    let header: Money = result
+        .lines
+        .iter()
+        .map(|line| line.header_discount_share)
+        .sum();
     assert_eq!(header, Money::from_rials(97));
 
     // تخفیف بیش از مبلغ سطر مردود است
@@ -195,7 +201,10 @@ fn t04_coupon_rules() {
         minimum_invoice: None,
         maximum_discount: None,
     };
-    assert_eq!(percent.discount_for(base).unwrap(), Money::from_rials(1_000_000));
+    assert_eq!(
+        percent.discount_for(base).unwrap(),
+        Money::from_rials(1_000_000)
+    );
 
     // سقف تخفیف
     let capped = Coupon {
@@ -204,7 +213,10 @@ fn t04_coupon_rules() {
         minimum_invoice: None,
         maximum_discount: Some(Money::from_rials(2_000_000)),
     };
-    assert_eq!(capped.discount_for(base).unwrap(), Money::from_rials(2_000_000));
+    assert_eq!(
+        capped.discount_for(base).unwrap(),
+        Money::from_rials(2_000_000)
+    );
 
     // حداقل مبلغ فاکتور
     let minimum = Coupon {
@@ -329,7 +341,10 @@ fn t07_invoice_profit_and_commission() {
     assert_eq!(result.profit_margin_bp, 3_500, "حاشیه‌ی سود ۳۵٪");
     // ارزش افزوده نباید در سود دیده شود
     assert!(result.vat_total > Money::ZERO);
-    assert_eq!(result.profit, result.net_total - result.cost_total - result.commission_total);
+    assert_eq!(
+        result.profit,
+        result.net_total - result.cost_total - result.commission_total
+    );
 
     // فروش زیر قیمت تمام‌شده → سود منفی
     let mut loss = InvoiceLine::new("p", 1.0, Money::from_rials(500_000));
@@ -391,22 +406,35 @@ fn t09_installment_plan_uses_jalali_months() {
     // مبلغی که بر تعداد اقساط بخش‌پذیر نیست
     let total = Money::from_rials(10_000_000);
     let down = Money::from_rials(1_000_000);
-    let first_due = JalaliDate::new(1404, 6, 31).unwrap().to_gregorian().unwrap();
+    let first_due = JalaliDate::new(1404, 6, 31)
+        .unwrap()
+        .to_gregorian()
+        .unwrap();
     let plan = installment_plan(total, down, 7, first_due).unwrap();
 
     assert_eq!(plan.len(), 7);
     let sum: Money = plan.iter().map(|item| item.amount).sum();
-    assert_eq!(sum, Money::from_rials(9_000_000), "جمع اقساط باید دقیق باشد");
+    assert_eq!(
+        sum,
+        Money::from_rials(9_000_000),
+        "جمع اقساط باید دقیق باشد"
+    );
 
     // سررسیدها ماه شمسی جلو می‌روند و روز در ماه کوتاه‌تر اصلاح می‌شود
     assert_eq!(plan[0].due_date_jalali, "1404/06/31");
     assert_eq!(plan[1].due_date_jalali, "1404/07/30", "مهر ۳۰ روز دارد");
-    assert_eq!(plan[6].due_date_jalali, "1404/12/29", "اسفند سال عادی ۲۹ روز");
+    assert_eq!(
+        plan[6].due_date_jalali, "1404/12/29",
+        "اسفند سال عادی ۲۹ روز"
+    );
     assert_eq!(plan[0].number, 1);
     assert_eq!(plan[6].number, 7);
 
     // عبور از سال
-    let year_end = JalaliDate::new(1404, 11, 30).unwrap().to_gregorian().unwrap();
+    let year_end = JalaliDate::new(1404, 11, 30)
+        .unwrap()
+        .to_gregorian()
+        .unwrap();
     let crossing = installment_plan(Money::from_rials(300), Money::ZERO, 3, year_end).unwrap();
     assert_eq!(crossing[0].due_date_jalali, "1404/11/30");
     assert_eq!(crossing[1].due_date_jalali, "1404/12/29");
@@ -480,7 +508,10 @@ fn t10_live_balance_and_settlement_breakdown() {
         cash: Money::from_rials(-1),
         ..Default::default()
     };
-    assert_eq!(negative.validate(invoice), Err(InvoiceError::NegativeAmount));
+    assert_eq!(
+        negative.validate(invoice),
+        Err(InvoiceError::NegativeAmount)
+    );
 
     // فاکتور خالی
     assert_eq!(

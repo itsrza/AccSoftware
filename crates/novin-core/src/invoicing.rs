@@ -58,7 +58,9 @@ pub struct DiscountTier {
 pub fn resolve_tier_discount(tiers: &[DiscountTier], quantity: f64) -> i64 {
     tiers
         .iter()
-        .filter(|tier| tier.min_quantity.is_finite() && quantity + f64::EPSILON >= tier.min_quantity)
+        .filter(|tier| {
+            tier.min_quantity.is_finite() && quantity + f64::EPSILON >= tier.min_quantity
+        })
         .max_by(|a, b| {
             a.min_quantity
                 .partial_cmp(&b.min_quantity)
