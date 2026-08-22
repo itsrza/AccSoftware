@@ -97,6 +97,21 @@ fn demo_date(offset: usize) -> String {
     format!("{year}/{month:02}/{day:02}")
 }
 
+/// خواندن شناسه‌های واقعی یک جدول پس از درج.
+///
+/// چرا لازم است: اگر درجی به‌خاطر یکتا بودن نام یا کد نادیده گرفته شود،
+/// شناسه‌ی hardcode شده وجود نخواهد داشت و هر ارجاع بعدی کلید خارجی را
+/// می‌شکند. با خواندن شناسه‌های واقعی، داده‌ی نمونه در برابر تداخل با داده‌ی
+/// پایه مقاوم می‌شود.
+fn collect_ids(tx: &Connection, sql: &str) -> Result<Vec<String>> {
+    let mut statement = tx.prepare(sql)?;
+    let rows = statement
+        .query_map(params![COMPANY], |row| row.get::<_, String>(0))?
+        .filter_map(std::result::Result::ok)
+        .collect();
+    Ok(rows)
+}
+
 /// درج داده‌ی نمونه‌ی گسترده. اجرای دوباره بی‌اثر است.
 pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     // اگر قبلاً ساخته شده، دوباره نساز.
@@ -114,13 +129,27 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     seed_required_accounts(&tx)?;
     seed_warehouses(&tx)?;
     seed_treasury(&tx)?;
+
+    // شناسه‌های واقعی پس از درج خوانده می‌شوند تا ارجاع‌ها همیشه معتبر باشند.
+    let warehouse_ids = collect_ids(
+        &tx,
+        "SELECT id FROM warehouses WHERE company_id=?1 ORDER BY code",
+    )?;
+    let treasury_ids = collect_ids(
+        &tx,
+        "SELECT id FROM treasury_accounts WHERE company_id=?1 ORDER BY account_type,id",
+    )?;
+    if warehouse_ids.is_empty() || treasury_ids.is_empty() {
+        return Ok(());
+    }
+
     seed_products(&tx)?;
     seed_contacts(&tx)?;
-    seed_inventory(&tx)?;
-    seed_sales(&tx)?;
-    seed_purchases(&tx)?;
-    seed_treasury_documents(&tx)?;
-    seed_checks(&tx)?;
+    seed_inventory(&tx, &warehouse_ids)?;
+    seed_sales(&tx, &warehouse_ids)?;
+    seed_purchases(&tx, &warehouse_ids)?;
+    seed_treasury_documents(&tx, &treasury_ids)?;
+    seed_checks(&tx, &treasury_ids)?;
 
     tx.commit()?;
     Ok(())
@@ -254,11 +283,22 @@ fn seed_treasury(tx: &Connection) -> Result<()> {
             )?;
         }
     }
-    tx.execute(
-        "INSERT OR IGNORE INTO pos_terminals(id,company_id,treasury_account_id,title,terminal_number) \
-         VALUES('pos-1',?1,'treasury-bank-mellat','کارتخوان صندوق ۱','12345678')",
-        params![COMPANY],
-    )?;
+    // پایانه فقط وقتی ساخته می‌شود که حساب بانکی‌اش واقعاً وجود داشته باشد.
+    let bank: Option<String> = tx
+        .query_row(
+            "SELECT id FROM treasury_accounts WHERE company_id=?1 AND account_type='bank' \
+             ORDER BY id LIMIT 1",
+            params![COMPANY],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(bank_id) = bank {
+        tx.execute(
+            "INSERT OR IGNORE INTO pos_terminals(id,company_id,treasury_account_id,title,\
+             terminal_number) VALUES('pos-1',?1,?2,'کارتخوان صندوق ۱','12345678')",
+            params![COMPANY, bank_id],
+        )?;
+    }
     Ok(())
 }
 
@@ -385,10 +425,10 @@ fn seed_contacts(tx: &Connection) -> Result<()> {
 }
 
 /// موجودی اولیه: هر کالا با یک رسید انبار وارد انبار مرکزی می‌شود.
-fn seed_inventory(tx: &Connection) -> Result<()> {
+fn seed_inventory(tx: &Connection, warehouses: &[String]) -> Result<()> {
     for index in 0..PRODUCT_COUNT {
         let product = format!("demo-prod-{index:03}");
-        let warehouse = WAREHOUSES[index % 3].0; // پخش بین سه انبار اصلی
+        let warehouse = &warehouses[index % warehouses.len()];
         let quantity = (index % 40 + 8) as f64;
         let unit_cost: i64 = tx.query_row(
             "SELECT purchase_price FROM products WHERE id=?1",
@@ -428,6 +468,18 @@ fn insert_journal(
     source: &str,
     lines: &[(&str, i64, i64)],
 ) -> Result<()> {
+    // اگر حتی یکی از حساب‌ها موجود نباشد، سند اصلاً صادر نمی‌شود؛ سند ناقص
+    // بدتر از نبود سند است.
+    for (account, _, _) in lines {
+        let exists: i64 = tx.query_row(
+            "SELECT COUNT(*) FROM accounts WHERE id=?1",
+            params![account],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            return Ok(());
+        }
+    }
     tx.execute(
         "INSERT OR IGNORE INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,\
          description,status,source_type,created_by) VALUES(?1,?2,?3,?4,?5,?6,'posted',?7,?8)",
@@ -459,11 +511,11 @@ fn insert_journal(
     Ok(())
 }
 
-fn seed_sales(tx: &Connection) -> Result<()> {
+fn seed_sales(tx: &Connection, warehouses: &[String]) -> Result<()> {
     for index in 0..SALES_INVOICE_COUNT {
         let invoice_id = format!("demo-sale-{index:03}");
         let contact = format!("demo-contact-{:03}", index % CONTACT_COUNT);
-        let warehouse = WAREHOUSES[index % 3].0;
+        let warehouse = &warehouses[index % warehouses.len()];
         let date = demo_date(index);
         let line_count = index % 3 + 1;
 
@@ -542,12 +594,12 @@ fn seed_sales(tx: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn seed_purchases(tx: &Connection) -> Result<()> {
+fn seed_purchases(tx: &Connection, warehouses: &[String]) -> Result<()> {
     for index in 0..PURCHASE_INVOICE_COUNT {
         let invoice_id = format!("demo-purchase-{index:03}");
         // تأمین‌کننده‌ها اندیس‌هایی هستند که is_supplier دارند
         let contact = format!("demo-contact-{:03}", (index * 7 + 5) % CONTACT_COUNT);
-        let warehouse = WAREHOUSES[index % 2].0;
+        let warehouse = &warehouses[index % warehouses.len()];
         let date = demo_date(index + 3);
 
         let product_index = (index * 5) % PRODUCT_COUNT;
@@ -624,17 +676,13 @@ fn seed_purchases(tx: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn seed_treasury_documents(tx: &Connection) -> Result<()> {
+fn seed_treasury_documents(tx: &Connection, treasury: &[String]) -> Result<()> {
     for index in 0..20 {
         let doc_id = format!("demo-receipt-{index:03}");
         let contact = format!("demo-contact-{:03}", (index * 3) % CONTACT_COUNT);
         let date = demo_date(index + 1);
         let amount = ((index as i64 % 8) + 1) * 12_500_000;
-        let treasury = if index % 2 == 0 {
-            "treasury-cash-1"
-        } else {
-            "treasury-bank-mellat"
-        };
+        let treasury = &treasury[index % treasury.len()];
 
         tx.execute(
             "INSERT OR IGNORE INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,\
@@ -695,7 +743,7 @@ fn seed_treasury_documents(tx: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn seed_checks(tx: &Connection) -> Result<()> {
+fn seed_checks(tx: &Connection, treasury: &[String]) -> Result<()> {
     let statuses = [
         "registered",
         "in_progress",
@@ -711,7 +759,7 @@ fn seed_checks(tx: &Connection) -> Result<()> {
         tx.execute(
             "INSERT OR IGNORE INTO checks(id,company_id,fiscal_year_id,check_type,check_number,\
              party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,\
-             created_by) VALUES(?1,?2,?3,?4,?5,?6,'treasury-cash-1',?7,?8,?9,?10,?11,'چک نمونه',?12)",
+             created_by) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,'چک نمونه',?13)",
             params![
                 format!("demo-check-{index:03}"),
                 COMPANY,
@@ -719,6 +767,7 @@ fn seed_checks(tx: &Connection) -> Result<()> {
                 if index % 4 == 3 { "issued" } else { "received" },
                 format!("{}", 700_100 + index),
                 contact,
+                treasury[index % treasury.len()],
                 ((index as i64 % 10) + 1) * 8_500_000,
                 issue,
                 due,
