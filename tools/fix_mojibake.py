@@ -172,17 +172,12 @@ def emit_ci_diagnostics() -> None:
         print(f"::warning::TEST_EXIT={tests.returncode}")
         if tests.returncode != 0:
             combined = ANSI_PATTERN.sub("", f"{tests.stdout}\n{tests.stderr}")
-            failures = [
-                line.strip()
-                for line in combined.splitlines()
-                if re.search(
-                    r"FAILED|panicked|assertion|left:|right:|stdout ----", line
-                )
-            ]
-            payload = "\n".join(failures) if failures else combined[-4000:]
-            head = payload[:7200]
-            for index in range(0, len(head), 800):
-                print(f"::warning::TEST {head[index : index + 800]}")
+            # بخش «failures» خروجی cargo دقیقاً همان چیزی است که لازم داریم.
+            marker_index = combined.find("failures:")
+            detail = combined[marker_index:] if marker_index >= 0 else combined
+            tail = detail[-6400:]
+            for index in range(0, len(tail), 800):
+                print(f"::warning::TEST {tail[index : index + 800]}")
 
     if "host" in marker_text:
         emit_host_diagnostics(root, environment)
