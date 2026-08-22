@@ -179,7 +179,11 @@ impl PriceLevel {
         match self {
             PriceLevel::Retail => &[PriceLevel::Retail],
             PriceLevel::Wholesale => &[PriceLevel::Wholesale, PriceLevel::Retail],
-            PriceLevel::Partner => &[PriceLevel::Partner, PriceLevel::Wholesale, PriceLevel::Retail],
+            PriceLevel::Partner => &[
+                PriceLevel::Partner,
+                PriceLevel::Wholesale,
+                PriceLevel::Retail,
+            ],
             PriceLevel::PartnerTier2 => &[
                 PriceLevel::PartnerTier2,
                 PriceLevel::Partner,
@@ -274,11 +278,7 @@ impl UnitSet {
     }
 
     /// افزودن واحد فرعی. ضریب باید مثبت و متناهی باشد.
-    pub fn with_unit(
-        mut self,
-        name: impl Into<String>,
-        factor: f64,
-    ) -> Result<Self, CatalogError> {
+    pub fn with_unit(mut self, name: impl Into<String>, factor: f64) -> Result<Self, CatalogError> {
         if !factor.is_finite() || factor <= 0.0 {
             return Err(CatalogError::InvalidUnitFactor);
         }
@@ -444,7 +444,11 @@ pub fn expand_variants(
     base_sku: &str,
     attributes: &[VariantAttribute],
 ) -> Result<Vec<VariantCombination>, CatalogError> {
-    if attributes.is_empty() || attributes.iter().any(|attribute| attribute.values.is_empty()) {
+    if attributes.is_empty()
+        || attributes
+            .iter()
+            .any(|attribute| attribute.values.is_empty())
+    {
         return Err(CatalogError::EmptyVariantAttributes);
     }
     let mut combinations: Vec<Vec<String>> = vec![Vec::new()];
@@ -534,7 +538,9 @@ pub fn gold_price(pricing: GoldPricing) -> Result<GoldPriceBreakdown, CatalogErr
     let profit = metal_value
         .checked_add(making_charge)?
         .percent_bp(pricing.profit_bp)?;
-    let vat = making_charge.checked_add(profit)?.percent_bp(pricing.vat_bp)?;
+    let vat = making_charge
+        .checked_add(profit)?
+        .percent_bp(pricing.vat_bp)?;
     let total = metal_value
         .checked_add(making_charge)?
         .checked_add(profit)?
@@ -608,8 +614,10 @@ pub fn build_group_tree(groups: &[ProductGroup]) -> Result<Vec<ProductGroupNode>
 
 /// مسیر کامل یک گروه از ریشه: `مواد غذایی / لبنیات / پنیر`
 pub fn group_path(groups: &[ProductGroup], code: &str) -> Option<String> {
-    let by_code: BTreeMap<&str, &ProductGroup> =
-        groups.iter().map(|group| (group.code.as_str(), group)).collect();
+    let by_code: BTreeMap<&str, &ProductGroup> = groups
+        .iter()
+        .map(|group| (group.code.as_str(), group))
+        .collect();
     let mut parts = Vec::new();
     let mut cursor = Some(code);
     let mut guard = 0;

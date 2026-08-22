@@ -73,10 +73,20 @@ fn t02_seven_price_levels_are_stored_exactly() {
 
     // قیمت‌های واقعی «iPhone SE 2022» از لیست کالاها: جزئی ۱۱۱٬۱۱۱ و همکار ۲۲۲٬۲۲۲
     let mut prices = PriceList::new();
-    prices.set(PriceLevel::Retail, Money::from_rials(111_111)).unwrap();
-    prices.set(PriceLevel::Partner, Money::from_rials(222_222)).unwrap();
-    assert_eq!(prices.exact(PriceLevel::Retail), Some(Money::from_rials(111_111)));
-    assert_eq!(prices.exact(PriceLevel::Partner), Some(Money::from_rials(222_222)));
+    prices
+        .set(PriceLevel::Retail, Money::from_rials(111_111))
+        .unwrap();
+    prices
+        .set(PriceLevel::Partner, Money::from_rials(222_222))
+        .unwrap();
+    assert_eq!(
+        prices.exact(PriceLevel::Retail),
+        Some(Money::from_rials(111_111))
+    );
+    assert_eq!(
+        prices.exact(PriceLevel::Partner),
+        Some(Money::from_rials(222_222))
+    );
     assert_eq!(prices.exact(PriceLevel::Exhibition), None);
     assert_eq!(
         prices.defined_levels(),
@@ -84,8 +94,13 @@ fn t02_seven_price_levels_are_stored_exactly() {
     );
 
     // به‌روزرسانی قیمت باید جایگزین شود نه اضافه
-    prices.set(PriceLevel::Retail, Money::from_rials(120_000)).unwrap();
-    assert_eq!(prices.exact(PriceLevel::Retail), Some(Money::from_rials(120_000)));
+    prices
+        .set(PriceLevel::Retail, Money::from_rials(120_000))
+        .unwrap();
+    assert_eq!(
+        prices.exact(PriceLevel::Retail),
+        Some(Money::from_rials(120_000))
+    );
     assert_eq!(prices.defined_levels().len(), 2);
 
     // قیمت منفی ممنوع
@@ -99,7 +114,10 @@ fn t02_seven_price_levels_are_stored_exactly() {
     for level in PriceLevel::ALL {
         assert_eq!(PriceLevel::parse(level.as_str()), Ok(level));
     }
-    assert_eq!(PriceLevel::parse("vip"), Err(CatalogError::UnknownPriceLevel));
+    assert_eq!(
+        PriceLevel::parse("vip"),
+        Err(CatalogError::UnknownPriceLevel)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +126,15 @@ fn t02_seven_price_levels_are_stored_exactly() {
 #[test]
 fn t03_price_fallback_never_returns_wrong_tier() {
     let mut prices = PriceList::new();
-    prices.set(PriceLevel::Retail, Money::from_rials(100_000)).unwrap();
-    prices.set(PriceLevel::Wholesale, Money::from_rials(95_000)).unwrap();
-    prices.set(PriceLevel::Partner, Money::from_rials(90_000)).unwrap();
+    prices
+        .set(PriceLevel::Retail, Money::from_rials(100_000))
+        .unwrap();
+    prices
+        .set(PriceLevel::Wholesale, Money::from_rials(95_000))
+        .unwrap();
+    prices
+        .set(PriceLevel::Partner, Money::from_rials(90_000))
+        .unwrap();
 
     // سطح تعریف‌شده مستقیم برمی‌گردد
     assert_eq!(
@@ -174,7 +198,10 @@ fn t04_multi_unit_conversion_is_exact() {
         units.unit_price(base_price, "کیسه").unwrap(),
         Money::from_rials(9_700_000)
     );
-    assert_eq!(units.unit_price(base_price, "گرم").unwrap(), Money::from_rials(970));
+    assert_eq!(
+        units.unit_price(base_price, "گرم").unwrap(),
+        Money::from_rials(970)
+    );
     assert_eq!(units.unit_price(base_price, "کیلوگرم").unwrap(), base_price);
 }
 
@@ -203,7 +230,9 @@ fn t05_invalid_units_are_rejected() {
         Some(CatalogError::InvalidUnitFactor)
     );
     assert_eq!(
-        UnitSet::new("عدد").with_unit("بی‌نهایت", f64::INFINITY).err(),
+        UnitSet::new("عدد")
+            .with_unit("بی‌نهایت", f64::INFINITY)
+            .err(),
         Some(CatalogError::InvalidUnitFactor)
     );
     assert_eq!(
@@ -242,7 +271,9 @@ fn t06_tax_profile_calculations() {
 
     // کالای معاف
     assert_eq!(
-        TaxProfile::exempt().tax_on(Money::from_rials(999_999)).unwrap(),
+        TaxProfile::exempt()
+            .tax_on(Money::from_rials(999_999))
+            .unwrap(),
         Money::ZERO
     );
 
@@ -346,13 +377,19 @@ fn t08_variant_expansion_is_complete_and_unique() {
     assert_eq!(variants[5].sku, "SHIRT-44-006");
 
     // همه‌ی SKUها یکتا هستند
-    let mut skus: Vec<&str> = variants.iter().map(|variant| variant.sku.as_str()).collect();
+    let mut skus: Vec<&str> = variants
+        .iter()
+        .map(|variant| variant.sku.as_str())
+        .collect();
     skus.sort_unstable();
     skus.dedup();
     assert_eq!(skus.len(), 6);
 
     // همه‌ی ترکیب‌ها یکتا هستند
-    let mut combos: Vec<String> = variants.iter().map(|variant| variant.values.join("|")).collect();
+    let mut combos: Vec<String> = variants
+        .iter()
+        .map(|variant| variant.values.join("|"))
+        .collect();
     combos.sort();
     combos.dedup();
     assert_eq!(combos.len(), 6);
@@ -409,7 +446,9 @@ fn t09_gold_pricing_follows_iranian_market_rules() {
     assert_eq!(breakdown.total, Money::from_rials(178_939_500));
 
     // قاعده‌ی کلیدی: مالیات نباید روی ارزش خود طلا محاسبه شود
-    let naive_vat = Money::from_rials(178_939_500 - 2_389_500).percent_bp(900).unwrap();
+    let naive_vat = Money::from_rials(178_939_500 - 2_389_500)
+        .percent_bp(900)
+        .unwrap();
     assert!(
         breakdown.vat < naive_vat,
         "ارزش افزوده نباید بر ارزش طلا تعلق بگیرد"
@@ -486,7 +525,10 @@ fn t10_product_groups_and_catalog_schema() {
     let food = tree.iter().find(|node| node.group.code == "1").unwrap();
     assert_eq!(food.children.len(), 1);
     assert_eq!(food.children[0].group.title, "رستورانی");
-    assert_eq!(group_path(&groups, "106").as_deref(), Some("مواد غذایی / رستورانی"));
+    assert_eq!(
+        group_path(&groups, "106").as_deref(),
+        Some("مواد غذایی / رستورانی")
+    );
     assert_eq!(group_path(&groups, "404"), None);
 
     // خطاهای ساختاری
@@ -545,7 +587,13 @@ fn t10_product_groups_and_catalog_schema() {
             .filter_map(Result::ok)
             .collect()
     };
-    for column in ["kind", "group_id", "vat_basis_points", "tax_code", "reorder_point"] {
+    for column in [
+        "kind",
+        "group_id",
+        "vat_basis_points",
+        "tax_code",
+        "reorder_point",
+    ] {
         assert!(columns.contains(&column.to_string()), "ستون {column} نیست");
     }
 
