@@ -155,7 +155,10 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     step("inventory", seed_inventory(&tx, &warehouse_ids))?;
     step("sales", seed_sales(&tx, &warehouse_ids))?;
     step("purchases", seed_purchases(&tx, &warehouse_ids))?;
-    step("treasury_documents", seed_treasury_documents(&tx, &treasury_ids))?;
+    step(
+        "treasury_documents",
+        seed_treasury_documents(&tx, &treasury_ids),
+    )?;
     step("checks", seed_checks(&tx, &treasury_ids))?;
 
     tx.commit()?;
