@@ -144,7 +144,10 @@ def emit_ci_diagnostics() -> None:
         return
     root = pathlib.Path(__file__).resolve().parents[1]
     marker_text = DIAGNOSTICS_MARKER.read_text(encoding="utf-8", errors="ignore")
-    environment = dict(os.environ, CARGO_TERM_COLOR="never", RUSTFLAGS="")
+    # backtrace خاموش می‌شود تا پیام اصلی panic در annotation جا بگیرد.
+    environment = dict(
+        os.environ, CARGO_TERM_COLOR="never", RUSTFLAGS="", RUST_BACKTRACE="0"
+    )
     command = [
         "cargo", "clippy", "-p", "novin-core", "--all-targets",
         "--message-format", "short", "--", "-D", "warnings",
