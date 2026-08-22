@@ -163,6 +163,26 @@ def emit_ci_diagnostics() -> None:
     if result.returncode != 0:
         _annotate(output, "")
 
+    # اجرای تست‌ها: نام تست‌های شکست‌خورده و دلیل، برای وقتی clippy سبز است
+    # ولی تستی قرمز می‌شود.
+    tests = _run(
+        ["cargo", "test", "-p", "novin-core", "--all-targets"], cwd=root, env=environment
+    )
+    if tests is not None:
+        print(f"::warning::TEST_EXIT={tests.returncode}")
+        if tests.returncode != 0:
+            combined = ANSI_PATTERN.sub("", f"{tests.stdout}\n{tests.stderr}")
+            failures = [
+                line.strip()
+                for line in combined.splitlines()
+                if re.search(r"^(test .*FAILED|---- .* stdout ----|assertion|thread .* panicked|\s+left:|\s+right:|panicked at)", line.strip())
+                or "test result: FAILED" in line
+            ]
+            payload = "\n".join(failures) if failures else combined[-4000:]
+            head = payload[:7200]
+            for index in range(0, len(head), 800):
+                print(f"::warning::TEST {head[index : index + 800]}")
+
     if "host" in marker_text:
         emit_host_diagnostics(root, environment)
 

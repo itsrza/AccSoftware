@@ -340,7 +340,7 @@ fn t08_negative_balance_policy() {
     {
         BalanceCheck::Warning(message) => {
             assert!(message.contains("بانک سینا"));
-            assert!(message.contains("500,000") || message.contains("۵۰۰"));
+            assert!(message.contains("500,000"), "پیام هشدار: {message}");
         }
         other => panic!("انتظار هشدار داشتیم: {other:?}"),
     }

@@ -420,7 +420,7 @@ pub fn check_withdrawal(
         }),
         NegativeBalancePolicy::Warn => Ok(BalanceCheck::Warning(format!(
             "موجودی {account_name} پس از این عملیات {} ریال منفی می‌شود.",
-            projected.abs().rials()
+            projected.abs().format_grouped()
         ))),
         NegativeBalancePolicy::Ignore => Ok(BalanceCheck::Allowed),
     }
