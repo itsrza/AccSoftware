@@ -139,7 +139,12 @@ fn t04_collected_check_can_bounce_with_reverse_effect() {
 #[test]
 fn t05_status_vocabulary_is_kind_specific() {
     assert!(
-        transition(CheckKind::Issued, CheckStatus::Outstanding, CheckStatus::Collected).is_err(),
+        transition(
+            CheckKind::Issued,
+            CheckStatus::Outstanding,
+            CheckStatus::Collected
+        )
+        .is_err(),
         "«وصول شده» وضعیت چک پرداختی نیست"
     );
     assert!(
@@ -175,7 +180,10 @@ fn t07_demo_dataset_is_complete_and_referentially_intact() {
     let conn = fresh();
     db::demo::seed_demo_dataset(&conn).expect("داده‌ی نمونه باید بدون خطا ساخته شود");
 
-    assert!(count(&conn, "SELECT COUNT(*) FROM checks") >= 20, "چک‌ها کم است");
+    assert!(
+        count(&conn, "SELECT COUNT(*) FROM checks") >= 20,
+        "چک‌ها کم است"
+    );
     assert!(
         count(&conn, "SELECT COUNT(*) FROM sales_invoice_lines") >= 55,
         "اقلام فاکتور فروش باید ساخته شوند — نشانه‌ی رد شدن بی‌صدای سطر والد"
@@ -202,7 +210,9 @@ fn t08_document_numbers_never_collide() {
         let total = count(&conn, &format!("SELECT COUNT(*) FROM {table}"));
         let distinct = count(
             &conn,
-            &format!("SELECT COUNT(DISTINCT company_id||'/'||fiscal_year_id||'/'||number) FROM {table}"),
+            &format!(
+                "SELECT COUNT(DISTINCT company_id||'/'||fiscal_year_id||'/'||number) FROM {table}"
+            ),
         );
         assert_eq!(total, distinct, "شماره‌ی تکراری در «{table}»");
     }
