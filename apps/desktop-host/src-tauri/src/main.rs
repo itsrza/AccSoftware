@@ -2,11 +2,11 @@
 
 use argon2::{Argon2, PasswordVerifier};
 use novin_core::catalog::{PriceLevel, ProductKind};
-use novin_core::coding::{
-    validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
-};
 use novin_core::checks::{
     transition as check_transition, treasury_effect, CheckKind, CheckStatus, TreasuryEffect,
+};
+use novin_core::coding::{
+    validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
 };
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
@@ -5140,8 +5140,8 @@ fn update_check_status(
     validate_fiscal_date(&tx, &row.6, &row.7)?;
     // اثر خزانه‌ای گذار را هم هسته تعیین می‌کند، نه شرط‌های پراکنده.
     let effect = treasury_effect(kind, current, target);
-    let settles = matches!(effect, TreasuryEffect::Increase | TreasuryEffect::Decrease)
-        && row.5.is_none();
+    let settles =
+        matches!(effect, TreasuryEffect::Increase | TreasuryEffect::Decrease) && row.5.is_none();
     let reverses = target == CheckStatus::Bounced && row.5.is_some();
     if settles {
         let treasury_id = row
