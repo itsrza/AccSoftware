@@ -7,10 +7,11 @@ use novin_core::coding::{
 };
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
-use novin_core::jalali;
 use novin_core::invoicing::{
-    self, DiscountTier, FreightMode, InvoiceInput as CoreInvoiceInput, InvoiceLine as CoreInvoiceLine,
+    self, DiscountTier, FreightMode, InvoiceInput as CoreInvoiceInput,
+    InvoiceLine as CoreInvoiceLine,
 };
+use novin_core::jalali;
 use novin_core::parties::{self, BalanceStatus, PartyDefinition, PartyFunction, PartyType};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -2451,7 +2452,6 @@ fn update_party_profile(
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
-
 
 // ===========================================================================
 // فاز ۵ — محاسبه‌ی زنده‌ی فاکتور و اقساط
