@@ -43,3 +43,13 @@ button{font:inherit}.command-trigger{border:0;cursor:pointer;text-align:right}.c
 .form-actions .primary{background:#21254E;color:#fff;border:none;padding:10px 20px;border-radius:10px;cursor:pointer;font-family:inherit}
 .form-actions button{padding:10px 18px;border-radius:10px;border:1px solid #d8dceb;background:#fff;cursor:pointer;font-family:inherit}
 .success-box{background:#e8fff5;border:1px solid #00D492;color:#0a6b4a;padding:10px 14px;border-radius:10px;margin-bottom:12px}
+
+/* --- مرکز قیمت‌گذاری کالا (فاز ۳) --- */
+.price-table th{white-space:nowrap}
+.price-cell{min-width:110px}
+.price-cell input{width:100%;padding:6px 8px;border:1px solid #e1e6f5;border-radius:6px;font-family:inherit;text-align:left;direction:ltr}
+.price-cell input:focus{border-color:#21254E;outline:none;background:#F6F9FF}
+.price-cell small{display:block;margin-top:2px;font-size:11px;color:#62748E}
+.search-input{flex:1;min-width:200px;padding:8px 12px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit}
+.toolbar select{padding:8px 12px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit}
+.empty-state{padding:40px;text-align:center;color:#62748E}

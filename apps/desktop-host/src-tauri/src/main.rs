@@ -6,6 +6,7 @@ use novin_core::coding::{
 };
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
+use novin_core::catalog::{PriceLevel, ProductKind};
 use novin_core::jalali;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -1894,6 +1895,205 @@ fn create_single_line_journal(
 
     post_journal(state, journal_id.clone())?;
     Ok(journal_id)
+}
+
+
+// ===========================================================================
+// فاز ۳ — کاتالوگ کالا: گروه درختی و هفت سطح قیمت
+// مرجع: تصاویر 8Xmc1p (لیست کالاها ← قیمت کالاها) و NztJl5 (اطلاعات قیمت‌ها)
+// ===========================================================================
+
+#[derive(Serialize)]
+struct ProductGroupRow {
+    id: String,
+    code: String,
+    title: String,
+    parent_id: Option<String>,
+    product_count: i64,
+}
+
+#[derive(Serialize)]
+struct PriceLevelRow {
+    level: String,
+    label: String,
+    price: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct ProductPriceRow {
+    id: String,
+    sku: String,
+    name: String,
+    kind: String,
+    kind_label: String,
+    group_title: Option<String>,
+    prices: Vec<PriceLevelRow>,
+}
+
+#[tauri::command]
+fn list_product_groups(state: State<AppState>) -> Result<Vec<ProductGroupRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "products.create")?;
+    let (company, _) = active_company(&state, &c)?;
+    let mut st = c
+        .prepare(
+            "SELECT g.id,g.code,g.title,g.parent_id,\
+                    (SELECT COUNT(*) FROM products p WHERE p.group_id=g.id) \
+             FROM product_groups g WHERE g.company_id=?1 AND g.is_active=1 ORDER BY g.code",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(ProductGroupRow {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                title: r.get(2)?,
+                parent_id: r.get(3)?,
+                product_count: r.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// فهرست کالاها به‌همراه هر هفت سطح قیمت.
+#[tauri::command]
+fn list_product_prices(state: State<AppState>) -> Result<Vec<ProductPriceRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "products.create")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let mut st = c
+        .prepare(
+            "SELECT p.id,p.sku,p.name,p.kind,g.title \
+             FROM products p LEFT JOIN product_groups g ON g.id=p.group_id \
+             WHERE p.company_id=?1 ORDER BY p.sku",
+        )
+        .map_err(|e| e.to_string())?;
+    let products: Vec<(String, String, String, String, Option<String>)> = st
+        .query_map(params![company], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    let mut price_stmt = c
+        .prepare("SELECT level,price FROM product_prices WHERE product_id=?1")
+        .map_err(|e| e.to_string())?;
+
+    let mut rows = Vec::with_capacity(products.len());
+    for (id, sku, name, kind, group_title) in products {
+        let stored: Vec<(String, i64)> = price_stmt
+            .query_map(params![id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .collect();
+        let prices = PriceLevel::ALL
+            .iter()
+            .map(|level| PriceLevelRow {
+                level: level.as_str().to_string(),
+                label: level.label().to_string(),
+                price: stored
+                    .iter()
+                    .find(|(stored_level, _)| stored_level == level.as_str())
+                    .map(|(_, price)| *price),
+            })
+            .collect();
+        let kind_label = ProductKind::parse(&kind)
+            .unwrap_or(ProductKind::Simple)
+            .label()
+            .to_string();
+        rows.push(ProductPriceRow {
+            id,
+            sku,
+            name,
+            kind,
+            kind_label,
+            group_title,
+            prices,
+        });
+    }
+    Ok(rows)
+}
+
+/// ثبت یا حذف قیمت یک سطح مشخص برای یک کالا.
+///
+/// مقدار خالی یعنی «این سطح برای این کالا تعریف نشده» و باعث حذف رکورد می‌شود
+/// تا زنجیره‌ی جایگزینی سطح قیمت در هسته درست عمل کند.
+#[tauri::command]
+fn set_product_price(
+    state: State<AppState>,
+    product_id: String,
+    level: String,
+    price: Option<i64>,
+) -> Result<(), String> {
+    let level = PriceLevel::parse(&level).map_err(|e| e.to_string())?;
+    if let Some(value) = price {
+        if value < 0 {
+            return Err("CAT-002: قیمت نمی‌تواند منفی باشد".into());
+        }
+    }
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "products.edit")?;
+    let (company, _) = active_company(&state, &c)?;
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+
+    let owned: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM products WHERE id=?1 AND company_id=?2",
+            params![product_id, company],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if owned == 0 {
+        return Err("CAT-015: کالا یافت نشد".into());
+    }
+
+    match price {
+        Some(value) => {
+            tx.execute(
+                "INSERT INTO product_prices(product_id,level,price) VALUES(?1,?2,?3) \
+                 ON CONFLICT(product_id,level) DO UPDATE SET price=excluded.price,\
+                 updated_at=CURRENT_TIMESTAMP",
+                params![product_id, level.as_str(), value],
+            )
+            .map_err(|e| e.to_string())?;
+            // سطح جزئی، قیمت فروش پایه‌ی کالا را هم به‌روز نگه می‌دارد.
+            if level == PriceLevel::Retail {
+                tx.execute(
+                    "UPDATE products SET sale_price=?1 WHERE id=?2",
+                    params![value, product_id],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+        None => {
+            tx.execute(
+                "DELETE FROM product_prices WHERE product_id=?1 AND level=?2",
+                params![product_id, level.as_str()],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    audit(
+        &tx,
+        &user,
+        "product.price.set",
+        "product",
+        &product_id,
+        None,
+        Some(&format!(
+            "{{\"level\":\"{}\",\"price\":{}}}",
+            level.as_str(),
+            price.map(|value| value.to_string()).unwrap_or_else(|| "null".into())
+        )),
+    )?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -5821,6 +6021,9 @@ fn main() {
             list_cost_centers,
             list_projects,
             list_postable_accounts,
+            list_product_groups,
+            list_product_prices,
+            set_product_price,
             create_journal,
             post_journal,
             reverse_journal,

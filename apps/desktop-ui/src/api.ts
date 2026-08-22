@@ -216,3 +216,27 @@ export const createSingleLineJournal = (
     debit: toSide(debit),
     credit: toSide(credit),
   })
+
+// --- فاز ۳: کاتالوگ کالا (مرجع: تصاویر 8Xmc1p و NztJl5) ---
+export type ProductGroupRow = {
+  id: string
+  code: string
+  title: string
+  parent_id?: string
+  product_count: number
+}
+export type PriceLevelRow = {level: string; label: string; price: number | null}
+export type ProductPriceRow = {
+  id: string
+  sku: string
+  name: string
+  kind: string
+  kind_label: string
+  group_title?: string
+  prices: PriceLevelRow[]
+}
+
+export const getProductGroups = () => api<ProductGroupRow[]>('list_product_groups')
+export const getProductPrices = () => api<ProductPriceRow[]>('list_product_prices')
+export const setProductPrice = (productId: string, level: string, price: number | null) =>
+  api<void>('set_product_price', {productId, level, price})
