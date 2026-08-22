@@ -12,10 +12,10 @@ use novin_core::invoicing::{
     InvoiceLine as CoreInvoiceLine,
 };
 use novin_core::jalali;
+use novin_core::parties::{self, BalanceStatus, PartyDefinition, PartyFunction, PartyType};
 use novin_core::stocktaking::{
     self, BulkPriceChange, CountLine, StocktakeStatus, VarianceAccounts,
 };
-use novin_core::parties::{self, BalanceStatus, PartyDefinition, PartyFunction, PartyType};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
@@ -2677,7 +2677,6 @@ fn build_installment_plan(
         .collect())
 }
 
-
 // ===========================================================================
 // فاز ۶ — انبارگردانی اصولی و عملیات جمعی
 // مرجع: منوی «عملیات انبار» نرم‌افزار فعلی + بازخورد کارفرما
@@ -2758,11 +2757,28 @@ fn load_stocktake_lines(
              WHERE l.session_id=?1 ORDER BY p.sku",
         )
         .map_err(|e| e.to_string())?;
-    let raw: Vec<(String, String, String, String, f64, Option<f64>, Option<f64>, i64, i64)> = st
+    let raw: Vec<(
+        String,
+        String,
+        String,
+        String,
+        f64,
+        Option<f64>,
+        Option<f64>,
+        i64,
+        i64,
+    )> = st
         .query_map(params![session_id], |r| {
             Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?,
-                r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?,
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
             ))
         })
         .map_err(|e| e.to_string())?
@@ -2879,10 +2895,12 @@ fn create_stocktake(
                  WHERE p.company_id=?1 AND p.is_service=0 ORDER BY p.sku",
             )
             .map_err(|e| e.to_string())?;
-        st.query_map(params![company, warehouse_id], |r| Ok((r.get(0)?, r.get(1)?)))
-            .map_err(|e| e.to_string())?
-            .filter_map(Result::ok)
-            .collect()
+        st.query_map(params![company, warehouse_id], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect()
     };
     if products.is_empty() {
         return Err("STK-011: کالایی برای انبارگردانی یافت نشد".into());
@@ -2934,7 +2952,13 @@ fn get_stocktake(state: State<AppState>, session_id: String) -> Result<Stocktake
     require_permission(&state, &c, "inventory.count.create")?;
     let (company, _) = active_company(&state, &c)?;
 
-    let (title, status, warehouse_name, count_date, threshold): (String, String, String, String, f64) = c
+    let (title, status, warehouse_name, count_date, threshold): (
+        String,
+        String,
+        String,
+        String,
+        f64,
+    ) = c
         .query_row(
             "SELECT s.title,s.status,w.name,s.count_date,s.recount_threshold_percent \
              FROM stocktake_sessions s JOIN warehouses w ON w.id=s.warehouse_id \
@@ -3222,8 +3246,8 @@ fn preview_bulk_price_change(
         "set" => BulkPriceChange::Set(novin_core::money::Money::from_rials(value)),
         _ => return Err("BLK-005: نوع تغییر نامعتبر است".into()),
     };
-    let results = stocktaking::preview_bulk_price(&products, change, round_to)
-        .map_err(|e| e.to_string())?;
+    let results =
+        stocktaking::preview_bulk_price(&products, change, round_to).map_err(|e| e.to_string())?;
 
     Ok(results
         .into_iter()
@@ -3246,13 +3270,8 @@ fn apply_bulk_price_change(
     value: i64,
     round_to: i64,
 ) -> Result<usize, String> {
-    let preview = preview_bulk_price_change(
-        state.clone(),
-        product_ids,
-        mode.clone(),
-        value,
-        round_to,
-    )?;
+    let preview =
+        preview_bulk_price_change(state.clone(), product_ids, mode.clone(), value, round_to)?;
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "products.edit")?;
     let (company, _) = active_company(&state, &c)?;
@@ -3326,13 +3345,19 @@ fn get_low_stock(state: State<AppState>) -> Result<Vec<LowStockRow>, String> {
         .map(|row| (row.0.clone(), row.1.clone(), row.3, row.4))
         .collect();
     let items = stocktaking::low_stock_items(&tuples, threshold);
-    let sku_of: std::collections::BTreeMap<&str, &str> =
-        raw.iter().map(|row| (row.0.as_str(), row.2.as_str())).collect();
+    let sku_of: std::collections::BTreeMap<&str, &str> = raw
+        .iter()
+        .map(|row| (row.0.as_str(), row.2.as_str()))
+        .collect();
 
     Ok(items
         .into_iter()
         .map(|item| LowStockRow {
-            sku: sku_of.get(item.product_id.as_str()).copied().unwrap_or("").to_string(),
+            sku: sku_of
+                .get(item.product_id.as_str())
+                .copied()
+                .unwrap_or("")
+                .to_string(),
             product_id: item.product_id,
             product_name: item.product_name,
             quantity: item.quantity,
