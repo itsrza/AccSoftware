@@ -1074,8 +1074,22 @@ pub fn seed(conn: &Connection) -> Result<()> {
     )?;
     // حساب‌های کسری و اضافی انبار برای سند تعدیل انبارگردانی.
     for (id, code, name, level, parent, nature) in [
-        ("acc-6300", "6300", "کسری و ضایعات انبار", "general", Some("acc-5000"), "debit"),
-        ("acc-4300", "4300", "اضافات انبار", "general", Some("acc-4000"), "credit"),
+        (
+            "acc-6300",
+            "6300",
+            "کسری و ضایعات انبار",
+            "general",
+            Some("acc-5000"),
+            "debit",
+        ),
+        (
+            "acc-4300",
+            "4300",
+            "اضافات انبار",
+            "general",
+            Some("acc-4000"),
+            "credit",
+        ),
     ] {
         tx.execute(
             "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \

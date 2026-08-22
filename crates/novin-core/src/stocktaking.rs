@@ -23,7 +23,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum StocktakeError {
     #[error("STK-001: گذار وضعیت انبارگردانی مجاز نیست: از «{from}» به «{to}»")]
-    InvalidTransition { from: &'static str, to: &'static str },
+    InvalidTransition {
+        from: &'static str,
+        to: &'static str,
+    },
     #[error("STK-002: دوره‌ی انبارگردانی بدون قلم قابل شروع نیست")]
     EmptySession,
     #[error("STK-003: شمارش همه‌ی اقلام کامل نشده است: {remaining} قلم باقی مانده")]
@@ -182,12 +185,15 @@ impl CountLine {
 
     /// اختلاف: مثبت = اضافی، منفی = کسری.
     pub fn variance(&self) -> Option<f64> {
-        self.final_quantity().map(|value| value - self.frozen_quantity)
+        self.final_quantity()
+            .map(|value| value - self.frozen_quantity)
     }
 
     /// آیا این قلم اختلاف دارد؟
     pub fn has_variance(&self) -> bool {
-        self.variance().map(|value| value.abs() > 1e-9).unwrap_or(false)
+        self.variance()
+            .map(|value| value.abs() > 1e-9)
+            .unwrap_or(false)
     }
 
     /// ارزش ریالی اختلاف (مثبت = اضافی).
@@ -261,7 +267,10 @@ pub fn ensure_postable(lines: &[CountLine]) -> Result<StocktakeSummary, Stocktak
         return Err(StocktakeError::EmptySession);
     }
     for line in lines {
-        for quantity in [line.counted_quantity, line.recount_quantity].into_iter().flatten() {
+        for quantity in [line.counted_quantity, line.recount_quantity]
+            .into_iter()
+            .flatten()
+        {
             if !quantity.is_finite() || quantity < 0.0 {
                 return Err(StocktakeError::NegativeCount);
             }

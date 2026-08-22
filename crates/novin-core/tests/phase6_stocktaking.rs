@@ -160,7 +160,10 @@ fn t04_large_variance_requires_recount() {
     ];
 
     let needing = lines_needing_recount(&lines, 10.0);
-    let ids: Vec<&str> = needing.iter().map(|line| line.product_id.as_str()).collect();
+    let ids: Vec<&str> = needing
+        .iter()
+        .map(|line| line.product_id.as_str())
+        .collect();
     assert_eq!(ids, vec!["p2", "p3"], "مرز آستانه شامل است");
 
     // با آستانه‌ی ۱٪ تقریباً همه باید دوباره شمرده شوند
@@ -258,33 +261,54 @@ fn t07_adjustment_journal_follows_accounting_rules() {
     validate_journal(&journal).unwrap();
     let inventory_line = journal.iter().find(|l| l.account_id == "acc-1300").unwrap();
     let expense_line = journal.iter().find(|l| l.account_id == "acc-6300").unwrap();
-    assert_eq!(inventory_line.credit, Money::from_rials(600_000), "موجودی بستانکار");
-    assert_eq!(expense_line.debit, Money::from_rials(600_000), "کسری هزینه است");
+    assert_eq!(
+        inventory_line.credit,
+        Money::from_rials(600_000),
+        "موجودی بستانکار"
+    );
+    assert_eq!(
+        expense_line.debit,
+        Money::from_rials(600_000),
+        "کسری هزینه است"
+    );
 
     // ترکیب کسری و اضافی در یک دوره
     let mixed = vec![
-        counted("p1", 100.0, 110.0, 50_000),  // اضافی ۵۰۰٬۰۰۰
-        counted("p2", 80.0, 74.0, 100_000),   // کسری ۶۰۰٬۰۰۰
+        counted("p1", 100.0, 110.0, 50_000), // اضافی ۵۰۰٬۰۰۰
+        counted("p2", 80.0, 74.0, 100_000),  // کسری ۶۰۰٬۰۰۰
     ];
     let journal = build_adjustment_journal(&mixed, &accounts()).unwrap();
     let totals = validate_journal(&journal).unwrap();
-    assert_eq!(totals.total_debit, totals.total_credit, "سند باید متعادل باشد");
+    assert_eq!(
+        totals.total_debit, totals.total_credit,
+        "سند باید متعادل باشد"
+    );
     // اثر خالص روی موجودی: ۱۰۰٬۰۰۰ بستانکار
     let inventory_line = journal.iter().find(|l| l.account_id == "acc-1300").unwrap();
     assert_eq!(inventory_line.credit, Money::from_rials(100_000));
     // ولی درآمد و هزینه باید ناخالص ثبت شوند، نه خالص‌شده
     assert_eq!(
-        journal.iter().find(|l| l.account_id == "acc-4300").unwrap().credit,
+        journal
+            .iter()
+            .find(|l| l.account_id == "acc-4300")
+            .unwrap()
+            .credit,
         Money::from_rials(500_000)
     );
     assert_eq!(
-        journal.iter().find(|l| l.account_id == "acc-6300").unwrap().debit,
+        journal
+            .iter()
+            .find(|l| l.account_id == "acc-6300")
+            .unwrap()
+            .debit,
         Money::from_rials(600_000)
     );
 
     // انبارگردانی بدون اختلاف سند نمی‌خواهد
     let clean = vec![counted("p1", 10.0, 10.0, 1_000)];
-    assert!(build_adjustment_journal(&clean, &accounts()).unwrap().is_empty());
+    assert!(build_adjustment_journal(&clean, &accounts())
+        .unwrap()
+        .is_empty());
 
     // حساب تعریف‌نشده
     let missing = VarianceAccounts {
@@ -366,8 +390,12 @@ fn t09_bulk_price_change_never_produces_negative() {
     assert_eq!(result[1].new_price, Money::from_rials(370_000));
 
     // مبلغ ثابت و جایگزینی
-    let result =
-        preview_bulk_price(&products, BulkPriceChange::Amount(Money::from_rials(5_000)), 0).unwrap();
+    let result = preview_bulk_price(
+        &products,
+        BulkPriceChange::Amount(Money::from_rials(5_000)),
+        0,
+    )
+    .unwrap();
     assert_eq!(result[0].new_price, Money::from_rials(105_000));
     let result =
         preview_bulk_price(&products, BulkPriceChange::Set(Money::from_rials(1_000)), 0).unwrap();
