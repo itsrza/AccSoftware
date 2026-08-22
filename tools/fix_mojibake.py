@@ -80,14 +80,15 @@ def _annotate(output: str, prefix: str) -> None:
     """انتشار خروجی کامپایلر به‌صورت annotation قابل خواندن از REST API."""
     cleaned = ANSI_PATTERN.sub("", output).strip()
     print(cleaned)
-    interesting = [
+    # فقط خطاها؛ هشدارها فضای annotation را پر می‌کنند و خطای اصلی را پنهان می‌کنند.
+    errors = [
         line.strip()
         for line in cleaned.splitlines()
-        if re.search(r"\b(error|warning)\b", line) and "Compiling" not in line
+        if "error" in line.lower() and "Compiling" not in line and "Downloaded" not in line
     ]
-    payload = "\n".join(interesting) if interesting else cleaned
-    tail = payload[-7200:]
-    chunks = [tail[i : i + 800] for i in range(0, len(tail), 800)][:9]
+    payload = "\n".join(errors) if errors else cleaned[-4000:]
+    head = payload[:7200]
+    chunks = [head[i : i + 800] for i in range(0, len(head), 800)][:9]
     for index, chunk in enumerate(chunks, start=1):
         print(f"::warning::{prefix}[{index}/{len(chunks)}] {chunk}")
 
