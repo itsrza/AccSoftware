@@ -215,3 +215,23 @@ pub fn jalali_string(date: NaiveDate) -> String {
 pub fn iso_string(date: NaiveDate) -> String {
     date.format("%Y-%m-%d").to_string()
 }
+
+/// افزودن تعداد ماه شمسی به یک تاریخ، با اصلاح روز در ماه‌های کوتاه‌تر.
+///
+/// کاربرد اصلی: تولید سررسید اقساط ماهانه. برخلاف افزودن ۳۰ روزه، این روش
+/// «همان روز از ماه بعد» را می‌دهد که انتظار کاربر ایرانی است.
+///
+/// مثال: ۱۴۰۴/۰۶/۳۱ + یک ماه = ۱۴۰۴/۰۷/۳۰ (مهر ۳۰ روز دارد).
+pub fn add_jalali_months(date: NaiveDate, months: i32) -> Result<NaiveDate, CalendarError> {
+    let jalali = from_gregorian(date);
+    let zero_based = jalali.month as i32 - 1 + months;
+    let year = jalali.year + zero_based.div_euclid(12);
+    let month = zero_based.rem_euclid(12) as u32 + 1;
+    let day = jalali.day.min(days_in_jalali_month(year, month));
+    JalaliDate::new(year, month, day)?.to_gregorian()
+}
+
+/// افزودن تعداد روز به یک تاریخ (کمکی برای بازه‌های روزشمار).
+pub fn add_days(date: NaiveDate, days: i64) -> Option<NaiveDate> {
+    date.checked_add_signed(chrono::Duration::days(days))
+}

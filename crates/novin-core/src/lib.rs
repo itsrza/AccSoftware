@@ -15,6 +15,7 @@ pub mod checks;
 pub mod coding;
 pub mod db;
 pub mod inventory;
+pub mod invoicing;
 pub mod jalali;
 pub mod money;
 pub mod parties;
