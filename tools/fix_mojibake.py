@@ -176,11 +176,13 @@ def emit_ci_diagnostics() -> None:
         if tests.returncode != 0:
             combined = ANSI_PATTERN.sub("", f"{tests.stdout}\n{tests.stderr}")
             # بخش «failures» خروجی cargo دقیقاً همان چیزی است که لازم داریم.
+            # نتایج تست در stdout و پیش از خروجی کامپایل (stderr) است، پس از
+            # ابتدای بخش failures برداشته می‌شود نه از انتهای خروجی.
             marker_index = combined.find("failures:")
             detail = combined[marker_index:] if marker_index >= 0 else combined
-            tail = detail[-6400:]
-            for index in range(0, len(tail), 800):
-                print(f"::warning::TEST {tail[index : index + 800]}")
+            head = detail[:5600]
+            for index in range(0, len(head), 800):
+                print(f"::warning::TEST{index // 800} {head[index : index + 800]}")
 
     if "host" in marker_text:
         emit_host_diagnostics(root, environment)
