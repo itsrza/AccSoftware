@@ -2,15 +2,13 @@
 
 use argon2::{Argon2, PasswordVerifier};
 use novin_core::catalog::{PriceLevel, ProductKind};
-use novin_core::parties::{
-    self, BalanceStatus, PartyDefinition, PartyFunction, PartyType,
-};
 use novin_core::coding::{
     validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
 };
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
 use novin_core::jalali;
+use novin_core::parties::{self, BalanceStatus, PartyDefinition, PartyFunction, PartyType};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
@@ -2100,7 +2098,6 @@ fn set_product_price(
     Ok(())
 }
 
-
 // ===========================================================================
 // فاز ۴ — اشخاص: نقش‌ها، مسیر، اعتبارسنجی هویتی و خلاصه‌ی حساب
 // مرجع: تصاویر c9pvYl (لیست اشخاص) و 1zkKV5 (فرم افزودن شخص)
@@ -2183,11 +2180,30 @@ fn list_parties(state: State<AppState>) -> Result<PartyListResult, String> {
         )
         .map_err(|e| e.to_string())?;
 
-    let raw: Vec<(String, String, String, String, i64, i64, Option<String>, i64, Option<String>, Option<String>)> = st
+    let raw: Vec<(
+        String,
+        String,
+        String,
+        String,
+        i64,
+        i64,
+        Option<String>,
+        i64,
+        Option<String>,
+        Option<String>,
+    )> = st
         .query_map(params![company], |r| {
             Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?,
-                r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?,
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
+                r.get(9)?,
             ))
         })
         .map_err(|e| e.to_string())?
@@ -2196,7 +2212,18 @@ fn list_parties(state: State<AppState>) -> Result<PartyListResult, String> {
 
     let mut rows = Vec::with_capacity(raw.len());
     let mut balances = Vec::with_capacity(raw.len());
-    for (id, name, party_type, party_function, is_customer, is_supplier, mobile, credit_limit, route_title, marketer_name) in raw
+    for (
+        id,
+        name,
+        party_type,
+        party_function,
+        is_customer,
+        is_supplier,
+        mobile,
+        credit_limit,
+        route_title,
+        marketer_name,
+    ) in raw
     {
         let balance = party_balance(&c, &company, &id);
         let money = novin_core::money::Money::from_rials(balance);
@@ -2344,8 +2371,7 @@ fn update_party_profile(
     marketer_id: Option<String>,
 ) -> Result<(), String> {
     let kind = PartyType::parse(&party_type).ok_or("PRT-013: نوع شخصیت نامعتبر است")?;
-    let function =
-        PartyFunction::parse(&party_function).ok_or("PRT-014: نقش شخص نامعتبر است")?;
+    let function = PartyFunction::parse(&party_function).ok_or("PRT-014: نقش شخص نامعتبر است")?;
 
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "contacts.edit")?;
@@ -2363,9 +2389,17 @@ fn update_party_profile(
         code: contact_id.clone(),
         party_type: kind,
         function,
-        first_name: if kind.is_legal_entity() { None } else { Some(name.clone()) },
+        first_name: if kind.is_legal_entity() {
+            None
+        } else {
+            Some(name.clone())
+        },
         last_name: None,
-        company_name: if kind.is_legal_entity() { Some(name) } else { None },
+        company_name: if kind.is_legal_entity() {
+            Some(name)
+        } else {
+            None
+        },
         national_id: national_id.clone(),
         economic_code: economic_code.clone(),
         postal_code: postal_code.clone(),
