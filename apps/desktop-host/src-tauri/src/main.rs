@@ -8,6 +8,9 @@ use novin_core::coding::{
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
 use novin_core::jalali;
+use novin_core::invoicing::{
+    self, DiscountTier, FreightMode, InvoiceInput as CoreInvoiceInput, InvoiceLine as CoreInvoiceLine,
+};
 use novin_core::parties::{self, BalanceStatus, PartyDefinition, PartyFunction, PartyType};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -2447,6 +2450,228 @@ fn update_party_profile(
     )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+
+// ===========================================================================
+// فاز ۵ — محاسبه‌ی زنده‌ی فاکتور و اقساط
+// مرجع: تصاویر sFpxWK، PI5uot، FRPBDr
+// ===========================================================================
+
+#[derive(serde::Deserialize)]
+struct InvoiceLineInput {
+    product_id: String,
+    quantity: f64,
+    unit_price: i64,
+    #[serde(default)]
+    discount_amount: i64,
+    #[serde(default)]
+    discount_bp: i64,
+    #[serde(default)]
+    vat_bp: i64,
+    #[serde(default)]
+    duty_bp: i64,
+    #[serde(default)]
+    commission_bp: i64,
+    #[serde(default)]
+    unit_cost: i64,
+    #[serde(default)]
+    serials: Vec<String>,
+    #[serde(default)]
+    serial_tracked: bool,
+}
+
+#[derive(Serialize)]
+struct ComputedLineRow {
+    gross: i64,
+    tier_discount: i64,
+    line_discount: i64,
+    header_discount_share: i64,
+    coupon_share: i64,
+    total_discount: i64,
+    net: i64,
+    freight_share: i64,
+    duty: i64,
+    vat: i64,
+    total: i64,
+    commission: i64,
+    cost: i64,
+    profit: i64,
+}
+
+#[derive(Serialize)]
+struct InvoicePreview {
+    lines: Vec<ComputedLineRow>,
+    subtotal: i64,
+    discount_total: i64,
+    net_total: i64,
+    freight: i64,
+    duty_total: i64,
+    vat_total: i64,
+    total: i64,
+    commission_total: i64,
+    cost_total: i64,
+    profit: i64,
+    profit_margin_bp: i64,
+    balance_before: i64,
+    balance_after: i64,
+    invoice_remainder: i64,
+}
+
+#[derive(Serialize)]
+struct InstallmentRow {
+    number: usize,
+    due_date: String,
+    due_date_jalali: String,
+    amount: i64,
+}
+
+/// تخفیف پلکانی ذخیره‌شده برای یک کالا (فعلاً از تنظیمات کالا خوانده می‌شود).
+fn product_tiers(c: &Connection, product_id: &str) -> Vec<DiscountTier> {
+    let mut tiers = Vec::new();
+    if let Ok(mut st) = c.prepare(
+        "SELECT min_quantity,discount_bp FROM product_discount_tiers \
+         WHERE product_id=?1 ORDER BY min_quantity",
+    ) {
+        if let Ok(rows) = st.query_map(params![product_id], |r| {
+            Ok(DiscountTier {
+                min_quantity: r.get(0)?,
+                discount_bp: r.get(1)?,
+            })
+        }) {
+            tiers.extend(rows.flatten());
+        }
+    }
+    tiers
+}
+
+/// محاسبه‌ی زنده‌ی فاکتور — بدون ذخیره‌سازی.
+///
+/// رابط کاربری این را با هر تغییر سطر صدا می‌زند تا جمع‌ها، سود فاکتور و مانده‌ی
+/// طرف حساب دقیقاً با همان موتوری محاسبه شود که هنگام ثبت نهایی اجرا می‌شود؛
+/// یعنی چیزی که کاربر می‌بیند هرگز با چیزی که ثبت می‌شود فرق ندارد.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+fn preview_invoice(
+    state: State<AppState>,
+    lines: Vec<InvoiceLineInput>,
+    header_discount: i64,
+    freight: i64,
+    freight_allocated: bool,
+    contact_id: Option<String>,
+    received: i64,
+) -> Result<InvoicePreview, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "sales.invoice.create")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let core_lines: Vec<CoreInvoiceLine> = lines
+        .into_iter()
+        .map(|line| CoreInvoiceLine {
+            tiers: product_tiers(&c, &line.product_id),
+            product_id: line.product_id,
+            quantity: line.quantity,
+            unit_price: novin_core::money::Money::from_rials(line.unit_price),
+            discount_amount: novin_core::money::Money::from_rials(line.discount_amount),
+            discount_bp: line.discount_bp,
+            vat_bp: line.vat_bp,
+            duty_bp: line.duty_bp,
+            commission_bp: line.commission_bp,
+            unit_cost: novin_core::money::Money::from_rials(line.unit_cost),
+            serials: line.serials,
+            serial_tracked: line.serial_tracked,
+        })
+        .collect();
+
+    let input = CoreInvoiceInput {
+        lines: core_lines,
+        header_discount: novin_core::money::Money::from_rials(header_discount),
+        coupon: None,
+        freight: novin_core::money::Money::from_rials(freight),
+        freight_mode: if freight_allocated {
+            FreightMode::AllocateToLines
+        } else {
+            FreightMode::AddToTotal
+        },
+    };
+
+    let result = invoicing::calculate(&input).map_err(|e| e.to_string())?;
+
+    let balance_before = match contact_id {
+        Some(id) if !id.is_empty() => party_balance(&c, &company, &id),
+        _ => 0,
+    };
+    let view = invoicing::balance_view(
+        novin_core::money::Money::from_rials(balance_before),
+        result.total,
+        novin_core::money::Money::from_rials(received),
+    );
+
+    Ok(InvoicePreview {
+        lines: result
+            .lines
+            .iter()
+            .map(|line| ComputedLineRow {
+                gross: line.gross.rials(),
+                tier_discount: line.tier_discount.rials(),
+                line_discount: line.line_discount.rials(),
+                header_discount_share: line.header_discount_share.rials(),
+                coupon_share: line.coupon_share.rials(),
+                total_discount: line.total_discount.rials(),
+                net: line.net.rials(),
+                freight_share: line.freight_share.rials(),
+                duty: line.duty.rials(),
+                vat: line.vat.rials(),
+                total: line.total.rials(),
+                commission: line.commission.rials(),
+                cost: line.cost.rials(),
+                profit: line.profit.rials(),
+            })
+            .collect(),
+        subtotal: result.subtotal.rials(),
+        discount_total: result.discount_total.rials(),
+        net_total: result.net_total.rials(),
+        freight: result.freight.rials(),
+        duty_total: result.duty_total.rials(),
+        vat_total: result.vat_total.rials(),
+        total: result.total.rials(),
+        commission_total: result.commission_total.rials(),
+        cost_total: result.cost_total.rials(),
+        profit: result.profit.rials(),
+        profit_margin_bp: result.profit_margin_bp,
+        balance_before: view.before.rials(),
+        balance_after: view.after.rials(),
+        invoice_remainder: view.invoice_remainder.rials(),
+    })
+}
+
+/// تولید جدول اقساط برای فاکتور.
+#[tauri::command]
+fn build_installment_plan(
+    total: i64,
+    down_payment: i64,
+    count: usize,
+    first_due_jalali: String,
+) -> Result<Vec<InstallmentRow>, String> {
+    let first_due = novin_core::jalali::JalaliDate::parse(&first_due_jalali)
+        .and_then(|date| date.to_gregorian())
+        .map_err(|e| e.to_string())?;
+    let plan = invoicing::installment_plan(
+        novin_core::money::Money::from_rials(total),
+        novin_core::money::Money::from_rials(down_payment),
+        count,
+        first_due,
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(plan
+        .into_iter()
+        .map(|item| InstallmentRow {
+            number: item.number,
+            due_date: item.due_date.to_string(),
+            due_date_jalali: item.due_date_jalali,
+            amount: item.amount.rials(),
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -6376,6 +6601,8 @@ fn main() {
             list_postable_accounts,
             list_product_groups,
             list_parties,
+            preview_invoice,
+            build_installment_plan,
             list_party_routes,
             validate_party_identity,
             update_party_profile,

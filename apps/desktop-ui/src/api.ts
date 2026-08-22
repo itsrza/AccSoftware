@@ -297,3 +297,73 @@ export const updatePartyProfile = (input: {
   routeId: string | null
   marketerId: string | null
 }) => api<void>('update_party_profile', {...input})
+
+// --- فاز ۵: محاسبه‌ی زنده‌ی فاکتور (مرجع: sFpxWK، PI5uot، FRPBDr) ---
+export type InvoiceLineInput = {
+  product_id: string
+  quantity: number
+  unit_price: number
+  discount_amount?: number
+  discount_bp?: number
+  vat_bp?: number
+  duty_bp?: number
+  commission_bp?: number
+  unit_cost?: number
+  serials?: string[]
+  serial_tracked?: boolean
+}
+export type ComputedLineRow = {
+  gross: number
+  tier_discount: number
+  line_discount: number
+  header_discount_share: number
+  coupon_share: number
+  total_discount: number
+  net: number
+  freight_share: number
+  duty: number
+  vat: number
+  total: number
+  commission: number
+  cost: number
+  profit: number
+}
+export type InvoicePreview = {
+  lines: ComputedLineRow[]
+  subtotal: number
+  discount_total: number
+  net_total: number
+  freight: number
+  duty_total: number
+  vat_total: number
+  total: number
+  commission_total: number
+  cost_total: number
+  profit: number
+  profit_margin_bp: number
+  balance_before: number
+  balance_after: number
+  invoice_remainder: number
+}
+export type InstallmentRow = {
+  number: number
+  due_date: string
+  due_date_jalali: string
+  amount: number
+}
+
+export const previewInvoice = (input: {
+  lines: InvoiceLineInput[]
+  headerDiscount: number
+  freight: number
+  freightAllocated: boolean
+  contactId: string | null
+  received: number
+}) => api<InvoicePreview>('preview_invoice', {...input})
+
+export const buildInstallmentPlan = (
+  total: number,
+  downPayment: number,
+  count: number,
+  firstDueJalali: string,
+) => api<InstallmentRow[]>('build_installment_plan', {total, downPayment, count, firstDueJalali})

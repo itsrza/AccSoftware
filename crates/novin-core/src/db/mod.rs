@@ -669,6 +669,84 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         }
     }
 
+    // --- مهاجرت نسخه‌ی ۵: تخفیف پلکانی، کوپن و اقساط ---
+    conn.execute_batch(
+        r#"
+    CREATE TABLE IF NOT EXISTS product_discount_tiers(
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      min_quantity REAL NOT NULL CHECK(min_quantity > 0),
+      discount_bp INTEGER NOT NULL CHECK(discount_bp BETWEEN 0 AND 10000),
+      UNIQUE(product_id, min_quantity)
+    );
+    CREATE TABLE IF NOT EXISTS discount_coupons(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK(kind IN ('percent','amount')),
+      value INTEGER NOT NULL CHECK(value >= 0),
+      minimum_invoice INTEGER NOT NULL DEFAULT 0,
+      maximum_discount INTEGER NOT NULL DEFAULT 0,
+      valid_from TEXT,
+      valid_to TEXT,
+      usage_limit INTEGER NOT NULL DEFAULT 0,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS invoice_installments(
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      invoice_kind TEXT NOT NULL CHECK(invoice_kind IN ('sales','purchase')),
+      number INTEGER NOT NULL CHECK(number > 0),
+      due_date TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK(amount > 0),
+      paid_amount INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','partial','paid','overdue')),
+      UNIQUE(invoice_id, number)
+    );
+    CREATE TABLE IF NOT EXISTS invoice_line_serials(
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      serial TEXT NOT NULL,
+      UNIQUE(invoice_id, serial)
+    );
+    CREATE INDEX IF NOT EXISTS idx_installments_due ON invoice_installments(due_date, status);
+    "#,
+    )?;
+    for (table, column, definition) in [
+        (
+            "sales_invoice_lines",
+            "commission_bp",
+            "ALTER TABLE sales_invoice_lines ADD COLUMN commission_bp INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "sales_invoice_lines",
+            "duty",
+            "ALTER TABLE sales_invoice_lines ADD COLUMN duty INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "sales_invoices",
+            "freight",
+            "ALTER TABLE sales_invoices ADD COLUMN freight INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "sales_invoices",
+            "coupon_code",
+            "ALTER TABLE sales_invoices ADD COLUMN coupon_code TEXT",
+        ),
+        (
+            "purchase_invoices",
+            "freight",
+            "ALTER TABLE purchase_invoices ADD COLUMN freight INTEGER NOT NULL DEFAULT 0",
+        ),
+    ] {
+        if !column_exists(conn, table, column)? {
+            conn.execute(definition, [])?;
+        }
+    }
+
     // Backward-compatible schema migrations. Check column existence first.
     if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
         conn.execute(
