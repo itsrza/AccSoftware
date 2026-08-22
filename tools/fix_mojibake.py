@@ -114,6 +114,14 @@ def emit_host_diagnostics(root: pathlib.Path, environment: dict) -> None:
     if installed is None or installed.returncode != 0:
         print("::warning::نصب وابستگی‌های سیستمی ناموفق بود؛ کامپایل میزبان انجام نشد")
         return
+    # ماکرو generate_context! به وجود پوشه‌ی خروجی رابط کاربری نیاز دارد.
+    dist = root / "apps" / "desktop-ui" / "dist"
+    if not (dist / "index.html").exists():
+        dist.mkdir(parents=True, exist_ok=True)
+        (dist / "index.html").write_text(
+            "<!doctype html><html><body></body></html>", encoding="utf-8"
+        )
+        print("::notice::پوشه‌ی dist موقت برای ماکرو Tauri ساخته شد")
     result = _run(
         [
             "cargo", "check", "-p", "novin-accounting-host",
