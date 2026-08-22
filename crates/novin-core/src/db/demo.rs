@@ -216,7 +216,12 @@ fn seed_warehouses(tx: &Connection) -> Result<()> {
 fn seed_treasury(tx: &Connection) -> Result<()> {
     let accounts: [(&str, &str, &str, &str); 5] = [
         ("treasury-cash-1", "صندوق نقدی شماره ۱", "cash", "acc-1101"),
-        ("treasury-cash-2", "صندوق فروشگاه شماره ۲", "cash", "acc-1101"),
+        (
+            "treasury-cash-2",
+            "صندوق فروشگاه شماره ۲",
+            "cash",
+            "acc-1101",
+        ),
         (
             "treasury-bank-mellat",
             "بانک ملت — جاری ۱۲۳۴",
