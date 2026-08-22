@@ -84,7 +84,9 @@ def _annotate(output: str, prefix: str) -> None:
     errors = [
         line.strip()
         for line in cleaned.splitlines()
-        if "error" in line.lower() and "Compiling" not in line and "Downloaded" not in line
+        if re.search(r"error|message:|help:|panicked|note:", line, re.I)
+        and "Compiling" not in line
+        and "Downloaded" not in line
     ]
     payload = "\n".join(errors) if errors else cleaned[-4000:]
     head = payload[:7200]
@@ -124,8 +126,7 @@ def emit_host_diagnostics(root: pathlib.Path, environment: dict) -> None:
         print("::notice::پوشه‌ی dist موقت برای ماکرو Tauri ساخته شد")
     result = _run(
         [
-            "cargo", "check", "-p", "novin-accounting-host",
-            "--all-targets", "--message-format", "short",
+            "cargo", "check", "-p", "novin-accounting-host", "--all-targets",
         ],
         cwd=root,
         env=environment,
