@@ -794,6 +794,107 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     "#,
     )?;
 
+    // --- مهاجرت نسخه‌ی ۷: خزانه (سند چندروشی، بانک، صندوق، دسته‌چک) ---
+    conn.execute_batch(
+        r#"
+    CREATE TABLE IF NOT EXISTS treasury_documents(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id),
+      kind TEXT NOT NULL CHECK(kind IN ('receipt','payment')),
+      number INTEGER NOT NULL,
+      document_date TEXT NOT NULL,
+      party_id TEXT REFERENCES contacts(id),
+      description TEXT,
+      total INTEGER NOT NULL DEFAULT 0 CHECK(total >= 0),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','posted','cancelled')),
+      journal_id TEXT REFERENCES journal_entries(id),
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, fiscal_year_id, kind, number)
+    );
+    CREATE TABLE IF NOT EXISTS treasury_document_lines(
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL REFERENCES treasury_documents(id) ON DELETE CASCADE,
+      method TEXT NOT NULL CHECK(method IN
+        ('cash','check','bank_transfer','card_terminal','discount','offset')),
+      amount INTEGER NOT NULL CHECK(amount > 0),
+      description TEXT,
+      treasury_account_id TEXT REFERENCES treasury_accounts(id),
+      terminal_id TEXT,
+      check_serial TEXT,
+      check_due_date TEXT,
+      check_bank_name TEXT,
+      sayad_id TEXT,
+      check_id TEXT REFERENCES checks(id)
+    );
+    CREATE TABLE IF NOT EXISTS checkbooks(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      treasury_account_id TEXT NOT NULL REFERENCES treasury_accounts(id),
+      title TEXT NOT NULL,
+      serial_from INTEGER NOT NULL CHECK(serial_from > 0),
+      serial_to INTEGER NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      CHECK(serial_to >= serial_from)
+    );
+    CREATE TABLE IF NOT EXISTS checkbook_serials(
+      checkbook_id TEXT NOT NULL REFERENCES checkbooks(id) ON DELETE CASCADE,
+      serial INTEGER NOT NULL,
+      check_id TEXT REFERENCES checks(id),
+      used_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(checkbook_id, serial)
+    );
+    CREATE TABLE IF NOT EXISTS pos_terminals(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      treasury_account_id TEXT NOT NULL REFERENCES treasury_accounts(id),
+      title TEXT NOT NULL,
+      terminal_number TEXT,
+      merchant_code TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_treasury_doc_lines ON treasury_document_lines(document_id);
+    CREATE INDEX IF NOT EXISTS idx_treasury_docs_party ON treasury_documents(party_id);
+    "#,
+    )?;
+    for (table, column, definition) in [
+        (
+            "treasury_accounts",
+            "negative_policy",
+            "ALTER TABLE treasury_accounts ADD COLUMN negative_policy TEXT NOT NULL DEFAULT 'warn'",
+        ),
+        (
+            "treasury_accounts",
+            "card_number",
+            "ALTER TABLE treasury_accounts ADD COLUMN card_number TEXT",
+        ),
+        (
+            "treasury_accounts",
+            "branch_name",
+            "ALTER TABLE treasury_accounts ADD COLUMN branch_name TEXT",
+        ),
+        (
+            "treasury_accounts",
+            "branch_code",
+            "ALTER TABLE treasury_accounts ADD COLUMN branch_code TEXT",
+        ),
+        (
+            "treasury_accounts",
+            "holder_name",
+            "ALTER TABLE treasury_accounts ADD COLUMN holder_name TEXT",
+        ),
+        (
+            "treasury_accounts",
+            "has_pos_terminal",
+            "ALTER TABLE treasury_accounts ADD COLUMN has_pos_terminal INTEGER NOT NULL DEFAULT 0",
+        ),
+    ] {
+        if !column_exists(conn, table, column)? {
+            conn.execute(definition, [])?;
+        }
+    }
+
     // Backward-compatible schema migrations. Check column existence first.
     if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
         conn.execute(
@@ -1097,6 +1198,24 @@ pub fn seed(conn: &Connection) -> Result<()> {
             rusqlite::params![id, code, name, level, parent, nature],
         )?;
     }
+    // حساب‌های خزانه برای سند دریافت و پرداخت چندروشی.
+    for (id, code, name, level, parent, nature) in [
+        ("acc-1103", "1103", "اسناد دریافتنی", "general", Some("acc-1000"), "debit"),
+        ("acc-2103", "2103", "اسناد پرداختنی", "general", Some("acc-2000"), "credit"),
+        ("acc-4400", "4400", "تخفیفات نقدی اعطایی", "general", Some("acc-4000"), "debit"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \
+             VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",
+            rusqlite::params![id, code, name, level, parent, nature],
+        )?;
+    }
+    // دسته‌چک نمونه برای صندوق مرکزی.
+    tx.execute(
+        "INSERT OR IGNORE INTO checkbooks(id,company_id,treasury_account_id,title,serial_from,serial_to) \
+         VALUES('checkbook-demo','company-demo','treasury-cash-demo','دسته‌چک بانک ملت',100001,100025)",
+        [],
+    )?;
     tx.commit()?;
     Ok(())
 }
