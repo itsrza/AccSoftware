@@ -1131,3 +1131,182 @@ table.large-table tbody tr:last-child td {
     display: none;
   }
 }
+
+/* ==========================================================================
+   اصلاحات پس از بازخورد کارفرما
+   ========================================================================== */
+
+/* --- بدنه هرگز نباید عرض ثابت داشته باشد --- */
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* --- فیلترها فشرده‌تر (تصویر ۵ و ۶) --- */
+.date-filter,
+.report-tabs,
+.filter-bar {
+  gap: 6px !important;
+}
+.date-filter input,
+.date-filter select,
+.filter-bar input,
+.filter-bar select {
+  padding: 6px 9px !important;
+  font-size: 12px !important;
+  height: 32px;
+}
+.report-tabs button,
+.filter-bar button {
+  padding: 6px 16px !important;
+  font-size: 12px !important;
+  height: 32px;
+  border-radius: 8px;
+}
+.filters-panel,
+.filter-panel {
+  padding: 10px 12px !important;
+}
+
+/* --- ابزارهای جستجو و بروزرسانی چپ‌چین (تصویر ۳-۴) --- */
+.toolbar > .icon-btn:last-child,
+.toolbar > .spacer + * {
+  margin-right: auto;
+}
+
+/* --- جدول‌ها: مرتب‌سازی با کلیک روی سربرگ --- */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-left: 20px !important;
+}
+th.sortable:hover {
+  color: var(--brand);
+  background: var(--surface-2);
+}
+th.sortable::after {
+  content: '⇅';
+  position: absolute;
+  left: 7px;
+  opacity: 0.3;
+  font-size: 10px;
+}
+th.sortable.asc::after {
+  content: '↑';
+  opacity: 1;
+  color: var(--gold-600);
+}
+th.sortable.desc::after {
+  content: '↓';
+  opacity: 1;
+  color: var(--gold-600);
+}
+
+/* --- ردیف قابل کلیک برای باز کردن جزئیات --- */
+tr.clickable {
+  cursor: pointer;
+}
+tr.clickable:hover td {
+  background: var(--surface-3);
+}
+
+/* --- مبلغ بدهکار/بستانکار --- */
+.amount-debit {
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.amount-credit {
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.amount-zero {
+  color: var(--text-3);
+}
+
+/* --- صفحه‌ی در دست ساخت: صادقانه به‌جای صفحه‌ی خالی --- */
+.under-construction {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 56px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-2);
+}
+.under-construction .uc-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-3);
+  color: var(--gold-600);
+}
+.under-construction h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+.under-construction p {
+  margin: 0;
+  max-width: 460px;
+  font-size: 12.5px;
+}
+.under-construction .uc-ref {
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--surface-3);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+/* --- تنظیمات و پالت دستور با تم هماهنگ --- */
+.settings-overlay {
+  background: var(--bg) !important;
+  color: var(--text);
+}
+.settings-nav,
+.setting-card,
+.command-palette {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.command-backdrop {
+  background: rgba(20, 23, 58, 0.45);
+}
+.command-list button {
+  color: var(--text);
+}
+.command-list button:hover {
+  background: var(--surface-3);
+}
+.boot-screen {
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  height: 100vh;
+}
+.boot-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 30px 36px;
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}

@@ -11,6 +11,7 @@ import {
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatRials} from '../lib/format'
+import {useSort} from '../lib/useSort'
 
 const PARTY_TYPES = [
   {value: 'natural', label: 'حقیقی'},
@@ -36,6 +37,7 @@ export function Parties() {
   const [routes, setRoutes] = useState<RouteRow[]>([])
   const [search, setSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState('')
+  const [balanceFilter, setBalanceFilter] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<PartyRow | null>(null)
@@ -80,9 +82,12 @@ export function Parties() {
       const matchesGroup = !groupFilter || row.group_title === groupFilter
       const matchesSearch =
         !term || row.display_name.includes(term) || (row.mobile ?? '').includes(term)
-      return matchesGroup && matchesSearch
+      const matchesBalance = !balanceFilter || row.balance_status === balanceFilter
+      return matchesGroup && matchesSearch && matchesBalance
     })
-  }, [data, search, groupFilter])
+  }, [data, search, groupFilter, balanceFilter])
+
+  const {sorted, toggle, headerClass} = useSort(visible, 'display_name')
 
   const openEditor = (row: PartyRow) => {
     setEditing(row)
@@ -201,6 +206,13 @@ export function Parties() {
               </option>
             ))}
           </select>
+          <select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}>
+            <option value="">همه‌ی وضعیت‌ها</option>
+            <option value="debtor">فقط بدهکاران</option>
+            <option value="creditor">فقط بستانکاران</option>
+            <option value="settled">فقط بی‌حساب</option>
+          </select>
+          <span className="spacer" />
           <button className="icon-btn" onClick={load} title="بارگذاری مجدد">
             <Icon name="refresh" />
           </button>
@@ -215,19 +227,31 @@ export function Parties() {
             <table className="large-table">
               <thead>
                 <tr>
-                  <th>نام</th>
-                  <th>نوع</th>
-                  <th>نقش</th>
-                  <th>گروه</th>
+                  <th className={headerClass('display_name')} onClick={() => toggle('display_name')}>
+                    نام
+                  </th>
+                  <th className={headerClass('party_type_label')} onClick={() => toggle('party_type_label')}>
+                    نوع
+                  </th>
+                  <th className={headerClass('party_function_label')} onClick={() => toggle('party_function_label')}>
+                    نقش
+                  </th>
+                  <th className={headerClass('group_title')} onClick={() => toggle('group_title')}>
+                    گروه
+                  </th>
                   <th>مسیر</th>
                   <th>بازاریاب</th>
-                  <th>سقف اعتبار</th>
-                  <th>حساب فعلی</th>
+                  <th className={headerClass('credit_limit')} onClick={() => toggle('credit_limit')}>
+                    سقف اعتبار
+                  </th>
+                  <th className={headerClass('balance')} onClick={() => toggle('balance')}>
+                    بدهکار / بستانکار
+                  </th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {visible.map((row) => (
+                {sorted.map((row) => (
                   <tr key={row.id}>
                     <td>{row.display_name}</td>
                     <td>{row.party_type_label}</td>
@@ -237,18 +261,17 @@ export function Parties() {
                     <td>{row.marketer_name ?? '—'}</td>
                     <td>{row.credit_limit > 0 ? formatRials(row.credit_limit) : '—'}</td>
                     <td>
-                      <span
-                        className={
-                          row.balance_status === 'debtor'
-                            ? 'status danger'
-                            : row.balance_status === 'creditor'
-                              ? 'status done'
-                              : 'status pending'
-                        }
-                      >
-                        {row.balance_indicator}
-                      </span>{' '}
-                      {row.balance !== 0 && formatRials(Math.abs(row.balance))}
+                      {row.balance === 0 ? (
+                        <span className="amount-zero">بی‌حساب</span>
+                      ) : (
+                        <span
+                          className={row.balance > 0 ? 'amount-debit' : 'amount-credit'}
+                          title={row.balance > 0 ? 'بدهکار' : 'بستانکار'}
+                        >
+                          {formatRials(Math.abs(row.balance))}
+                          <small> {row.balance_indicator}</small>
+                        </span>
+                      )}
                     </td>
                     <td>
                       <button className="table-action" onClick={() => openEditor(row)}>

@@ -18,6 +18,7 @@ import {SingleLineJournal} from './pages/SingleLineJournal'
 import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
 import {InvoiceForm} from './pages/InvoiceForm'
+import {UnderConstruction} from './components/UnderConstruction'
 import {getDemoStatus, deleteDemo, login} from './api'
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
@@ -283,11 +284,90 @@ export default function App() {
       case 'single-journal':
         return <SingleLineJournal />
       case 'products':
-        return <DataPage kind="contacts" />
+        return <DataPage kind="products" />
       case 'inventory':
-      case 'inventory-transfer':
-      case 'inventory-count':
         return <AdvancedInventory />
+      case 'inventory-transfer':
+        return (
+          <UnderConstruction
+            title="انتقال بین انبارها"
+            description="فرم انتقال کالا بین انبارها با کنترل موجودی مبدأ، موجودی در راه و رسید انبار مقصد. موتور انتقال در هسته آماده است و فرم آن در فاز انبار ساخته می‌شود."
+            reference="8Xmc1p"
+            phase="فاز ۷ — انبار"
+          />
+        )
+      case 'inventory-count':
+        return (
+          <UnderConstruction
+            title="انبارگردانی"
+            description="دوره‌ی انبارگردانی با فریز منطقی موجودی، شمارش، شمارش مجدد، ثبت و تأیید اختلاف و صدور سند تعدیل — دقیقاً بر اساس منطق حسابداری انبار. بازنویسی کامل این بخش در فاز انبار انجام می‌شود."
+            reference="8Xmc1p"
+            phase="فاز ۷ — انبار"
+          />
+        )
+      case 'sales-return':
+        return (
+          <UnderConstruction
+            title="برگشت از فروش"
+            description="فرم برگشت از فروش با انتخاب فاکتور اصلی، کنترل مقدار برگشتی نسبت به فاکتور، اثر معکوس در انبار و صدور سند خودکار. موتور آن در هسته پیاده شده است."
+            reference="FRPBDr"
+            phase="فاز ۶"
+          />
+        )
+      case 'proforma':
+        return (
+          <UnderConstruction
+            title="پیش‌فاکتورها"
+            description="صدور پیش‌فاکتور با اعتبار زمانی و تبدیل یک‌کلیکی به فاکتور فروش، بدون اثر انبار و مالی تا زمان تبدیل."
+            reference="sFpxWK"
+            phase="فاز ۶"
+          />
+        )
+      case 'purchase-return':
+        return (
+          <UnderConstruction
+            title="برگشت از خرید"
+            description="فرم برگشت از خرید با کنترل مقدار نسبت به فاکتور خرید و اثر معکوس در بهای تمام‌شده."
+            reference="PI5uot"
+            phase="فاز ۶"
+          />
+        )
+      case 'purchase-order':
+        return (
+          <UnderConstruction
+            title="سفارش خرید"
+            description="درخواست و سفارش خرید با پیگیری وضعیت و تبدیل به فاکتور خرید."
+            reference="dgNqWj"
+            phase="فاز ۶"
+          />
+        )
+      case 'banks':
+        return (
+          <UnderConstruction
+            title="حساب‌های بانکی"
+            description="تعریف بانک با شماره شبا، شماره کارت، شعبه، پایانه فروشگاهی و سیاست هشدار منفی شدن موجودی. اعتبارسنجی شبا و کارت در هسته آماده و تست‌شده است."
+            reference="p6hT01"
+            phase="فاز ۶ — خزانه"
+          />
+        )
+      case 'cashboxes':
+        return (
+          <UnderConstruction
+            title="صندوق‌ها"
+            description="تعریف صندوق با گروه تفصیلی، کد تفصیلی و سیاست هشدار منفی شدن موجودی (خطا / هشدار / بی‌تأثیر)."
+            reference="WLumbs"
+            phase="فاز ۶ — خزانه"
+          />
+        )
+      case 'chart-of-accounts':
+        return (
+          <UnderConstruction
+            title="کدینگ حساب‌ها"
+            description="درخت کدینگ چندسطحی (گروه، کل، معین، تفصیلی) با شماره‌گذاری خودکار و الزامات تفصیلی شناور. موتور کدینگ در هسته پیاده و با ۱۰ تست پوشش داده شده است."
+            reference="dgNqWj"
+            phase="فاز ۶"
+          />
+        )
       case 'accounting':
       case 'chart-of-accounts':
         return <Operations mode="accounting" />
