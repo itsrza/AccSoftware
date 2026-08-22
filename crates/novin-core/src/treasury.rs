@@ -111,9 +111,7 @@ impl PaymentMethod {
     pub fn moves_treasury(self) -> bool {
         matches!(
             self,
-            PaymentMethod::Cash
-                | PaymentMethod::BankTransfer
-                | PaymentMethod::CardTerminal
+            PaymentMethod::Cash | PaymentMethod::BankTransfer | PaymentMethod::CardTerminal
         )
     }
 
@@ -321,9 +319,7 @@ pub fn build_journal(
     let mut journal = Vec::with_capacity(lines.len() + 1);
     for line in lines {
         let account = match line.method {
-            PaymentMethod::Cash
-            | PaymentMethod::BankTransfer
-            | PaymentMethod::CardTerminal => line
+            PaymentMethod::Cash | PaymentMethod::BankTransfer | PaymentMethod::CardTerminal => line
                 .treasury_account
                 .clone()
                 .ok_or(TreasuryError::MissingTreasuryAccount)?,

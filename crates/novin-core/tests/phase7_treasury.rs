@@ -218,11 +218,10 @@ fn t04_receipt_journal_is_balanced_and_multi_line() {
 // ---------------------------------------------------------------------------
 #[test]
 fn t05_payment_journal_mirrors_receipt() {
-    let lines = vec![DocumentLine::new(
-        PaymentMethod::Cash,
-        Money::from_rials(4_000_000),
-    )
-    .with_account("treasury-cash")];
+    let lines = vec![
+        DocumentLine::new(PaymentMethod::Cash, Money::from_rials(4_000_000))
+            .with_account("treasury-cash"),
+    ];
 
     let receipt = build_journal(DocumentKind::Receipt, &lines, &accounts()).unwrap();
     let payment = build_journal(DocumentKind::Payment, &lines, &accounts()).unwrap();
@@ -291,8 +290,9 @@ fn t07_discount_and_offset_close_balance_without_cash() {
     let treasury = calculate_totals(&lines).unwrap();
     assert_eq!(treasury.treasury_movement, Money::from_rials(9_500_000));
     // تخفیف به حساب تخفیفات اعطایی می‌رود
-    assert!(journal.iter().any(|line| line.account_id == "acc-4400"
-        && line.debit == Money::from_rials(500_000)));
+    assert!(journal
+        .iter()
+        .any(|line| line.account_id == "acc-4400" && line.debit == Money::from_rials(500_000)));
 
     // تهاتر روی خود حساب طرف حساب می‌نشیند
     let offset = vec![DocumentLine::new(
@@ -336,7 +336,8 @@ fn t08_negative_balance_policy() {
     );
 
     // هشدار: انجام می‌شود ولی پیام می‌دهد
-    match check_withdrawal("بانک سینا", balance, amount, NegativeBalancePolicy::Warn).unwrap() {
+    match check_withdrawal("بانک سینا", balance, amount, NegativeBalancePolicy::Warn).unwrap()
+    {
         BalanceCheck::Warning(message) => {
             assert!(message.contains("بانک سینا"));
             assert!(message.contains("500,000") || message.contains("۵۰۰"));
@@ -350,9 +351,18 @@ fn t08_negative_balance_policy() {
         BalanceCheck::Allowed
     );
 
-    assert_eq!(NegativeBalancePolicy::parse("error"), NegativeBalancePolicy::Error);
-    assert_eq!(NegativeBalancePolicy::parse("ignore"), NegativeBalancePolicy::Ignore);
-    assert_eq!(NegativeBalancePolicy::parse("چیز دیگر"), NegativeBalancePolicy::Warn);
+    assert_eq!(
+        NegativeBalancePolicy::parse("error"),
+        NegativeBalancePolicy::Error
+    );
+    assert_eq!(
+        NegativeBalancePolicy::parse("ignore"),
+        NegativeBalancePolicy::Ignore
+    );
+    assert_eq!(
+        NegativeBalancePolicy::parse("چیز دیگر"),
+        NegativeBalancePolicy::Warn
+    );
     assert_eq!(NegativeBalancePolicy::Error.label(), "خطا");
 }
 
@@ -386,7 +396,10 @@ fn t09_checkbook_serial_control() {
         book.use_serial(999_999),
         Err(TreasuryError::SerialOutOfRange)
     );
-    assert_eq!(book.use_serial(100_000), Err(TreasuryError::SerialOutOfRange));
+    assert_eq!(
+        book.use_serial(100_000),
+        Err(TreasuryError::SerialOutOfRange)
+    );
 
     // استفاده‌ی غیرترتیبی: شماره‌ی آزاد بعدی باید درست پیدا شود
     book.use_serial(100_003).unwrap();
@@ -405,8 +418,14 @@ fn t09_checkbook_serial_control() {
         serial_to: 100,
         used_serials: vec![],
     };
-    assert_eq!(invalid.validate(), Err(TreasuryError::InvalidCheckbookRange));
-    assert_eq!(invalid.next_serial(), Err(TreasuryError::InvalidCheckbookRange));
+    assert_eq!(
+        invalid.validate(),
+        Err(TreasuryError::InvalidCheckbookRange)
+    );
+    assert_eq!(
+        invalid.next_serial(),
+        Err(TreasuryError::InvalidCheckbookRange)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +453,9 @@ fn t10_treasury_schema_and_seed() {
     }
 
     let columns: Vec<String> = {
-        let mut statement = conn.prepare("PRAGMA table_info(treasury_accounts)").unwrap();
+        let mut statement = conn
+            .prepare("PRAGMA table_info(treasury_accounts)")
+            .unwrap();
         statement
             .query_map([], |row| row.get::<_, String>(1))
             .unwrap()

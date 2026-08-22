@@ -1200,9 +1200,30 @@ pub fn seed(conn: &Connection) -> Result<()> {
     }
     // حساب‌های خزانه برای سند دریافت و پرداخت چندروشی.
     for (id, code, name, level, parent, nature) in [
-        ("acc-1103", "1103", "اسناد دریافتنی", "general", Some("acc-1000"), "debit"),
-        ("acc-2103", "2103", "اسناد پرداختنی", "general", Some("acc-2000"), "credit"),
-        ("acc-4400", "4400", "تخفیفات نقدی اعطایی", "general", Some("acc-4000"), "debit"),
+        (
+            "acc-1103",
+            "1103",
+            "اسناد دریافتنی",
+            "general",
+            Some("acc-1000"),
+            "debit",
+        ),
+        (
+            "acc-2103",
+            "2103",
+            "اسناد پرداختنی",
+            "general",
+            Some("acc-2000"),
+            "credit",
+        ),
+        (
+            "acc-4400",
+            "4400",
+            "تخفیفات نقدی اعطایی",
+            "general",
+            Some("acc-4000"),
+            "debit",
+        ),
     ] {
         tx.execute(
             "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \
