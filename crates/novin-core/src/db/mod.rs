@@ -284,7 +284,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
       bank_name TEXT, description TEXT, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_checks_company_due ON checks(company_id,due_date,status);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_checks_company_number_unique ON checks(company_id,check_type,check_number) WHERE status <> 'cancelled';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_checks_company_number_unique ON checks(company_id,check_type,check_number) WHERE status <> 'void';
     CREATE TABLE IF NOT EXISTS plugins(
       id TEXT PRIMARY KEY, company_id TEXT, name TEXT NOT NULL, version TEXT NOT NULL,
       description TEXT, entrypoint TEXT NOT NULL, manifest_json TEXT NOT NULL,
@@ -910,7 +910,84 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
+    migrate_check_statuses(conn)?;
     seed(conn)?;
+    Ok(())
+}
+
+/// گسترش قید وضعیت چک به مجموعه‌ی کامل چرخه‌ی عمر چک.
+///
+/// ## چرا لازم است
+///
+/// ماشین حالت چک در `novin_core::checks` دوازده وضعیت واقعی دارد
+/// (موجود، واگذار شده، وصول شده، نقد شده، خرج شده، برگشتی، عودت شده، باطل،
+/// پرداختی، پرداخت شده و دو وضعیت انتظامی). اما قید `CHECK` جدول تنها شش
+/// وضعیت قدیمی را می‌پذیرفت؛ در نتیجه هر تغییر وضعیتی که ماشین حالت مجاز
+/// می‌دانست، در پایگاه داده رد می‌شد.
+///
+/// ## نگاشت وضعیت‌های قدیمی
+///
+/// | قدیمی | چک دریافتی | چک پرداختی |
+/// |---|---|---|
+/// | `registered` | `in_hand` موجود | `outstanding` پرداختی |
+/// | `cleared` | `collected` وصول شده | `paid` پرداخت شده |
+/// | `transferred` | `endorsed` خرج شده | `endorsed` |
+/// | `cancelled` | `void` باطل | `void` |
+///
+/// SQLite قید `CHECK` را تغییر نمی‌دهد، پس جدول بازسازی می‌شود.
+fn migrate_check_statuses(conn: &Connection) -> Result<()> {
+    let definition: String = conn.query_row(
+        "SELECT COALESCE(sql,'') FROM sqlite_master WHERE type='table' AND name='checks'",
+        [],
+        |row| row.get(0),
+    )?;
+    // اگر قبلاً مهاجرت انجام شده، دوباره انجام نده.
+    if definition.contains("'memo_in_hand'") {
+        return Ok(());
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "CREATE TABLE checks_migrated(
+           id TEXT PRIMARY KEY,
+           company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+           fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id),
+           check_type TEXT NOT NULL CHECK(check_type IN ('received','issued')),
+           check_number TEXT NOT NULL,
+           party_id TEXT REFERENCES contacts(id),
+           treasury_account_id TEXT REFERENCES treasury_accounts(id),
+           amount INTEGER NOT NULL CHECK(amount > 0),
+           issue_date TEXT NOT NULL,
+           due_date TEXT NOT NULL,
+           status TEXT NOT NULL CHECK(status IN (
+             'in_hand','deposited','collected','cashed','endorsed','bounced',
+             'returned','void','outstanding','paid','memo_in_hand','memo_returned'
+           )),
+           bank_name TEXT,
+           description TEXT,
+           created_by TEXT,
+           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+           clearing_journal_id TEXT REFERENCES journal_entries(id)
+         );
+         INSERT INTO checks_migrated(
+           id,company_id,fiscal_year_id,check_type,check_number,party_id,
+           treasury_account_id,amount,issue_date,due_date,status,bank_name,
+           description,created_by,created_at,clearing_journal_id)
+         SELECT id,company_id,fiscal_year_id,check_type,check_number,party_id,
+           treasury_account_id,amount,issue_date,due_date,
+           CASE status
+             WHEN 'registered' THEN CASE check_type WHEN 'issued' THEN 'outstanding' ELSE 'in_hand' END
+             WHEN 'cleared' THEN CASE check_type WHEN 'issued' THEN 'paid' ELSE 'collected' END
+             WHEN 'transferred' THEN 'endorsed'
+             WHEN 'cancelled' THEN 'void'
+             ELSE status
+           END,
+           bank_name,description,created_by,created_at,clearing_journal_id
+         FROM checks;
+         DROP TABLE checks;
+         ALTER TABLE checks_migrated RENAME TO checks;",
+    )?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -1057,7 +1134,7 @@ pub fn seed(conn: &Connection) -> Result<()> {
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-3','demo-journal-2','acc-5100','بهای تمام شده',19000000,0)",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-4','demo-journal-2','acc-1300','کاهش موجودی',0,19000000)",[])?;
     tx.execute("INSERT OR IGNORE INTO treasury_transactions(id,company_id,fiscal_year_id,treasury_account_id,transaction_type,amount,transaction_date,description,reference_type,reference_id,created_by) VALUES('demo-tx-1','company-demo','fy-demo','treasury-cash-demo','receipt',26400000,'1405/05/10','دریافت نمونه فروش','sales','demo-sale-1','user-demo')",[])?;
-    tx.execute("INSERT OR IGNORE INTO checks(id,company_id,fiscal_year_id,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,created_by) VALUES('demo-check-1','company-demo','fy-demo','received','CHK-DEMO-001','contact-1','treasury-cash-demo',15000000,'1405/05/01','1405/06/01','registered','بانک نمونه','چک نمونه آموزشی','user-demo')",[])?;
+    tx.execute("INSERT OR IGNORE INTO checks(id,company_id,fiscal_year_id,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,created_by) VALUES('demo-check-1','company-demo','fy-demo','received','CHK-DEMO-001','contact-1','treasury-cash-demo',15000000,'1405/05/01','1405/06/01','in_hand','بانک نمونه','چک نمونه آموزشی','user-demo')",[])?;
     // --- گروه‌های تفصیلی شناور (مطابق نرم‌افزار فعلی) ---
     for (id, code, title) in [
         ("subgroup-persons", "10", "اشخاص"),

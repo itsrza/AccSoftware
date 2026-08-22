@@ -49,5 +49,20 @@ export function useSort<T>(rows: T[], initialKey?: keyof T & string) {
   const headerClass = (columnKey: keyof T & string) =>
     `sortable${key === columnKey ? ` ${direction}` : ''}`
 
-  return {sorted, key, direction, toggle, headerClass}
+  /**
+   * ویژگی‌های آماده برای `<th>`: کلاس جهت مرتب‌سازی، رویداد کلیک و
+   * `aria-sort` برای دسترس‌پذیری. با این کار هیچ صفحه‌ای منطق مرتب‌سازی را
+   * دوباره نمی‌نویسد.
+   */
+  const sortProps = (columnKey: keyof T & string) => ({
+    className: headerClass(columnKey),
+    onClick: () => toggle(columnKey),
+    'aria-sort': (key === columnKey
+      ? direction === 'asc'
+        ? 'ascending'
+        : 'descending'
+      : 'none') as 'ascending' | 'descending' | 'none',
+  })
+
+  return {sorted, key, direction, toggle, headerClass, sortProps}
 }

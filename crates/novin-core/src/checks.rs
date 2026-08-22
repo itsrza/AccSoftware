@@ -186,6 +186,9 @@ pub fn allowed_transitions(kind: CheckKind, status: CheckStatus) -> &'static [Ch
         (CheckKind::Received, InHand) => &[Deposited, Endorsed, Cashed, Returned, Void],
         (CheckKind::Received, Deposited) => &[Collected, Bounced],
         (CheckKind::Received, Endorsed) => &[Bounced],
+        // چک وصول‌شده هم می‌تواند برگشت بخورد: بانک مبلغ را از حساب کسر می‌کند.
+        // این تنها گذار خروجی از وضعیت‌های پایانی است و اثر مالی معکوس دارد.
+        (CheckKind::Received, Collected | Cashed) => &[Bounced],
         (CheckKind::Received, Bounced) => &[InHand, Deposited, Returned],
         // --- چک پرداختی ---
         (CheckKind::Issued, Outstanding) => &[Paid, Bounced, Returned, Void],

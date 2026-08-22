@@ -151,7 +151,8 @@ const purchaseInvoices = Array.from({length: 25}, (_, index) => {
   }
 })
 
-const CHECK_STATUSES = ['registered', 'in_progress', 'cleared', 'bounced', 'transferred']
+const RECEIVED_CHECK_STATUSES = ['in_hand', 'deposited', 'collected', 'bounced', 'endorsed']
+const ISSUED_CHECK_STATUSES = ['outstanding', 'paid', 'bounced']
 const checks = Array.from({length: 20}, (_, index) => ({
   id: `demo-check-${String(index).padStart(3, '0')}`,
   check_number: String(700100 + index),
@@ -160,7 +161,10 @@ const checks = Array.from({length: 20}, (_, index) => ({
   amount: ((index % 10) + 1) * 8_500_000,
   issue_date: jalaliDate(index),
   due_date: jalaliDate(index + 4),
-  status: CHECK_STATUSES[index % CHECK_STATUSES.length],
+  status:
+    index % 4 === 3
+      ? ISSUED_CHECK_STATUSES[index % ISSUED_CHECK_STATUSES.length]
+      : RECEIVED_CHECK_STATUSES[index % RECEIVED_CHECK_STATUSES.length],
   bank_name: `بانک ${CITIES[index % CITIES.length]}`,
 }))
 
@@ -516,6 +520,46 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   }),
   list_checks: () => checks,
   list_checks_filtered: () => checks,
+  // بازتاب ماشین حالت هسته، فقط برای پیش‌نمایش مرورگر؛ منبع حقیقت Rust است.
+  check_transition_options: (args: Record<string, unknown>) => {
+    const row = checks.find((c) => c.id === args.checkId)
+    if (!row) return []
+    const map: Record<string, Array<{status: string; label: string; treasury_effect: string}>> = {
+      in_hand: [
+        {status: 'deposited', label: 'واگذار شده', treasury_effect: 'none'},
+        {status: 'endorsed', label: 'خرج شده', treasury_effect: 'none'},
+        {status: 'cashed', label: 'نقد شده', treasury_effect: 'increase'},
+        {status: 'returned', label: 'عودت شده', treasury_effect: 'none'},
+        {status: 'void', label: 'باطل شده', treasury_effect: 'none'},
+      ],
+      deposited: [
+        {status: 'collected', label: 'وصول شده', treasury_effect: 'increase'},
+        {status: 'bounced', label: 'برگشتی', treasury_effect: 'none'},
+      ],
+      endorsed: [{status: 'bounced', label: 'برگشتی', treasury_effect: 'none'}],
+      collected: [{status: 'bounced', label: 'برگشتی', treasury_effect: 'decrease'}],
+      cashed: [{status: 'bounced', label: 'برگشتی', treasury_effect: 'decrease'}],
+      bounced:
+        row.check_type === 'issued'
+          ? [
+              {status: 'outstanding', label: 'پرداختی در جریان', treasury_effect: 'none'},
+              {status: 'paid', label: 'پرداخت شده', treasury_effect: 'decrease'},
+              {status: 'returned', label: 'عودت شده', treasury_effect: 'none'},
+            ]
+          : [
+              {status: 'in_hand', label: 'موجود', treasury_effect: 'none'},
+              {status: 'deposited', label: 'واگذار شده', treasury_effect: 'none'},
+              {status: 'returned', label: 'عودت شده', treasury_effect: 'none'},
+            ],
+      outstanding: [
+        {status: 'paid', label: 'پرداخت شده', treasury_effect: 'decrease'},
+        {status: 'bounced', label: 'برگشتی', treasury_effect: 'none'},
+        {status: 'returned', label: 'عودت شده', treasury_effect: 'none'},
+        {status: 'void', label: 'باطل شده', treasury_effect: 'none'},
+      ],
+    }
+    return map[row.status] ?? []
+  },
   get_check_dashboard: () => ({
     total_received: sum(checks.filter((c) => c.check_type === 'received').map((c) => c.amount)),
     received_count: checks.filter((c) => c.check_type === 'received').length,

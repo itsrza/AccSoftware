@@ -5,6 +5,9 @@ use novin_core::catalog::{PriceLevel, ProductKind};
 use novin_core::coding::{
     validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
 };
+use novin_core::checks::{
+    transition as check_transition, treasury_effect, CheckKind, CheckStatus, TreasuryEffect,
+};
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
 use novin_core::invoicing::{
@@ -4844,12 +4847,12 @@ fn get_check_dashboard(state: State<AppState>) -> Result<CheckDashboard, String>
     let (company, fy) = active_company(&state, &c)?;
     let today = current_jalali_date();
     let week = jalali_date_after_days(7);
-    let received:i64=c.query_row("SELECT COALESCE(SUM(amount),0) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='received' AND status<>'cancelled'",params![company,fy],|r|r.get(0)).unwrap_or(0);
-    let issued:i64=c.query_row("SELECT COALESCE(SUM(amount),0) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='issued' AND status<>'cancelled'",params![company,fy],|r|r.get(0)).unwrap_or(0);
-    let rc:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='received' AND status<>'cancelled'",params![company,fy],|r|r.get(0)).unwrap_or(0);
-    let ic:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='issued' AND status<>'cancelled'",params![company,fy],|r|r.get(0)).unwrap_or(0);
-    let due:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('registered','deposited','transferred') AND due_date>=?3 AND due_date<=?4",params![company,fy,today,week],|r|r.get(0)).unwrap_or(0);
-    let overdue:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('registered','deposited','transferred') AND due_date<?3",params![company,fy,today],|r|r.get(0)).unwrap_or(0);
+    let received:i64=c.query_row("SELECT COALESCE(SUM(amount),0) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='received' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
+    let issued:i64=c.query_row("SELECT COALESCE(SUM(amount),0) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='issued' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
+    let rc:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='received' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
+    let ic:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='issued' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
+    let due:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('in_hand','deposited','endorsed','outstanding') AND due_date>=?3 AND due_date<=?4",params![company,fy,today,week],|r|r.get(0)).unwrap_or(0);
+    let overdue:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('in_hand','deposited','endorsed','outstanding') AND due_date<?3",params![company,fy,today],|r|r.get(0)).unwrap_or(0);
     let bounced:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status='bounced'",params![company,fy],|r|r.get(0)).unwrap_or(0);
     Ok(CheckDashboard {
         total_received: received,
@@ -5024,7 +5027,8 @@ fn create_check(
             return Err("CHK-005: حساب خزانه معتبر نیست".into());
         }
     }
-    let duplicate:i64=tx.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND check_type=?2 AND check_number=?3 AND status<>'cancelled'",params![company,check_type,check_number],|r|r.get(0)).unwrap_or(0);
+    // شماره‌ی چک باطل‌شده آزاد می‌شود؛ بقیه‌ی وضعیت‌ها شماره را اشغال نگه می‌دارند.
+    let duplicate:i64=tx.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND check_type=?2 AND check_number=?3 AND status<>'void'",params![company,check_type,check_number],|r|r.get(0)).unwrap_or(0);
     if duplicate > 0 {
         return Err("CHK-006: شماره چک تکراری است".into());
     }
@@ -5032,7 +5036,14 @@ fn create_check(
         "check-{}",
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
     );
-    tx.execute("INSERT INTO checks(id,company_id,fiscal_year_id,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",params![id,company,fy,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,"registered",bank_name,description,user]).map_err(|e|format!("CHK-007: {e}"))?;
+    // وضعیت آغازین را نوع چک تعیین می‌کند: دریافتی «موجود»، پرداختی «پرداختی».
+    let kind = if check_type == "issued" {
+        CheckKind::Issued
+    } else {
+        CheckKind::Received
+    };
+    let initial_status = CheckStatus::initial(kind, false).as_str();
+    tx.execute("INSERT INTO checks(id,company_id,fiscal_year_id,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",params![id,company,fy,check_type,check_number,party_id,treasury_account_id,amount,issue_date,due_date,initial_status,bank_name,description,user]).map_err(|e|format!("CHK-007: {e}"))?;
     audit(
         &tx,
         &user,
@@ -5040,10 +5051,60 @@ fn create_check(
         "check",
         &id,
         None,
-        Some("{\"status\":\"registered\"}"),
+        Some(&format!("{{\"status\":\"{initial_status}\"}}")),
     )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(id)
+}
+
+/// یک گذار مجاز برای یک چک، همراه با برچسب فارسی و اثر مالی آن.
+#[derive(serde::Serialize)]
+struct CheckTransitionOption {
+    status: String,
+    label: String,
+    /// اثر بر خزانه: `increase`، `decrease` یا `none`.
+    treasury_effect: String,
+}
+
+/// گذارهای مجاز یک چک — منبع حقیقت، ماشین حالت هسته است.
+///
+/// رابط کاربری هیچ فهرست وضعیتی از خودش ندارد؛ هر دکمه‌ای که نشان می‌دهد
+/// حتماً در پایگاه داده هم پذیرفته می‌شود.
+#[tauri::command]
+fn check_transition_options(
+    state: State<AppState>,
+    check_id: String,
+) -> Result<Vec<CheckTransitionOption>, String> {
+    let c = conn(&state)?;
+    let user = require_permission(&state, &c, "treasury.check.view")?;
+    let (status, check_type): (String, String) = c
+        .query_row(
+            "SELECT status,check_type FROM checks WHERE id=?1 AND company_id IN \
+             (SELECT company_id FROM company_users WHERE user_id=?2 AND is_active=1)",
+            params![check_id, user],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "CHK-009: چک یافت نشد".to_string())?;
+    let kind = if check_type == "issued" {
+        CheckKind::Issued
+    } else {
+        CheckKind::Received
+    };
+    let current = CheckStatus::parse(&status)
+        .ok_or_else(|| format!("CHK-019: وضعیت ثبت‌شده‌ی «{status}» شناخته نمی‌شود"))?;
+    Ok(novin_core::checks::allowed_transitions(kind, current)
+        .iter()
+        .map(|target| CheckTransitionOption {
+            status: target.as_str().to_string(),
+            label: target.label().to_string(),
+            treasury_effect: match treasury_effect(kind, current, *target) {
+                TreasuryEffect::Increase => "increase",
+                TreasuryEffect::Decrease => "decrease",
+                TreasuryEffect::None => "none",
+            }
+            .to_string(),
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -5052,18 +5113,8 @@ fn update_check_status(
     check_id: String,
     new_status: String,
 ) -> Result<(), String> {
-    if ![
-        "registered",
-        "deposited",
-        "transferred",
-        "cleared",
-        "bounced",
-        "cancelled",
-    ]
-    .contains(&new_status.as_str())
-    {
-        return Err("CHK-008: وضعیت چک نامعتبر است".into());
-    }
+    let target = CheckStatus::parse(&new_status)
+        .ok_or_else(|| "CHK-008: وضعیت چک نامعتبر است".to_string())?;
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "treasury.check.update")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
@@ -5071,28 +5122,28 @@ fn update_check_status(
         "SELECT status,check_type,company_id,amount,treasury_account_id,clearing_journal_id,fiscal_year_id,due_date,party_id FROM checks WHERE id=?1 AND company_id IN (SELECT company_id FROM company_users WHERE user_id=?2 AND is_active=1)",params![check_id,user],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?,r.get(8)?))
     ).map_err(|_|"CHK-009: چک یافت نشد".to_string())?;
     let old = &row.0;
-    let valid = matches!(
-        (old.as_str(), new_status.as_str()),
-        ("registered", "deposited")
-            | ("registered", "transferred")
-            | ("registered", "cancelled")
-            | ("deposited", "cleared")
-            | ("deposited", "bounced")
-            | ("transferred", "cleared")
-            | ("transferred", "bounced")
-            | ("cleared", "bounced")
-    );
-    if !valid {
-        return Err(format!(
-            "CHK-010: انتقال وضعیت {} به {} مجاز نیست",
-            old, new_status
-        ));
-    }
+    // ماشین حالت چک تنها یک منبع حقیقت دارد: هسته‌ی مالی.
+    let kind = if row.1 == "issued" {
+        CheckKind::Issued
+    } else {
+        CheckKind::Received
+    };
+    let current = CheckStatus::parse(old)
+        .ok_or_else(|| format!("CHK-019: وضعیت ثبت‌شده‌ی «{old}» شناخته نمی‌شود"))?;
+    check_transition(kind, current, target).map_err(|_| {
+        format!(
+            "CHK-010: انتقال وضعیت «{}» به «{}» مجاز نیست",
+            current.label(),
+            target.label()
+        )
+    })?;
     validate_fiscal_date(&tx, &row.6, &row.7)?;
-    if new_status == "cancelled" && old == "cleared" {
-        return Err("CHK-011: چک وصول‌شده قابل ابطال نیست؛ ابتدا برگشت ثبت کنید".into());
-    }
-    if new_status == "cleared" {
+    // اثر خزانه‌ای گذار را هم هسته تعیین می‌کند، نه شرط‌های پراکنده.
+    let effect = treasury_effect(kind, current, target);
+    let settles = matches!(effect, TreasuryEffect::Increase | TreasuryEffect::Decrease)
+        && row.5.is_none();
+    let reverses = target == CheckStatus::Bounced && row.5.is_some();
+    if settles {
         let treasury_id = row
             .4
             .as_ref()
@@ -5128,11 +5179,11 @@ fn update_check_status(
         };
         tx.execute("INSERT INTO treasury_transactions(id,company_id,fiscal_year_id,treasury_account_id,transaction_type,amount,transaction_date,description,reference_type,reference_id,journal_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",params![tid,row.2,row.6,treasury_id,typ,row.3,row.7,desc,"check",check_id,jid,user]).map_err(|e|format!("CHK-015: {e}"))?;
         tx.execute(
-            "UPDATE checks SET clearing_journal_id=?1,status='cleared' WHERE id=?2",
-            params![jid, check_id],
+            "UPDATE checks SET clearing_journal_id=?1,status=?2 WHERE id=?3",
+            params![jid, target.as_str(), check_id],
         )
         .map_err(|e| e.to_string())?;
-    } else if new_status == "bounced" && old == "cleared" {
+    } else if reverses {
         let original = row.5.ok_or("CHK-016: سند وصول چک یافت نشد".to_string())?;
         let mut st=tx.prepare("SELECT account_id,debit,credit FROM journal_lines WHERE journal_id=?1 ORDER BY rowid").map_err(|e|e.to_string())?;
         let lines: Vec<(String, i64, i64)> = st
@@ -5165,7 +5216,7 @@ fn update_check_status(
     } else {
         tx.execute(
             "UPDATE checks SET status=?1 WHERE id=?2",
-            params![new_status, check_id],
+            params![target.as_str(), check_id],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -7391,6 +7442,7 @@ fn main() {
             get_check_dashboard,
             create_check,
             update_check_status,
+            check_transition_options,
             create_sales_return,
             create_purchase_return,
             post_sales_return,

@@ -75,6 +75,8 @@ export type CheckDashboard={total_received:number,total_issued:number,received_c
 export const getCheckDashboard=()=>api<CheckDashboard>('get_check_dashboard')
 export const createCheck=(check_type:'received'|'issued',check_number:string,party_id:string|undefined,treasury_account_id:string|undefined,amount:number,issue_date:string,due_date:string,bank_name?:string,description?:string)=>api<string>('create_check',{checkType:check_type,checkNumber:check_number,partyId:party_id,treasuryAccountId:treasury_account_id,amount,issueDate:issue_date,dueDate:due_date,bankName:bank_name,description})
 export const updateCheckStatus=(check_id:string,new_status:string)=>api<void>('update_check_status',{checkId:check_id,newStatus:new_status})
+export type CheckTransitionOption={status:string,label:string,treasury_effect:'increase'|'decrease'|'none'}
+export const getCheckTransitionOptions=(check_id:string)=>api<CheckTransitionOption[]>('check_transition_options',{checkId:check_id})
 export const createSalesReturn=(original_invoice_id:string,return_date:string,lines:Array<[string,number,number]>)=>api<string>('create_sales_return',{originalInvoiceId:original_invoice_id,returnDate:return_date,lines})
 export const createPurchaseReturn=(original_invoice_id:string,return_date:string,lines:Array<[string,number,number]>)=>api<string>('create_purchase_return',{originalInvoiceId:original_invoice_id,returnDate:return_date,lines})
 export const postSalesReturn=(id:string)=>api<void>('post_sales_return',{id})

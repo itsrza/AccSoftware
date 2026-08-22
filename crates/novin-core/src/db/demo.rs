@@ -802,14 +802,17 @@ fn seed_treasury_documents(tx: &Connection, treasury: &[String]) -> Result<()> {
 }
 
 fn seed_checks(tx: &Connection, treasury: &[String]) -> Result<()> {
-    let statuses = [
-        "registered",
-        "in_progress",
-        "cleared",
-        "bounced",
-        "transferred",
-    ];
+    // وضعیت‌ها به تفکیک نوع چک انتخاب می‌شوند؛ وضعیت چک دریافتی روی چک
+    // پرداختی معنا ندارد و برعکس.
+    let received_statuses = ["in_hand", "deposited", "collected", "bounced", "endorsed"];
+    let issued_statuses = ["outstanding", "paid", "bounced"];
     for index in 0..CHECK_COUNT {
+        let check_type = if index % 4 == 3 { "issued" } else { "received" };
+        let status = if check_type == "issued" {
+            issued_statuses[index % issued_statuses.len()]
+        } else {
+            received_statuses[index % received_statuses.len()]
+        };
         let contact = format!("demo-contact-{:03}", (index * 5) % CONTACT_COUNT);
         let issue = demo_date(index);
         // سررسید همیشه پس از تاریخ صدور
@@ -822,14 +825,14 @@ fn seed_checks(tx: &Connection, treasury: &[String]) -> Result<()> {
                 format!("demo-check-{index:03}"),
                 COMPANY,
                 FISCAL_YEAR,
-                if index % 4 == 3 { "issued" } else { "received" },
+                check_type,
                 format!("{}", 700_100 + index),
                 contact,
                 treasury[index % treasury.len()],
                 ((index as i64 % 10) + 1) * 8_500_000,
                 issue,
                 due,
-                statuses[index % statuses.len()],
+                status,
                 format!("بانک {}", CITIES[index % CITIES.len()]),
                 USER
             ],

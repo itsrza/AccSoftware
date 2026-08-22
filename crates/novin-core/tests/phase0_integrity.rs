@@ -652,16 +652,7 @@ fn t10_demo_data_is_accounting_consistent() {
         .collect();
     for (status, issue_date, due_date) in checks {
         assert!(
-            [
-                "registered",
-                "in_progress",
-                "cleared",
-                "bounced",
-                "transferred",
-                "spent",
-                "returned"
-            ]
-            .contains(&status.as_str()),
+            novin_core::checks::CheckStatus::parse(&status).is_some(),
             "وضعیت چک نامعتبر: {status}"
         );
         let issued = JalaliDate::parse(&issue_date).expect("تاریخ صدور چک باید شمسی معتبر باشد");

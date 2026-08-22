@@ -32,7 +32,7 @@ kbd{font-size:9px;background:var(--surface-3);border:1px solid #e1e7f0;padding:3
 .quick-actions button:hover{transform:translateY(-2px);border-color:#d5dce8;box-shadow:0 10px 25px rgba(33,37,78,.06)}
 .quick-actions button>svg{margin-right:auto;color:#a1adbf}
 .qa{width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
-.qa.gold{background:var(--surface)4df;color:#c18429}
+.qa.gold{background:var(--gold-100);color:var(--gold-600)}
 .qa.blue{background:#edf0ff;color:#6570e8}
 .qa.green{background:#e6fff7;color:#00a979}
 .qa.purple{background:#efedff;color:var(--info)}
@@ -44,7 +44,7 @@ kbd{font-size:9px;background:var(--surface-3);border:1px solid #e1e7f0;padding:3
 .stat-card{padding:15px}
 .stat-top{display:flex;justify-content:space-between}
 .stat-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center}
-.stat-icon.gold{background:var(--surface)3df;color:var(--gold-600)}
+.stat-icon.gold{background:var(--gold-100);color:var(--gold-600)}
 .stat-icon.green{background:#e5fff7;color:var(--success)}
 .stat-icon.purple{background:#edeeff;color:#6874ed}
 .stat-icon.red{background:var(--danger-bg);color:var(--danger)}
@@ -85,7 +85,7 @@ table{width:100%;border-collapse:collapse}
 th{font-size:8px;color:#8e9bae;font-weight:600;text-align:right;padding:9px;border-bottom:1px solid var(--border);white-space:nowrap}
 td{font-size:9px;padding:11px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
 .status.done{background:#e7fff7;color:var(--success)}
-.status.pending{background:var(--surface)7e3;color:#c7861c}
+.status.pending{background:var(--warning-bg);color:var(--gold-600)}
 .status.danger{background:var(--danger-bg);color:#e85b75}
 .stock-list{display:flex;flex-direction:column}
 .stock-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -110,7 +110,7 @@ td{font-size:9px;padding:11px 9px;border-bottom:1px solid var(--border);white-sp
 .large-table th{padding:12px}
 .large-table td{padding:14px 12px}
 .row-more{background:none;color:#8b98aa}
-.empty-icon{width:58px;height:58px;border-radius:16px;background:var(--surface)1db;color:#c88a2f;display:grid;place-items:center}
+.empty-icon{width:58px;height:58px;border-radius:16px;background:var(--gold-100);color:var(--gold-600);display:grid;place-items:center}
 .empty-state h2{font-size:18px;margin:13px 0 5px}
 .empty-state p{font-size:10px;color:var(--text-3);margin-bottom:15px}
 .modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
@@ -124,7 +124,7 @@ td{font-size:9px;padding:11px 9px;border-bottom:1px solid var(--border);white-sp
 .switch i{display:block;width:17px;height:17px;border-radius:50%;background:var(--surface);transition:.2s}
 .switch.on{background:#00b985}
 .switch.on i{transform:translateX(-17px)}
-.danger-box{margin-top:10px;background:var(--surface)0f3;border:1px solid #ffd7df;border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.danger-box b,.danger-box span{display:block}
+.danger-box{margin-top:10px;background:var(--danger-bg);border:1px solid var(--danger);border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.danger-box b,.danger-box span{display:block}
 .danger-box b{font-size:10px}
 .danger-box span{font-size:8px;color:var(--text-3);margin-top:3px}
 .danger{background:var(--danger);color:var(--surface);border-radius:8px;padding:8px 10px;font-size:9px;white-space:nowrap}
@@ -190,8 +190,8 @@ button{font:inherit}
 .check-field input{width:18px;height:18px}
 .modal-actions{display:flex;justify-content:flex-start;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--surface-3)}
 .secondary{border:1px solid #d7deea;background:var(--surface);color:var(--brand);border-radius:9px;padding:10px 16px;cursor:pointer}
-.danger{border:1px solid #efb8c4;background:var(--surface)0f3;color:var(--danger);border-radius:9px;padding:10px 16px;cursor:pointer}
-.status.danger{background:var(--surface)0f3;color:var(--danger)}
+.danger{border:1px solid var(--danger);background:var(--danger-bg);color:var(--danger);border-radius:9px;padding:10px 16px;cursor:pointer}
+.status.danger{background:var(--danger-bg);color:var(--danger)}
 .command-backdrop{position:fixed;inset:0;background:rgba(20,25,50,.42);backdrop-filter:blur(4px);z-index:80;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh}
 .command-palette{width:min(650px,calc(100vw - 30px));background:var(--surface);border-radius:14px;box-shadow:0 30px 80px rgba(20,25,50,.28);overflow:hidden}
 .command-input{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #e8edf4}
@@ -207,7 +207,7 @@ button{font:inherit}
 /* v1.2 accounting + inventory workflow */
 .quick-actions-inline{display:flex;gap:8px;align-items:center}
 .quick-actions-inline .secondary{padding:10px 14px}
-.status.danger{background:var(--surface)0f3;color:var(--danger);padding:5px 8px;border-radius:7px}/* v1.4 Advanced Inventory */
+.status.danger{background:var(--danger-bg);color:var(--danger);padding:5px 8px;border-radius:7px}/* v1.4 Advanced Inventory */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
 .kpi{padding:18px;border:1px solid var(--border,#e7eaf0);border-radius:14px;background:var(--surface,var(--surface));display:flex;flex-direction:column;gap:8px}
 .kpi span{color:var(--text-3);font-size:13px}
@@ -290,3 +290,34 @@ button{font:inherit}
 @media (max-width:1100px){.invoice-bottom{grid-template-columns:1fr}}
 /* --- بنر پیش‌نمایش طراحی (فقط حالت توسعه) --- */
 .preview-banner{background:var(--warning);color:#3d2d00;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600}
+
+/* ---- فیلترهای بزرگ و خوانا (بازخورد کارفرما: فیلترها کوچک و ناخوانا بودند) ---- */
+.filter-panel{margin-bottom:16px}
+.filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end}
+.filter-grid label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-2)}
+.filter-grid label.grow{grid-column:span 2;min-width:240px}
+.filter-grid select,.filter-grid input{padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px}
+.filter-grid select:focus,.filter-grid input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-100)}
+.filter-actions{display:flex;gap:10px;flex-wrap:wrap}
+.filter-actions button{padding:11px 20px;border-radius:10px;font-family:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+
+/* ---- ردیف قابل کلیک و پاپ‌آپ جزئیات ---- */
+.large-table tr.clickable{cursor:pointer}
+.large-table tr.clickable:hover{background:var(--surface-2)}
+.large-table th.sortable{cursor:pointer;user-select:none}
+.large-table th.sortable::after{content:'';opacity:.35;margin-inline-start:6px}
+.large-table th.sortable.asc::after{content:'▲';opacity:1;color:var(--gold)}
+.large-table th.sortable.desc::after{content:'▼';opacity:1;color:var(--gold)}
+.empty-row{text-align:center;padding:26px;color:var(--text-3)}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:0 0 18px}
+.detail-grid dt{font-size:11px;color:var(--text-3);margin-bottom:4px}
+.detail-grid dd{margin:0;font-size:13px;font-weight:600;color:var(--text)}
+.section-title{font-size:13px;margin:0 0 10px;color:var(--brand)}
+.transition-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.transition-btn{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font-family:inherit;text-align:right}
+.transition-btn:hover:not(:disabled){border-color:var(--gold);background:var(--gold-100)}
+.transition-btn:disabled{opacity:.5;cursor:not-allowed}
+.transition-btn b{font-size:13px;color:var(--text)}
+.transition-btn small{font-size:10px;color:var(--text-3)}
+.status.neutral{background:var(--surface-3);color:var(--text-2)}
+.muted{color:var(--text-3);font-size:12px}
