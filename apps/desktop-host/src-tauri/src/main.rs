@@ -1,12 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use argon2::{Argon2, PasswordVerifier};
+use novin_core::catalog::{PriceLevel, ProductKind};
 use novin_core::coding::{
     validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
 };
 use novin_core::db;
 use novin_core::inventory::{self as core_inventory, MovementKind, ValuationMethod};
-use novin_core::catalog::{PriceLevel, ProductKind};
 use novin_core::jalali;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -1897,7 +1897,6 @@ fn create_single_line_journal(
     Ok(journal_id)
 }
 
-
 // ===========================================================================
 // فاز ۳ — کاتالوگ کالا: گروه درختی و هفت سطح قیمت
 // مرجع: تصاویر 8Xmc1p (لیست کالاها ← قیمت کالاها) و NztJl5 (اطلاعات قیمت‌ها)
@@ -2089,7 +2088,9 @@ fn set_product_price(
         Some(&format!(
             "{{\"level\":\"{}\",\"price\":{}}}",
             level.as_str(),
-            price.map(|value| value.to_string()).unwrap_or_else(|| "null".into())
+            price
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "null".into())
         )),
     )?;
     tx.commit().map_err(|e| e.to_string())?;
