@@ -91,7 +91,8 @@ def _annotate(output: str, prefix: str) -> None:
     head = payload[:7200]
     chunks = [head[i : i + 800] for i in range(0, len(head), 800)][:9]
     for index, chunk in enumerate(chunks, start=1):
-        print(f"::warning::{prefix}[{index}/{len(chunks)}] {chunk}")
+        flattened = re.sub(r"\s*\n\s*", " ⏎ ", chunk)
+        print(f"::warning::{prefix}[{index}/{len(chunks)}] {flattened}")
 
 
 def emit_host_diagnostics(root: pathlib.Path, environment: dict) -> None:
@@ -185,7 +186,7 @@ def emit_ci_diagnostics() -> None:
                 marker_index = combined.find("failures:")
             start = max(0, marker_index - 120)
             detail = combined[start:] if marker_index >= 0 else combined
-            head = detail[:5600]
+            head = re.sub(r"\s*\n\s*", " ⏎ ", detail[:5600])
             for index in range(0, len(head), 800):
                 print(f"::warning::TEST{index // 800} {head[index : index + 800]}")
 
