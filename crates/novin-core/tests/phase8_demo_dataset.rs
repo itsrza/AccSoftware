@@ -13,8 +13,10 @@ fn demo_dataset_builds_completely() {
     db::demo::seed_demo_dataset(&conn).expect("ساخت داده‌ی نمونه باید موفق باشد");
 
     let count = |table: &str| -> i64 {
-        conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| row.get(0))
-            .unwrap_or(-1)
+        conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(-1)
     };
 
     assert!(count("products") >= 60, "کالاها: {}", count("products"));
@@ -54,5 +56,9 @@ fn demo_dataset_builds_completely() {
     // اجرای دوباره نباید داده را دوبرابر کند
     let before = count("products");
     db::demo::seed_demo_dataset(&conn).unwrap();
-    assert_eq!(before, count("products"), "ساخت داده‌ی نمونه باید idempotent باشد");
+    assert_eq!(
+        before,
+        count("products"),
+        "ساخت داده‌ی نمونه باید idempotent باشد"
+    );
 }
