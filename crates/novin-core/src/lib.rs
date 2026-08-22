@@ -17,6 +17,7 @@ pub mod db;
 pub mod inventory;
 pub mod jalali;
 pub mod money;
+pub mod parties;
 
 /// نسخه‌ی هسته که در About و لاگ‌ها استفاده می‌شود.
 pub const CORE_VERSION: &str = env!("CARGO_PKG_VERSION");

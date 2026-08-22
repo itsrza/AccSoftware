@@ -559,6 +559,116 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         }
     }
 
+    // --- مهاجرت نسخه‌ی ۴: اشخاص (نقش‌ها، مسیر، حساب بانکی، مناسبت) ---
+    conn.execute_batch(
+        r#"
+    CREATE TABLE IF NOT EXISTS party_routes(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      supervisor_id TEXT REFERENCES contacts(id),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS party_bank_accounts(
+      id TEXT PRIMARY KEY,
+      contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+      bank_name TEXT NOT NULL,
+      branch_name TEXT,
+      account_number TEXT,
+      iban TEXT,
+      card_number TEXT,
+      holder_name TEXT,
+      is_default INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS party_phones(
+      id TEXT PRIMARY KEY,
+      contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+      title TEXT,
+      number TEXT NOT NULL,
+      is_primary INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS party_occasions(
+      id TEXT PRIMARY KEY,
+      contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      jalali_month INTEGER NOT NULL CHECK(jalali_month BETWEEN 1 AND 12),
+      jalali_day INTEGER NOT NULL CHECK(jalali_day BETWEEN 1 AND 31),
+      remind_days_before INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_party_bank_contact ON party_bank_accounts(contact_id);
+    CREATE INDEX IF NOT EXISTS idx_party_phones_contact ON party_phones(contact_id);
+    CREATE INDEX IF NOT EXISTS idx_party_occasions_date ON party_occasions(jalali_month, jalali_day);
+    "#,
+    )?;
+    for (table, column, definition) in [
+        (
+            "contacts",
+            "party_type",
+            "ALTER TABLE contacts ADD COLUMN party_type TEXT NOT NULL DEFAULT 'natural'",
+        ),
+        (
+            "contacts",
+            "party_function",
+            "ALTER TABLE contacts ADD COLUMN party_function TEXT NOT NULL DEFAULT 'person'",
+        ),
+        (
+            "contacts",
+            "first_name",
+            "ALTER TABLE contacts ADD COLUMN first_name TEXT",
+        ),
+        (
+            "contacts",
+            "last_name",
+            "ALTER TABLE contacts ADD COLUMN last_name TEXT",
+        ),
+        (
+            "contacts",
+            "company_name",
+            "ALTER TABLE contacts ADD COLUMN company_name TEXT",
+        ),
+        (
+            "contacts",
+            "economic_code",
+            "ALTER TABLE contacts ADD COLUMN economic_code TEXT",
+        ),
+        (
+            "contacts",
+            "postal_code",
+            "ALTER TABLE contacts ADD COLUMN postal_code TEXT",
+        ),
+        (
+            "contacts",
+            "route_id",
+            "ALTER TABLE contacts ADD COLUMN route_id TEXT REFERENCES party_routes(id)",
+        ),
+        (
+            "contacts",
+            "marketer_id",
+            "ALTER TABLE contacts ADD COLUMN marketer_id TEXT REFERENCES contacts(id)",
+        ),
+        (
+            "contacts",
+            "opening_date",
+            "ALTER TABLE contacts ADD COLUMN opening_date TEXT",
+        ),
+        (
+            "contacts",
+            "job_title",
+            "ALTER TABLE contacts ADD COLUMN job_title TEXT",
+        ),
+        (
+            "contacts",
+            "introduction",
+            "ALTER TABLE contacts ADD COLUMN introduction TEXT",
+        ),
+    ] {
+        if !column_exists(conn, table, column)? {
+            conn.execute(definition, [])?;
+        }
+    }
+
     // Backward-compatible schema migrations. Check column existence first.
     if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
         conn.execute(
@@ -791,6 +901,40 @@ pub fn seed(conn: &Connection) -> Result<()> {
     )?;
     tx.execute(
         "UPDATE products SET vat_basis_points=900 WHERE company_id='company-demo' AND is_service=0",
+        [],
+    )?;
+    // --- مسیرهای پخش و بازاریاب نمونه ---
+    for (id, code, title) in [
+        ("route-north", "R01", "مسیر شمال شهر"),
+        ("route-center", "R02", "مسیر مرکز"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO party_routes(id,company_id,code,title) VALUES(?1,'company-demo',?2,?3)",
+            rusqlite::params![id, code, title],
+        )?;
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO contacts(id,company_id,kind,name,mobile,is_customer,is_supplier) \
+         VALUES('contact-marketer','company-demo','person','سعید بازاریان','09121110022',0,0)",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE contacts SET party_function='marketer' WHERE id='contact-marketer'",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE contacts SET party_type='private_legal', company_name=name \
+         WHERE company_id='company-demo' AND kind='company'",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE contacts SET route_id='route-center', marketer_id='contact-marketer' \
+         WHERE company_id='company-demo' AND is_customer=1 AND route_id IS NULL",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE contacts SET credit_limit=500000000 \
+         WHERE company_id='company-demo' AND is_customer=1 AND credit_limit=0",
         [],
     )?;
     tx.commit()?;
