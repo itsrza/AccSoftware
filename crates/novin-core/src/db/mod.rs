@@ -747,6 +747,53 @@ pub fn migrate(conn: &Connection) -> Result<()> {
         }
     }
 
+    // --- مهاجرت نسخه‌ی ۶: انبارگردانی اصولی و عملیات جمعی ---
+    conn.execute_batch(
+        r#"
+    CREATE TABLE IF NOT EXISTS stocktake_sessions(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+      title TEXT NOT NULL,
+      count_date TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft'
+        CHECK(status IN ('draft','counting','review','posted','cancelled')),
+      frozen_at TEXT,
+      posted_at TEXT,
+      journal_id TEXT REFERENCES journal_entries(id),
+      recount_threshold_percent REAL NOT NULL DEFAULT 5,
+      created_by TEXT NOT NULL REFERENCES users(id),
+      approved_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS stocktake_lines(
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES stocktake_sessions(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      frozen_quantity REAL NOT NULL DEFAULT 0,
+      counted_quantity REAL CHECK(counted_quantity IS NULL OR counted_quantity >= 0),
+      recount_quantity REAL CHECK(recount_quantity IS NULL OR recount_quantity >= 0),
+      unit_cost INTEGER NOT NULL DEFAULT 0,
+      variance_approved INTEGER NOT NULL DEFAULT 0,
+      approved_by TEXT REFERENCES users(id),
+      note TEXT,
+      UNIQUE(session_id, product_id)
+    );
+    CREATE TABLE IF NOT EXISTS bulk_operations(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      operation TEXT NOT NULL
+        CHECK(operation IN ('price_change','group_change','zero_stock','activate','deactivate','tax_change')),
+      payload TEXT NOT NULL,
+      affected_count INTEGER NOT NULL DEFAULT 0,
+      performed_by TEXT NOT NULL REFERENCES users(id),
+      performed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_stocktake_lines_session ON stocktake_lines(session_id);
+    CREATE INDEX IF NOT EXISTS idx_stocktake_sessions_status ON stocktake_sessions(status);
+    "#,
+    )?;
+
     // Backward-compatible schema migrations. Check column existence first.
     if !column_exists(conn, "inventory_balances", "in_transit_quantity")? {
         conn.execute(
@@ -1015,6 +1062,27 @@ pub fn seed(conn: &Connection) -> Result<()> {
          WHERE company_id='company-demo' AND is_customer=1 AND credit_limit=0",
         [],
     )?;
+    // آستانه‌ی نمایش کارت «نزدیک به اتمام موجودی» — قابل تغییر در تنظیمات.
+    tx.execute(
+        "INSERT OR IGNORE INTO app_settings(key,value) VALUES('inventory.low_stock_threshold','5')",
+        [],
+    )?;
+    // درصد اختلافی که شمارش مجدد را الزامی می‌کند.
+    tx.execute(
+        "INSERT OR IGNORE INTO app_settings(key,value) VALUES('inventory.recount_threshold_percent','5')",
+        [],
+    )?;
+    // حساب‌های کسری و اضافی انبار برای سند تعدیل انبارگردانی.
+    for (id, code, name, level, parent, nature) in [
+        ("acc-6300", "6300", "کسری و ضایعات انبار", "general", Some("acc-5000"), "debit"),
+        ("acc-4300", "4300", "اضافات انبار", "general", Some("acc-4000"), "credit"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \
+             VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",
+            rusqlite::params![id, code, name, level, parent, nature],
+        )?;
+    }
     tx.commit()?;
     Ok(())
 }
