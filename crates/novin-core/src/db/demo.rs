@@ -86,11 +86,15 @@ const COMPANY_NAMES: [&str; 8] = [
 ];
 const CITIES: [&str; 6] = ["تهران", "مشهد", "اصفهان", "شیراز", "تبریز", "کرج"];
 
-/// تاریخ شمسی نمونه بر اساس اندیس (پخش‌شده در سال ۱۴۰۵).
-fn demo_date(index: usize) -> String {
-    let month = (index % 6) + 1;
-    let day = (index % 28) + 1;
-    format!("1405/{month:02}/{day:02}")
+/// تاریخ شمسی نمونه بر اساس اندیس — **صعودی و یکنواخت**.
+///
+/// یکنواخت بودن مهم است: سررسید چک باید همیشه بعد از تاریخ صدور بیفتد، و
+/// تاریخ اسناد نباید از سال مالی بیرون بزند.
+fn demo_date(offset: usize) -> String {
+    let year = 1405 + offset / (28 * 12);
+    let month = (offset / 28) % 12 + 1;
+    let day = offset % 28 + 1;
+    format!("{year}/{month:02}/{day:02}")
 }
 
 /// درج داده‌ی نمونه‌ی گسترده. اجرای دوباره بی‌اثر است.
@@ -619,7 +623,8 @@ fn seed_checks(tx: &Connection) -> Result<()> {
     for index in 0..CHECK_COUNT {
         let contact = format!("demo-contact-{:03}", (index * 5) % CONTACT_COUNT);
         let issue = demo_date(index);
-        let due = demo_date(index + 4);
+        // سررسید همیشه پس از تاریخ صدور
+        let due = demo_date(index + 45);
         tx.execute(
             "INSERT OR IGNORE INTO checks(id,company_id,fiscal_year_id,check_type,check_number,\
              party_id,treasury_account_id,amount,issue_date,due_date,status,bank_name,description,\
