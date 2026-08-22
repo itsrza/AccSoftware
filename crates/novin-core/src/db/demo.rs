@@ -111,6 +111,7 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
 
     let tx = conn.unchecked_transaction()?;
 
+    seed_required_accounts(&tx)?;
     seed_warehouses(&tx)?;
     seed_treasury(&tx)?;
     seed_products(&tx)?;
@@ -122,6 +123,28 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     seed_checks(&tx)?;
 
     tx.commit()?;
+    Ok(())
+}
+
+/// حساب‌هایی که داده‌ی نمونه به آن‌ها ارجاع می‌دهد و ممکن است در کدینگ پایه نباشند.
+///
+/// بدون این تابع، سطرهای سند به حساب ناموجود ارجاع می‌دهند و کلید خارجی می‌شکند.
+fn seed_required_accounts(tx: &Connection) -> Result<()> {
+    for (id, code, name, level, parent, nature) in [
+        ("acc-1200", "1200", "حساب های دریافتنی", "general", Some("acc-1000"), "debit"),
+        ("acc-1201", "1201", "حساب مشتریان", "detail", Some("acc-1200"), "debit"),
+        ("acc-2100", "2100", "حساب های پرداختنی", "general", Some("acc-2000"), "credit"),
+        ("acc-2101", "2101", "تأمین کنندگان", "detail", Some("acc-2100"), "credit"),
+        ("acc-2401", "2401", "مالیات بر ارزش افزوده", "general", Some("acc-2000"), "credit"),
+        ("acc-1100", "1100", "دارایی های جاری", "general", Some("acc-1000"), "debit"),
+        ("acc-1101", "1101", "موجودی نقد و بانک", "detail", Some("acc-1100"), "debit"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \
+             VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![id, COMPANY, code, name, level, parent, nature],
+        )?;
+    }
     Ok(())
 }
 
