@@ -2,6 +2,9 @@
 
 use argon2::{Argon2, PasswordVerifier};
 use novin_core::catalog::{PriceLevel, ProductKind};
+use novin_core::parties::{
+    self, BalanceStatus, PartyDefinition, PartyFunction, PartyType,
+};
 use novin_core::coding::{
     validate_dimensions, AccountDefinition, AccountNature, Dimensions, Subsidiary,
 };
@@ -2091,6 +2094,321 @@ fn set_product_price(
             price
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "null".into())
+        )),
+    )?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+
+// ===========================================================================
+// فاز ۴ — اشخاص: نقش‌ها، مسیر، اعتبارسنجی هویتی و خلاصه‌ی حساب
+// مرجع: تصاویر c9pvYl (لیست اشخاص) و 1zkKV5 (فرم افزودن شخص)
+// ===========================================================================
+
+#[derive(Serialize)]
+struct PartyRow {
+    id: String,
+    code: String,
+    display_name: String,
+    party_type: String,
+    party_type_label: String,
+    party_function: String,
+    party_function_label: String,
+    group_title: String,
+    is_customer: bool,
+    is_supplier: bool,
+    mobile: Option<String>,
+    route_title: Option<String>,
+    marketer_name: Option<String>,
+    credit_limit: i64,
+    balance: i64,
+    balance_status: String,
+    balance_indicator: String,
+}
+
+#[derive(Serialize)]
+struct PartySummary {
+    debtor_count: usize,
+    debtor_total: i64,
+    creditor_count: usize,
+    creditor_total: i64,
+    settled_count: usize,
+    total_count: usize,
+    net_total: i64,
+}
+
+#[derive(Serialize)]
+struct PartyListResult {
+    rows: Vec<PartyRow>,
+    summary: PartySummary,
+}
+
+#[derive(Serialize)]
+struct RouteRow {
+    id: String,
+    code: String,
+    title: String,
+}
+
+/// مانده‌ی حساب یک شخص از روی سطرهای سند ثبت‌شده.
+///
+/// قرارداد علامت: مثبت = بدهکار، منفی = بستانکار.
+fn party_balance(c: &Connection, company: &str, contact_id: &str) -> i64 {
+    c.query_row(
+        "SELECT COALESCE(SUM(jl.debit - jl.credit),0) \
+         FROM journal_lines jl JOIN journal_entries je ON je.id=jl.journal_id \
+         WHERE je.company_id=?1 AND je.status='posted' AND jl.subsidiary_id=?2",
+        params![company, contact_id],
+        |r| r.get(0),
+    )
+    .unwrap_or(0)
+}
+
+/// فهرست اشخاص به‌همراه خلاصه‌ی حساب — معادل صفحه‌ی «لیست اشخاص».
+#[tauri::command]
+fn list_parties(state: State<AppState>) -> Result<PartyListResult, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "contacts.create")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let mut st = c
+        .prepare(
+            "SELECT ct.id, ct.name, ct.party_type, ct.party_function, ct.is_customer, \
+                    ct.is_supplier, ct.mobile, ct.credit_limit, r.title, m.name \
+             FROM contacts ct \
+             LEFT JOIN party_routes r ON r.id=ct.route_id \
+             LEFT JOIN contacts m ON m.id=ct.marketer_id \
+             WHERE ct.company_id=?1 ORDER BY ct.name",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let raw: Vec<(String, String, String, String, i64, i64, Option<String>, i64, Option<String>, Option<String>)> = st
+        .query_map(params![company], |r| {
+            Ok((
+                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?,
+                r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+
+    let mut rows = Vec::with_capacity(raw.len());
+    let mut balances = Vec::with_capacity(raw.len());
+    for (id, name, party_type, party_function, is_customer, is_supplier, mobile, credit_limit, route_title, marketer_name) in raw
+    {
+        let balance = party_balance(&c, &company, &id);
+        let money = novin_core::money::Money::from_rials(balance);
+        let status = BalanceStatus::of(money);
+        balances.push(money);
+        let kind = PartyType::parse(&party_type).unwrap_or(PartyType::Natural);
+        let function = PartyFunction::parse(&party_function).unwrap_or(PartyFunction::Person);
+        let group_title = if is_customer != 0 && is_supplier != 0 {
+            "مشتری و تأمین‌کننده"
+        } else if is_customer != 0 {
+            "بدهکاران تجاری"
+        } else if is_supplier != 0 {
+            "بستانکاران تجاری"
+        } else {
+            function.label()
+        };
+        rows.push(PartyRow {
+            code: id.clone(),
+            id,
+            display_name: name,
+            party_type: kind.as_str().to_string(),
+            party_type_label: kind.label().to_string(),
+            party_function: function.as_str().to_string(),
+            party_function_label: function.label().to_string(),
+            group_title: group_title.to_string(),
+            is_customer: is_customer != 0,
+            is_supplier: is_supplier != 0,
+            mobile,
+            route_title,
+            marketer_name,
+            credit_limit,
+            balance,
+            balance_status: format!("{status:?}").to_lowercase(),
+            balance_indicator: status.indicator().to_string(),
+        });
+    }
+
+    let summary = parties::summarize_balances(&balances);
+    Ok(PartyListResult {
+        rows,
+        summary: PartySummary {
+            debtor_count: summary.debtor_count,
+            debtor_total: summary.debtor_total.rials(),
+            creditor_count: summary.creditor_count,
+            creditor_total: summary.creditor_total.rials(),
+            settled_count: summary.settled_count,
+            total_count: summary.total_count,
+            net_total: summary.net_total.rials(),
+        },
+    })
+}
+
+#[tauri::command]
+fn list_party_routes(state: State<AppState>) -> Result<Vec<RouteRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "contacts.create")?;
+    let (company, _) = active_company(&state, &c)?;
+    let mut st = c
+        .prepare("SELECT id,code,title FROM party_routes WHERE company_id=?1 AND is_active=1 ORDER BY code")
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(RouteRow {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                title: r.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
+/// اعتبارسنجی هویتی پیش از ذخیره — بدون نوشتن در پایگاه داده.
+///
+/// رابط کاربری می‌تواند این را حین تایپ صدا بزند تا خطا را فوری نشان دهد.
+#[tauri::command]
+fn validate_party_identity(
+    party_type: String,
+    national_id: Option<String>,
+    economic_code: Option<String>,
+    postal_code: Option<String>,
+    mobile: Option<String>,
+    iban: Option<String>,
+    card_number: Option<String>,
+) -> Result<Vec<String>, String> {
+    let kind = PartyType::parse(&party_type).unwrap_or(PartyType::Natural);
+    let mut problems = Vec::new();
+    if let Some(value) = national_id.as_deref().filter(|v| !v.trim().is_empty()) {
+        let valid = if kind.is_legal_entity() {
+            parties::legal_id_is_valid(value)
+        } else {
+            parties::national_id_is_valid(value)
+        };
+        if !valid {
+            problems.push(if kind.is_legal_entity() {
+                "PRT-003: شناسه ملی شخص حقوقی نامعتبر است".to_string()
+            } else {
+                "PRT-002: کد ملی نامعتبر است".to_string()
+            });
+        }
+    }
+    if let Some(value) = economic_code.as_deref().filter(|v| !v.trim().is_empty()) {
+        if !parties::economic_code_is_valid(value) {
+            problems.push("PRT-004: کد اقتصادی نامعتبر است".to_string());
+        }
+    }
+    if let Some(value) = postal_code.as_deref().filter(|v| !v.trim().is_empty()) {
+        if !parties::postal_code_is_valid(value) {
+            problems.push("PRT-005: کد پستی باید ۱۰ رقم باشد".to_string());
+        }
+    }
+    if let Some(value) = mobile.as_deref().filter(|v| !v.trim().is_empty()) {
+        if parties::normalize_mobile(value).is_none() {
+            problems.push("PRT-006: شماره موبایل نامعتبر است".to_string());
+        }
+    }
+    if let Some(value) = iban.as_deref().filter(|v| !v.trim().is_empty()) {
+        if !parties::iban_is_valid(value) {
+            problems.push("PRT-007: شماره شبا نامعتبر است".to_string());
+        }
+    }
+    if let Some(value) = card_number.as_deref().filter(|v| !v.trim().is_empty()) {
+        if !parties::card_number_is_valid(value) {
+            problems.push("PRT-008: شماره کارت بانکی نامعتبر است".to_string());
+        }
+    }
+    Ok(problems)
+}
+
+/// به‌روزرسانی مشخصات تکمیلی شخص (نوع، نقش، مسیر، سقف اعتبار و هویت).
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+fn update_party_profile(
+    state: State<AppState>,
+    contact_id: String,
+    party_type: String,
+    party_function: String,
+    national_id: Option<String>,
+    economic_code: Option<String>,
+    postal_code: Option<String>,
+    credit_limit: i64,
+    route_id: Option<String>,
+    marketer_id: Option<String>,
+) -> Result<(), String> {
+    let kind = PartyType::parse(&party_type).ok_or("PRT-013: نوع شخصیت نامعتبر است")?;
+    let function =
+        PartyFunction::parse(&party_function).ok_or("PRT-014: نقش شخص نامعتبر است")?;
+
+    let mut c = conn(&state)?;
+    let user = require_permission(&state, &c, "contacts.edit")?;
+    let (company, _) = active_company(&state, &c)?;
+
+    let (name, is_customer, is_supplier): (String, i64, i64) = c
+        .query_row(
+            "SELECT name,is_customer,is_supplier FROM contacts WHERE id=?1 AND company_id=?2",
+            params![contact_id, company],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .map_err(|_| "PRT-015: شخص یافت نشد".to_string())?;
+
+    let definition = PartyDefinition {
+        code: contact_id.clone(),
+        party_type: kind,
+        function,
+        first_name: if kind.is_legal_entity() { None } else { Some(name.clone()) },
+        last_name: None,
+        company_name: if kind.is_legal_entity() { Some(name) } else { None },
+        national_id: national_id.clone(),
+        economic_code: economic_code.clone(),
+        postal_code: postal_code.clone(),
+        mobile: None,
+        is_customer: is_customer != 0,
+        is_supplier: is_supplier != 0,
+        credit_limit,
+        route: route_id.clone(),
+        marketer_code: marketer_id.clone(),
+    };
+    definition.validate().map_err(|e| e.to_string())?;
+
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    tx.execute(
+        "UPDATE contacts SET party_type=?1, party_function=?2, national_id=?3, \
+         economic_code=?4, postal_code=?5, credit_limit=?6, route_id=?7, marketer_id=?8 \
+         WHERE id=?9 AND company_id=?10",
+        params![
+            kind.as_str(),
+            function.as_str(),
+            national_id,
+            economic_code,
+            postal_code,
+            credit_limit,
+            route_id,
+            marketer_id,
+            contact_id,
+            company
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    audit(
+        &tx,
+        &user,
+        "party.profile.update",
+        "contact",
+        &contact_id,
+        None,
+        Some(&format!(
+            "{{\"type\":\"{}\",\"function\":\"{}\",\"credit_limit\":{}}}",
+            kind.as_str(),
+            function.as_str(),
+            credit_limit
         )),
     )?;
     tx.commit().map_err(|e| e.to_string())?;
@@ -6023,6 +6341,10 @@ fn main() {
             list_projects,
             list_postable_accounts,
             list_product_groups,
+            list_parties,
+            list_party_routes,
+            validate_party_identity,
+            update_party_profile,
             list_product_prices,
             set_product_price,
             create_journal,

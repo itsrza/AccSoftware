@@ -53,3 +53,12 @@ button{font:inherit}.command-trigger{border:0;cursor:pointer;text-align:right}.c
 .search-input{flex:1;min-width:200px;padding:8px 12px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit}
 .toolbar select{padding:8px 12px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit}
 .empty-state{padding:40px;text-align:center;color:#62748E}
+
+/* --- مدیریت اشخاص (فاز ۴) --- */
+.modal-backdrop{position:fixed;inset:0;background:rgba(33,37,78,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:#fff;border-radius:14px;padding:24px;max-width:760px;width:92%;max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(33,37,78,.25)}
+.modal h2{margin:0 0 16px;font-size:16px;color:#21254E}
+.modal .form-row{margin-bottom:12px}
+.modal .form-row label{flex:1;min-width:180px}
+.modal select,.modal input{padding:8px;border:1px solid #d8dceb;border-radius:8px;font-family:inherit;width:100%}
+.green-text{color:#00875f}

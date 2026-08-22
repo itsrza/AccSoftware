@@ -240,3 +240,60 @@ export const getProductGroups = () => api<ProductGroupRow[]>('list_product_group
 export const getProductPrices = () => api<ProductPriceRow[]>('list_product_prices')
 export const setProductPrice = (productId: string, level: string, price: number | null) =>
   api<void>('set_product_price', {productId, level, price})
+
+// --- فاز ۴: اشخاص (مرجع: تصاویر c9pvYl و 1zkKV5) ---
+export type PartyRow = {
+  id: string
+  code: string
+  display_name: string
+  party_type: string
+  party_type_label: string
+  party_function: string
+  party_function_label: string
+  group_title: string
+  is_customer: boolean
+  is_supplier: boolean
+  mobile?: string
+  route_title?: string
+  marketer_name?: string
+  credit_limit: number
+  balance: number
+  balance_status: string
+  balance_indicator: string
+}
+export type PartySummary = {
+  debtor_count: number
+  debtor_total: number
+  creditor_count: number
+  creditor_total: number
+  settled_count: number
+  total_count: number
+  net_total: number
+}
+export type PartyListResult = {rows: PartyRow[]; summary: PartySummary}
+export type RouteRow = {id: string; code: string; title: string}
+
+export const getParties = () => api<PartyListResult>('list_parties')
+export const getPartyRoutes = () => api<RouteRow[]>('list_party_routes')
+
+export const validatePartyIdentity = (input: {
+  partyType: string
+  nationalId: string | null
+  economicCode: string | null
+  postalCode: string | null
+  mobile: string | null
+  iban: string | null
+  cardNumber: string | null
+}) => api<string[]>('validate_party_identity', {...input})
+
+export const updatePartyProfile = (input: {
+  contactId: string
+  partyType: string
+  partyFunction: string
+  nationalId: string | null
+  economicCode: string | null
+  postalCode: string | null
+  creditLimit: number
+  routeId: string | null
+  marketerId: string | null
+}) => api<void>('update_party_profile', {...input})
