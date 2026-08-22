@@ -496,7 +496,7 @@ fn t10_treasury_schema_and_seed() {
     // روش پرداخت نامعتبر باید توسط پایگاه داده رد شود
     conn.execute(
         "INSERT INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,document_date,created_by) \
-         VALUES('td-1','company-demo','fy-demo','receipt',1,'1405/05/01','user-demo')",
+         VALUES('td-1','company-demo','fy-demo','receipt',900001,'1405/05/01','user-demo')",
         [],
     )
     .unwrap();
