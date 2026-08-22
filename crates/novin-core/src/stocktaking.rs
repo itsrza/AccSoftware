@@ -424,10 +424,11 @@ pub struct BulkPriceResult {
 ///
 /// قیمت منفی هرگز تولید نمی‌شود؛ اگر تغییر باعث منفی شدن شود، کل عملیات رد
 /// می‌گردد (نه اینکه بی‌صدا صفر شود).
+///
+/// `round_to`: گرد کردن به نزدیک‌ترین مضرب (مثلاً ۱۰۰۰ ریال)؛ صفر یعنی بدون گرد کردن.
 pub fn preview_bulk_price(
     products: &[(String, Money)],
     change: BulkPriceChange,
-    /// گرد کردن به نزدیک‌ترین مضرب (مثلاً ۱۰۰۰ ریال). صفر یعنی بدون گرد کردن.
     round_to: i64,
 ) -> Result<Vec<BulkPriceResult>, BulkError> {
     if products.is_empty() {
