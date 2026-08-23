@@ -88,9 +88,7 @@ fn d3_production_orders_have_inputs_and_outputs() {
 fn d4_production_cost_equation_balances_to_the_rial() {
     let conn = seeded();
     let mut statement = conn
-        .prepare(
-            "SELECT id, materials_total, expenses_total, total_cost FROM production_orders",
-        )
+        .prepare("SELECT id, materials_total, expenses_total, total_cost FROM production_orders")
         .expect("پرس‌وجو");
     let rows: Vec<(String, i64, i64, i64)> = statement
         .query_map([], |row| {
@@ -215,7 +213,10 @@ fn d8_stocktake_lines_have_real_variance() {
         "SELECT COUNT(*) FROM inventory_count_lines \
          WHERE session_id='demo-count-001' AND counted_quantity IS NULL",
     );
-    assert!(counted > 0 && pending > 0, "دوره باید هم شمرده داشته باشد هم نشمرده");
+    assert!(
+        counted > 0 && pending > 0,
+        "دوره باید هم شمرده داشته باشد هم نشمرده"
+    );
 
     // اختلاف ذخیره‌شده باید دقیقاً «شمارش − سیستم» باشد.
     let wrong = count(
@@ -235,8 +236,14 @@ fn d8_stocktake_lines_have_real_variance() {
 #[test]
 fn d9_batch_and_serial_lots_both_exist() {
     let conn = seeded();
-    let batches = count(&conn, "SELECT COUNT(*) FROM inventory_lots WHERE lot_type='batch'");
-    let serials = count(&conn, "SELECT COUNT(*) FROM inventory_lots WHERE lot_type='serial'");
+    let batches = count(
+        &conn,
+        "SELECT COUNT(*) FROM inventory_lots WHERE lot_type='batch'",
+    );
+    let serials = count(
+        &conn,
+        "SELECT COUNT(*) FROM inventory_lots WHERE lot_type='serial'",
+    );
     assert!(batches >= 2, "سری ساخت نمونه وجود ندارد");
     assert!(serials >= 2, "سریال نمونه وجود ندارد");
 
@@ -342,7 +349,10 @@ fn d13_api_profiles_declare_allowed_domains() {
 
     // حداقل یکی غیرفعال باشد تا کاربر تفاوت وضعیت را ببیند.
     let disabled = count(&conn, "SELECT COUNT(*) FROM api_profiles WHERE enabled=0");
-    assert!(disabled >= 1, "همه‌ی اتصال‌ها فعالند؛ تفاوت وضعیت دیده نمی‌شود");
+    assert!(
+        disabled >= 1,
+        "همه‌ی اتصال‌ها فعالند؛ تفاوت وضعیت دیده نمی‌شود"
+    );
 }
 
 /// د۱۴ — افزونه‌ی نمونه مجوزهای اعلام‌شده دارد.
@@ -428,6 +438,9 @@ fn d17_every_visible_section_has_sample_content() {
     ];
     for (title, table) in sections {
         let rows = count(&conn, &format!("SELECT COUNT(*) FROM {table}"));
-        assert!(rows > 0, "بخش «{title}» بدون داده‌ی نمونه است (جدول {table})");
+        assert!(
+            rows > 0,
+            "بخش «{title}» بدون داده‌ی نمونه است (جدول {table})"
+        );
     }
 }

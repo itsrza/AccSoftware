@@ -40,11 +40,9 @@ pub fn seed_supporting_data(tx: &Connection, warehouses: &[String]) -> Result<()
 
 /// آیا کالایی با این شناسه وجود دارد؟ ارجاع به کالای ناموجود کلید خارجی را می‌شکند.
 fn product_exists(tx: &Connection, id: &str) -> bool {
-    tx.query_row(
-        "SELECT 1 FROM products WHERE id=?1",
-        params![id],
-        |row| row.get::<_, i64>(0),
-    )
+    tx.query_row("SELECT 1 FROM products WHERE id=?1", params![id], |row| {
+        row.get::<_, i64>(0)
+    })
     .is_ok()
 }
 
@@ -154,8 +152,16 @@ fn seed_production(tx: &Connection, warehouse: &str) -> Result<()> {
 
         // دو هزینه‌ی تولید: دستمزد مستقیم و سربار.
         let expenses: [(&str, &str, i64); 2] = [
-            ("acc-5300", "دستمزد مستقیم کارگاه", 18_500_000 + index as i64 * 4_000_000),
-            ("acc-5400", "سربار تولید (برق و استهلاک)", 7_200_000 + index as i64 * 1_500_000),
+            (
+                "acc-5300",
+                "دستمزد مستقیم کارگاه",
+                18_500_000 + index as i64 * 4_000_000,
+            ),
+            (
+                "acc-5400",
+                "سربار تولید (برق و استهلاک)",
+                7_200_000 + index as i64 * 1_500_000,
+            ),
         ];
         let expenses_total: i64 = expenses.iter().map(|(_, _, amount)| *amount).sum();
         let total_cost = materials_total + expenses_total;
@@ -397,7 +403,11 @@ fn seed_purchase_returns(tx: &Connection, warehouse: &str) -> Result<()> {
                 number,
                 format!("1405/0{}/2{}", index + 2, index + 1),
                 invoice,
-                if contact.is_empty() { None } else { Some(contact) },
+                if contact.is_empty() {
+                    None
+                } else {
+                    Some(contact)
+                },
                 warehouse,
                 if index == 0 { "draft" } else { "posted" },
                 line_total,
