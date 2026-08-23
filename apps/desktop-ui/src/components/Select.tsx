@@ -173,7 +173,7 @@ export function Select({
   useEffect(() => {
     if (!open || !listRef.current) return
     const node = listRef.current.querySelector<HTMLElement>(`[data-index="${active}"]`)
-    node?.scrollIntoView({ block: 'nearest' })
+    node?.scrollIntoView?.({ block: 'nearest' })
   }, [open, active])
 
   const step = (delta: number) => {

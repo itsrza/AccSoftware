@@ -97,7 +97,7 @@ export function CommandPalette({
   }, [open, onClose, onSelect, filtered, active])
 
   useEffect(() => {
-    listRef.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView({block: 'nearest'})
+    listRef.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView?.({block: 'nearest'})
   }, [active])
 
   if (!open) return null
