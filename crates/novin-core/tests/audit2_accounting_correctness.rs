@@ -322,7 +322,11 @@ fn t34_freight_mode_changes_the_vat_base() {
     // مأخذ در حالت اول ۲٬۰۰۰٬۰۰۰ و مالیات ۱۸۰٬۰۰۰
     assert_eq!(added.vat_total.rials(), 180_000, "مالیات بدون کرایه");
     // مأخذ در حالت دوم ۲٬۲۰۰٬۰۰۰ و مالیات ۱۹۸٬۰۰۰
-    assert_eq!(allocated.vat_total.rials(), 198_000, "مالیات با احتساب کرایه");
+    assert_eq!(
+        allocated.vat_total.rials(),
+        198_000,
+        "مالیات با احتساب کرایه"
+    );
     assert!(
         allocated.vat_total.rials() > added.vat_total.rials(),
         "سرشکن‌کردن کرایه باید مأخذ مالیات را بالا ببرد"
