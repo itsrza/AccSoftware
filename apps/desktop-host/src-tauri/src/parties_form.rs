@@ -654,6 +654,17 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
         "contacts.create"
     };
     let user = require_permission(&state, &c, permission)?;
+    // الزام شناسه از تنظیمات خوانده می‌شود؛ برای صدور صورتحساب رسمی لازم است.
+    if crate::settings::read_boolean(&c, "parties.require_national_id")
+        && clean(&input.national_id).is_none()
+    {
+        return Err(if party_type.is_legal_entity() {
+            "PRT-036: طبق تنظیمات، شناسه ملی شخص حقوقی الزامی است".to_string()
+        } else {
+            "PRT-036: طبق تنظیمات، کد ملی شخص حقیقی الزامی است".to_string()
+        });
+    }
+
     let tx = c.transaction().map_err(|e| e.to_string())?;
     let (company, _) = active_context(&tx, &user)?;
 

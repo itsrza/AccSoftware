@@ -1,17 +1,361 @@
-import {useState} from 'react'
-import {Icon} from './Icon'
-import {closeFiscalYear,deleteDemo} from '../api'
-import {errorText} from '../lib/errors'
-const groups=[['general','عمومی','تنظیمات پایه برنامه'],['company','شرکت و شعب','اطلاعات شرکت، شعب و سال مالی'],['security','امنیت و کاربران','کاربران، نقش‌ها و دسترسی‌ها'],['accounting','حسابداری','کدینگ، اسناد و کنترل‌های مالی'],['sales','فروش و خرید','فاکتور، قیمت، مالیات و تسویه'],['inventory','انبار','انبارها، موجودی و روش ارزش‌گذاری'],['treasury','خزانه و چک','صندوق، بانک و چرخه چک'],['printing','چاپ','قالب فاکتور، رسید و گزارش'],['backup','پشتیبان‌گیری','نسخه پشتیبان و بازیابی'],['integrations','اتصالات','API، افزونه و سخت‌افزار'],['appearance','ظاهر','زبان، تم و چیدمان'],['data','داده‌ها','داده نمونه و مدیریت اطلاعات']]
-export function SettingsCenter({onClose,dark,setDark}:{onClose:()=>void,dark:boolean,setDark:(v:boolean)=>void}){
- const [active,setActive]=useState('general'); const [demoBusy,setDemoBusy]=useState(false); const [fyBusy,setFyBusy]=useState(false); const [message,setMessage]=useState('')
- const runDemo=async()=>{if(!confirm('تمام داده‌های نمونه حذف می‌شوند. ادامه می‌دهید؟'))return;setDemoBusy(true);try{await deleteDemo();setMessage('داده‌های نمونه حذف شد.')}catch(e){setMessage(errorText(e))}finally{setDemoBusy(false)}}
- const closeFY=async()=>{if(!confirm('بستن سال مالی برگشت‌پذیر نیست. ادامه می‌دهید؟'))return;setFyBusy(true);try{await closeFiscalYear();setMessage('سال مالی بسته شد.')}catch(e){setMessage(errorText(e))}finally{setFyBusy(false)}}
- return <div className="settings-overlay"><aside className="settings-nav"><div className="settings-brand"><button className="icon-btn" onClick={onClose}><Icon name="close"/></button><div><b>مرکز تنظیمات</b><span>کنترل کامل برنامه</span></div></div>{groups.map(g=><button key={g[0]} className={active===g[0]?'setting-nav active':'setting-nav'} onClick={()=>setActive(g[0])}><span><b>{g[1]}</b><small>{g[2]}</small></span><Icon name="chevron" size={14}/></button>)}</aside><section className="settings-content"><header><div><div className="eyebrow">SETTINGS CENTER</div><h1>{groups.find(g=>g[0]===active)?.[1]}</h1><p>{groups.find(g=>g[0]===active)?.[2]}</p></div><button className="icon-btn" onClick={onClose}><Icon name="close"/></button></header>{message&&<div className="success-box">{message}</div>}
- {active==='general'&&<div className="settings-grid"><Setting title="زبان برنامه" desc="زبان پیش‌فرض رابط کاربری" value="فارسی (RTL)"/><Setting title="واحد پول" desc="واحد داخلی محاسبات مالی" value="ریال"/><Setting title="تقویم" desc="تقویم نمایش داده‌ها" value="شمسی"/><div className="setting-card"><div><b>حالت نمایش</b><span>ظاهر برنامه</span></div><button className="theme-toggle" onClick={()=>setDark(!dark)}><Icon name={dark?'sun':'moon'}/>{dark?'تاریک':'روشن'}</button></div></div>}
- {active==='data'&&<div className="settings-stack"><div className="setting-card danger-card"><div><b>حذف داده‌های نمونه</b><span>فقط داده‌های Demo را حذف می‌کند. داده واقعی کاربر نباید با آن مخلوط شود.</span></div><button className="danger" disabled={demoBusy} onClick={runDemo}>{demoBusy?'در حال انجام...':'حذف داده‌های نمونه'}</button></div></div>}
- {active==='company'&&<div className="settings-stack"><div className="setting-card"><div><b>سال مالی فعال</b><span>ثبت عملیات مالی فقط در دوره باز و معتبر مجاز است.</span></div><button className="secondary" disabled={fyBusy} onClick={closeFY}>{fyBusy?'در حال بررسی...':'بستن سال مالی'}</button></div></div>}
- {!['general','data','company'].includes(active)&&<div className="settings-grid">{['تنظیمات پایه','دسترسی کاربران','اعتبارسنجی','ثبت تغییرات','پیش‌فرض‌ها','کنترل عملیات'].map((x,i)=><div className="setting-card" key={i}><div><b>{x}</b><span>این بخش برای اتصال به تنظیمات واقعی ماژول آماده است.</span></div><span className="status pending">آماده توسعه</span></div>)}</div>}
- </section></div>
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Icon } from './Icon'
+import {
+  closeFiscalYear,
+  deleteDemo,
+  getSettings,
+  resetSetting,
+  setSetting,
+  SettingWithValue,
+} from '../api'
+import { errorText } from '../lib/errors'
+
+/**
+ * مرکز تنظیمات.
+ *
+ * ## قاعده‌ی این صفحه: هیچ تنظیم تزئینی
+ *
+ * فهرست تنظیمات از backend می‌آید و **هر تنظیم می‌گوید دقیقاً کجا اثر
+ * می‌گذارد**. تنظیمی که هیچ اثری ندارد بدتر از نبودنش است: کاربر عوضش
+ * می‌کند، انتظار تغییر رفتار دارد و چیزی عوض نمی‌شود.
+ *
+ * اعتبارسنجی هم سمت backend انجام می‌شود — چون تنظیم خراب می‌تواند محاسبه‌ی
+ * مالی را خراب کند (مثلاً نرخ مالیات منفی).
+ */
+export function SettingsCenter({
+  onClose,
+  dark,
+  setDark,
+}: {
+  onClose: () => void
+  dark: boolean
+  setDark: (value: boolean) => void
+}) {
+  const [settings, setSettings] = useState<SettingWithValue[]>([])
+  const [activeGroup, setActiveGroup] = useState('')
+  const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busyKey, setBusyKey] = useState('')
+  const [demoBusy, setDemoBusy] = useState(false)
+  const [fiscalBusy, setFiscalBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      const list = await getSettings()
+      setSettings(list)
+      setActiveGroup((current) => current || list[0]?.group || '')
+      setError('')
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { group: string; label: string; count: number; changed: number }>()
+    for (const item of settings) {
+      const entry = map.get(item.group) ?? {
+        group: item.group,
+        label: item.group_label,
+        count: 0,
+        changed: 0,
+      }
+      entry.count += 1
+      if (item.is_customized) entry.changed += 1
+      map.set(item.group, entry)
+    }
+    return [...map.values()]
+  }, [settings])
+
+  const visible = useMemo(() => {
+    const needle = search.trim()
+    if (needle) {
+      return settings.filter(
+        (item) =>
+          item.label.includes(needle) ||
+          item.description.includes(needle) ||
+          item.effect.includes(needle),
+      )
+    }
+    return settings.filter((item) => item.group === activeGroup)
+  }, [settings, activeGroup, search])
+
+  const apply = async (item: SettingWithValue, value: string) => {
+    setBusyKey(item.key)
+    setNotice('')
+    try {
+      const saved = await setSetting(item.key, value)
+      setSettings((current) =>
+        current.map((row) =>
+          row.key === item.key
+            ? { ...row, value: saved, is_customized: saved !== row.default_value }
+            : row,
+        ),
+      )
+      // تم باید فوراً اعمال شود تا کاربر نتیجه را ببیند.
+      if (item.key === 'appearance.dark_mode') setDark(saved === 'true')
+      setNotice(`«${item.label}» ذخیره شد.`)
+      setError('')
+    } catch (e) {
+      setError(errorText(e))
+      // مقدار نمایش‌داده‌شده باید با پایگاه داده بخواند، پس دوباره می‌خوانیم.
+      await load()
+    } finally {
+      setBusyKey('')
+    }
+  }
+
+  const reset = async (item: SettingWithValue) => {
+    setBusyKey(item.key)
+    try {
+      const saved = await resetSetting(item.key)
+      setSettings((current) =>
+        current.map((row) =>
+          row.key === item.key ? { ...row, value: saved, is_customized: false } : row,
+        ),
+      )
+      if (item.key === 'appearance.dark_mode') setDark(saved === 'true')
+      setNotice(`«${item.label}» به پیش‌فرض برگشت.`)
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusyKey('')
+    }
+  }
+
+  const removeDemo = async () => {
+    if (!confirm('تمام داده‌های نمونه حذف می‌شوند. ادامه می‌دهید؟')) return
+    setDemoBusy(true)
+    try {
+      await deleteDemo()
+      setNotice('داده‌های نمونه حذف شد.')
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setDemoBusy(false)
+    }
+  }
+
+  const closeYear = async () => {
+    if (!confirm('بستن سال مالی برگشت‌پذیر نیست. ادامه می‌دهید؟')) return
+    setFiscalBusy(true)
+    try {
+      await closeFiscalYear()
+      setNotice('سال مالی بسته شد.')
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setFiscalBusy(false)
+    }
+  }
+
+  const renderControl = (item: SettingWithValue) => {
+    const disabled = busyKey === item.key
+    switch (item.kind) {
+      case 'boolean':
+        return (
+          <label className="switch">
+            <input
+              type="checkbox"
+              disabled={disabled}
+              checked={item.value === 'true'}
+              onChange={(e) => apply(item, e.target.checked ? 'true' : 'false')}
+            />
+            <span>{item.value === 'true' ? 'فعال' : 'غیرفعال'}</span>
+          </label>
+        )
+      case 'choice':
+        return (
+          <select
+            disabled={disabled}
+            value={item.value}
+            onChange={(e) => apply(item, e.target.value)}
+          >
+            {(item.choices ?? []).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )
+      case 'integer':
+        return (
+          <input
+            type="number"
+            disabled={disabled}
+            min={item.min}
+            max={item.max}
+            defaultValue={item.value}
+            onBlur={(e) => {
+              if (e.target.value !== item.value) apply(item, e.target.value)
+            }}
+          />
+        )
+      default:
+        return (
+          <input
+            disabled={disabled}
+            defaultValue={item.value}
+            onBlur={(e) => {
+              if (e.target.value !== item.value) apply(item, e.target.value)
+            }}
+          />
+        )
+    }
+  }
+
+  const changedCount = settings.filter((item) => item.is_customized).length
+
+  return (
+    <div className="settings-overlay">
+      <aside className="settings-nav">
+        <div className="settings-brand">
+          <button className="icon-btn" onClick={onClose} aria-label="بستن">
+            <Icon name="close" />
+          </button>
+          <div>
+            <b>مرکز تنظیمات</b>
+            <span>
+              {settings.length} تنظیم — {changedCount} مورد تغییر یافته
+            </span>
+          </div>
+        </div>
+
+        <div className="settings-search">
+          <input
+            placeholder="جستجو در تنظیمات…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {groups.map((group) => (
+          <button
+            key={group.group}
+            className={activeGroup === group.group && !search ? 'setting-nav active' : 'setting-nav'}
+            onClick={() => {
+              setSearch('')
+              setActiveGroup(group.group)
+            }}
+          >
+            <span>
+              <b>{group.label}</b>
+              <small>
+                {group.count} تنظیم
+                {group.changed > 0 ? ` — ${group.changed} تغییر یافته` : ''}
+              </small>
+            </span>
+            <Icon name="chevron" size={14} />
+          </button>
+        ))}
+
+        <button
+          className={activeGroup === '__actions' && !search ? 'setting-nav active' : 'setting-nav'}
+          onClick={() => {
+            setSearch('')
+            setActiveGroup('__actions')
+          }}
+        >
+          <span>
+            <b>عملیات مدیریتی</b>
+            <small>داده‌ی نمونه و سال مالی</small>
+          </span>
+          <Icon name="chevron" size={14} />
+        </button>
+      </aside>
+
+      <section className="settings-content">
+        <header>
+          <div>
+            <div className="eyebrow">تنظیمات</div>
+            <h1>
+              {search
+                ? `نتیجه‌ی جستجو (${visible.length})`
+                : activeGroup === '__actions'
+                  ? 'عملیات مدیریتی'
+                  : (groups.find((g) => g.group === activeGroup)?.label ?? '')}
+            </h1>
+            <p>هر تنظیم می‌گوید دقیقاً کجای برنامه اثر می‌گذارد.</p>
+          </div>
+          <div className="filter-actions">
+            <button className="ghost" onClick={() => setDark(!dark)}>
+              <Icon name={dark ? 'sun' : 'moon'} /> {dark ? 'تم روشن' : 'تم تاریک'}
+            </button>
+            <button className="icon-btn" onClick={onClose} aria-label="بستن">
+              <Icon name="close" />
+            </button>
+          </div>
+        </header>
+
+        {error && <div className="error-box">{error}</div>}
+        {notice && <div className="success-box">{notice}</div>}
+
+        {activeGroup === '__actions' && !search ? (
+          <div className="settings-stack">
+            <div className="setting-row danger-card">
+              <div className="setting-info">
+                <b>حذف داده‌های نمونه</b>
+                <span>
+                  فقط رکوردهایی که با پیشوند نمونه ساخته شده‌اند حذف می‌شوند. داده‌ی واقعی شما
+                  دست نمی‌خورد.
+                </span>
+                <small className="effect">اثر: پاک‌سازی کالاها، اشخاص، فاکتورها و اسناد نمونه</small>
+              </div>
+              <button className="danger" disabled={demoBusy} onClick={removeDemo}>
+                {demoBusy ? 'در حال انجام…' : 'حذف داده‌های نمونه'}
+              </button>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info">
+                <b>بستن سال مالی</b>
+                <span>
+                  پس از بستن، هیچ سندی با تاریخ داخل این سال مالی ثبت نمی‌شود. این عمل
+                  برگشت‌پذیر نیست.
+                </span>
+                <small className="effect">اثر: اعتبارسنجی تاریخ در همه‌ی فرم‌های مالی</small>
+              </div>
+              <button className="ghost" disabled={fiscalBusy} onClick={closeYear}>
+                {fiscalBusy ? 'در حال بررسی…' : 'بستن سال مالی'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="settings-stack">
+            {visible.map((item) => (
+              <div className="setting-row" key={item.key}>
+                <div className="setting-info">
+                  <b>
+                    {item.label}
+                    {item.sensitive && <span className="chip">نیازمند مجوز مدیریتی</span>}
+                    {item.is_customized && <span className="chip">تغییر یافته</span>}
+                  </b>
+                  <span>{item.description}</span>
+                  <small className="effect">اثر: {item.effect}</small>
+                </div>
+                <div className="setting-control">
+                  {renderControl(item)}
+                  {item.is_customized && (
+                    <button
+                      className="table-action"
+                      disabled={busyKey === item.key}
+                      onClick={() => reset(item)}
+                    >
+                      بازگردانی
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {visible.length === 0 && (
+              <div className="empty-state">تنظیمی با این جستجو یافت نشد.</div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  )
 }
-function Setting({title,desc,value}:{title:string,desc:string,value:string}){return <div className="setting-card"><div><b>{title}</b><span>{desc}</span></div><strong>{value}</strong></div>}

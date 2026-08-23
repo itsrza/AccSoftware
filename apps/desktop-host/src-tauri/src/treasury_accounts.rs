@@ -199,7 +199,17 @@ pub fn save_treasury_account(
     if !["cash", "bank", "petty_cash"].contains(&input.account_type.as_str()) {
         return Err("TACC-001: نوع حساب خزانه نامعتبر است".into());
     }
-    let policy = input.negative_policy.as_deref().unwrap_or("warn");
+    // اگر کاربر سیاست نداده، پیش‌فرض از مرکز تنظیمات می‌آید.
+    let default_policy = {
+        let probe = conn(&state)?;
+        crate::settings::read_setting(&probe, "treasury.default_negative_policy")
+    };
+    let policy = input
+        .negative_policy
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(default_policy.as_str());
     if !["error", "warn", "ignore"].contains(&policy) {
         return Err("TACC-003: سیاست منفی شدن موجودی نامعتبر است".into());
     }

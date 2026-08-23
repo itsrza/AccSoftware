@@ -27,6 +27,7 @@ use tauri::{Manager, State};
 mod chart_of_accounts;
 mod parties_form;
 mod production;
+mod settings;
 mod quotes;
 mod returns;
 mod treasury_accounts;
@@ -4857,12 +4858,13 @@ fn get_check_dashboard(state: State<AppState>) -> Result<CheckDashboard, String>
     let c = conn(&state)?;
     let (company, fy) = active_company(&state, &c)?;
     let today = current_jalali_date();
-    let week = jalali_date_after_days(7);
     let received:i64=c.query_row("SELECT COALESCE(SUM(amount),0) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='received' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
     let issued:i64=c.query_row("SELECT COALESCE(SUM(amount),0) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='issued' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
     let rc:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='received' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
     let ic:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND check_type='issued' AND status NOT IN ('void','memo_in_hand','memo_returned')",params![company,fy],|r|r.get(0)).unwrap_or(0);
-    let due:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('in_hand','deposited','endorsed','outstanding') AND due_date>=?3 AND due_date<=?4",params![company,fy,today,week],|r|r.get(0)).unwrap_or(0);
+    // بازه‌ی هشدار سررسید از تنظیمات خوانده می‌شود، نه هفته‌ی ثابت.
+    let horizon = jalali_date_after_days(settings::read_integer(&c, "checks.due_soon_days"));
+    let due:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('in_hand','deposited','endorsed','outstanding') AND due_date>=?3 AND due_date<=?4",params![company,fy,today,horizon],|r|r.get(0)).unwrap_or(0);
     let overdue:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status IN ('in_hand','deposited','endorsed','outstanding') AND due_date<?3",params![company,fy,today],|r|r.get(0)).unwrap_or(0);
     let bounced:i64=c.query_row("SELECT COUNT(*) FROM checks WHERE company_id=?1 AND fiscal_year_id=?2 AND status='bounced'",params![company,fy],|r|r.get(0)).unwrap_or(0);
     Ok(CheckDashboard {
@@ -7501,6 +7503,9 @@ fn main() {
             production::list_production_orders,
             production::list_cost_allocations,
             production::list_production_expense_accounts,
+            settings::list_settings,
+            settings::set_setting,
+            settings::reset_setting,
             create_sales_return,
             create_purchase_return,
             post_sales_return,

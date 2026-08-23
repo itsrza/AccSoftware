@@ -977,3 +977,27 @@ export const getProductionOrders = () => api<ProductionOrderRow[]>('list_product
 export const getCostAllocations = () => api<AllocationInfo[]>('list_cost_allocations')
 export const getProductionExpenseAccounts = () =>
   api<ExpenseAccountRow[]>('list_production_expense_accounts')
+
+// ---- مرکز تنظیمات ----
+export type SettingKind = 'boolean' | 'integer' | 'text' | 'choice'
+export type SettingChoice = {value: string; label: string}
+export type SettingWithValue = {
+  key: string
+  group: string
+  group_label: string
+  label: string
+  description: string
+  effect: string
+  kind: SettingKind
+  default_value: string
+  min?: number
+  max?: number
+  choices?: SettingChoice[]
+  sensitive: boolean
+  value: string
+  is_customized: boolean
+}
+
+export const getSettings = () => api<SettingWithValue[]>('list_settings')
+export const setSetting = (key: string, value: string) => api<string>('set_setting', {key, value})
+export const resetSetting = (key: string) => api<string>('reset_setting', {key})

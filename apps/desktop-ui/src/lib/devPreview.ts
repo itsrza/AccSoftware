@@ -425,6 +425,26 @@ const demoProductionOrders = Array.from({length: 6}, (_, index) => {
   }
 })
 
+/** تنظیمات نمونه — بازتاب رجیستری واقعی میزبان. */
+const demoSettings = [
+  {key: 'inventory_valuation_method', group: 'inventory', group_label: 'انبار', label: 'روش ارزش‌گذاری موجودی', description: 'بهای تمام‌شده‌ی کالای خارج‌شده از انبار با کدام روش محاسبه شود.', effect: 'گزارش ارزش موجودی، بهای تمام‌شده‌ی فروش، سند تعدیل انبارگردانی', kind: 'choice', default_value: 'weighted_average', choices: [{value: 'weighted_average', label: 'میانگین موزون'}, {value: 'fifo', label: 'اولین صادره از اولین وارده (FIFO)'}, {value: 'lifo', label: 'اولین صادره از آخرین وارده (LIFO)'}], sensitive: true, value: 'weighted_average', is_customized: false},
+  {key: 'inventory.low_stock_threshold', group: 'inventory', group_label: 'انبار', label: 'حد هشدار کمبود موجودی', description: 'اگر موجودی کالا از این عدد کمتر شود، در کارت «نزدیک به اتمام موجودی» دیده می‌شود.', effect: 'داشبورد انبار — کارت نزدیک به اتمام موجودی', kind: 'integer', default_value: '5', min: 0, max: 100000, sensitive: false, value: '5', is_customized: false},
+  {key: 'inventory.recount_threshold_percent', group: 'inventory', group_label: 'انبار', label: 'درصد اختلاف الزام‌آور شمارش مجدد', description: 'اگر اختلاف شمارش از این درصد بیشتر باشد، شمارش دوم اجباری می‌شود.', effect: 'انبارگردانی — الزام شمارش مجدد', kind: 'integer', default_value: '5', min: 0, max: 100, sensitive: false, value: '5', is_customized: false},
+  {key: 'inventory.allow_negative_stock', group: 'inventory', group_label: 'انبار', label: 'اجازه‌ی منفی شدن موجودی', description: 'اگر فعال باشد، فروش بیش از موجودی ممکن می‌شود.', effect: 'ثبت فاکتور فروش و رسید تولید', kind: 'boolean', default_value: 'false', sensitive: true, value: 'false', is_customized: false},
+  {key: 'sales.default_vat_basis_points', group: 'sales', group_label: 'فروش و خرید', label: 'نرخ پیش‌فرض مالیات بر ارزش افزوده', description: 'بر حسب صدم‌درصد؛ ۹۰۰ یعنی ۹ درصد.', effect: 'فرم فاکتور، پیش‌فاکتور و سفارش خرید', kind: 'integer', default_value: '900', min: 0, max: 10000, sensitive: false, value: '900', is_customized: false},
+  {key: 'quotes.default_validity_days', group: 'sales', group_label: 'فروش و خرید', label: 'اعتبار پیش‌فرض پیش‌فاکتور (روز)', description: 'تاریخ اعتبار پیش‌فاکتور خودکار پیشنهاد می‌شود.', effect: 'فرم پیش‌فاکتور — مقدار اولیه‌ی «اعتبار تا»', kind: 'integer', default_value: '30', min: 1, max: 365, sensitive: false, value: '30', is_customized: false},
+  {key: 'treasury.default_negative_policy', group: 'treasury', group_label: 'خزانه و چک', label: 'سیاست پیش‌فرض منفی شدن موجودی', description: 'برای حساب خزانه‌ی تازه‌ساخته‌شده.', effect: 'فرم تعریف صندوق و بانک', kind: 'choice', default_value: 'warn', choices: [{value: 'error', label: 'خطا'}, {value: 'warn', label: 'هشدار'}, {value: 'ignore', label: 'بی‌تأثیر'}], sensitive: false, value: 'warn', is_customized: false},
+  {key: 'checks.due_soon_days', group: 'treasury', group_label: 'خزانه و چک', label: 'بازه‌ی هشدار سررسید چک (روز)', description: 'چک‌هایی که تا این تعداد روز آینده سررسید می‌شوند هشدار می‌گیرند.', effect: 'داشبورد چک‌ها — شمارنده‌ی نزدیک سررسید', kind: 'integer', default_value: '7', min: 1, max: 180, sensitive: false, value: '7', is_customized: false},
+  {key: 'parties.require_national_id', group: 'parties', group_label: 'اشخاص', label: 'الزام کد ملی / شناسه ملی', description: 'برای صدور صورتحساب رسمی لازم است.', effect: 'فرم ثبت شخص — اعتبارسنجی پیش از ذخیره', kind: 'boolean', default_value: 'false', sensitive: false, value: 'false', is_customized: false},
+  {key: 'parties.enforce_credit_limit', group: 'parties', group_label: 'اشخاص', label: 'اعمال سقف اعتبار', description: 'فروش نسیه بیش از سقف اعتبار متوقف می‌شود.', effect: 'ثبت فاکتور فروش نسیه', kind: 'boolean', default_value: 'true', sensitive: false, value: 'true', is_customized: false},
+  {key: 'production.default_cost_allocation', group: 'production', group_label: 'تولید', label: 'روش پیش‌فرض تخصیص بهای تمام‌شده', description: 'وقتی یک رسید تولید چند محصول دارد.', effect: 'فرم رسید تولید', kind: 'choice', default_value: 'by_quantity', choices: [{value: 'by_quantity', label: 'بر اساس مقدار'}, {value: 'by_market_value', label: 'بر اساس ارزش بازار'}], sensitive: false, value: 'by_quantity', is_customized: false},
+  {key: 'accounting.require_description', group: 'accounting', group_label: 'حسابداری', label: 'الزام شرح در سطر سند', description: 'برای حسابرسی‌پذیری توصیه می‌شود.', effect: 'ثبت سند حسابداری', kind: 'boolean', default_value: 'false', sensitive: false, value: 'false', is_customized: false},
+  {key: 'coding.level_widths', group: 'accounting', group_label: 'حسابداری', label: 'طرح کدینگ (عرض هر سطح)', description: 'تعداد رقم هر سطح، جدا شده با ویرگول.', effect: 'کدینگ حساب‌ها — پیشنهاد کد بعدی', kind: 'text', default_value: '1,2,2,2', sensitive: true, value: '1,2,2,2', is_customized: false},
+  {key: 'appearance.dark_mode', group: 'appearance', group_label: 'ظاهر', label: 'تم تاریک', description: 'حالت نمایش برنامه در شروع.', effect: 'پوسته‌ی برنامه', kind: 'boolean', default_value: 'false', sensitive: false, value: 'false', is_customized: false},
+  {key: 'appearance.sidebar_collapsed', group: 'appearance', group_label: 'ظاهر', label: 'منوی جمع‌شده در شروع', description: 'فضای بیشتری برای جدول‌ها می‌ماند.', effect: 'پوسته‌ی برنامه', kind: 'boolean', default_value: 'false', sensitive: false, value: 'false', is_customized: false},
+  {key: 'appearance.rows_per_page', group: 'appearance', group_label: 'ظاهر', label: 'تعداد ردیف در هر صفحه', description: 'تعداد ردیف در جدول‌های بلند.', effect: 'جدول‌های فهرست', kind: 'integer', default_value: '50', min: 10, max: 500, sensitive: false, value: '50', is_customized: false},
+]
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -1035,6 +1055,11 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   },
   post_production: () => 'production-preview',
   list_production_orders: () => demoProductionOrders,
+  // ---- مرکز تنظیمات ----
+  list_settings: () => demoSettings,
+  set_setting: (args: Record<string, unknown>) => String(args.value ?? ''),
+  reset_setting: (args: Record<string, unknown>) =>
+    demoSettings.find((item) => item.key === args.key)?.default_value ?? '',
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>
     treasuryAccounts
