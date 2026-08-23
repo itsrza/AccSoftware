@@ -412,18 +412,18 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
             "true" | "1" | "yes" | "on" => Ok("true".into()),
             "false" | "0" | "no" | "off" => Ok("false".into()),
             _ => Err(format!(
-                "SET-001: مقدار «{}» برای تنظیم بله/خیر معتبر نیست",
+                "CFG-001: مقدار «{}» برای تنظیم بله/خیر معتبر نیست",
                 definition.label
             )),
         },
         SettingKind::Integer => {
             let parsed: i64 = trimmed
                 .parse()
-                .map_err(|_| format!("SET-002: «{}» باید یک عدد صحیح باشد", definition.label))?;
+                .map_err(|_| format!("CFG-002: «{}» باید یک عدد صحیح باشد", definition.label))?;
             if let Some(min) = definition.min {
                 if parsed < min {
                     return Err(format!(
-                        "SET-003: «{}» نمی‌تواند کمتر از {min} باشد",
+                        "CFG-003: «{}» نمی‌تواند کمتر از {min} باشد",
                         definition.label
                     ));
                 }
@@ -431,7 +431,7 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
             if let Some(max) = definition.max {
                 if parsed > max {
                     return Err(format!(
-                        "SET-004: «{}» نمی‌تواند بیشتر از {max} باشد",
+                        "CFG-004: «{}» نمی‌تواند بیشتر از {max} باشد",
                         definition.label
                     ));
                 }
@@ -447,7 +447,7 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
                 Ok(trimmed.to_string())
             } else {
                 Err(format!(
-                    "SET-005: گزینه‌ی انتخابی برای «{}» معتبر نیست",
+                    "CFG-005: گزینه‌ی انتخابی برای «{}» معتبر نیست",
                     definition.label
                 ))
             }
@@ -455,7 +455,7 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
         SettingKind::Text => {
             if trimmed.is_empty() {
                 return Err(format!(
-                    "SET-006: «{}» نمی‌تواند خالی باشد",
+                    "CFG-006: «{}» نمی‌تواند خالی باشد",
                     definition.label
                 ));
             }
@@ -466,10 +466,10 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
                     .map(|part| part.trim().parse::<u8>())
                     .collect();
                 let widths = widths.map_err(|_| {
-                    "SET-007: طرح کدینگ باید اعداد جداشده با ویرگول باشد".to_string()
+                    "CFG-007: طرح کدینگ باید اعداد جداشده با ویرگول باشد".to_string()
                 })?;
                 if widths.is_empty() || widths.iter().any(|width| *width == 0 || *width > 6) {
-                    return Err("SET-008: عرض هر سطح کدینگ باید بین ۱ تا ۶ رقم باشد".into());
+                    return Err("CFG-008: عرض هر سطح کدینگ باید بین ۱ تا ۶ رقم باشد".into());
                 }
             }
             Ok(trimmed.to_string())
@@ -483,7 +483,7 @@ pub fn set_setting(state: State<AppState>, key: String, value: String) -> Result
     let definition = registry()
         .into_iter()
         .find(|item| item.key == key)
-        .ok_or_else(|| format!("SET-009: تنظیم «{key}» شناخته نمی‌شود"))?;
+        .ok_or_else(|| format!("CFG-009: تنظیم «{key}» شناخته نمی‌شود"))?;
 
     let mut c = conn(&state)?;
     // تنظیمات حساس رفتار مالی را عوض می‌کنند، پس مجوز مدیریتی می‌خواهند.
@@ -502,7 +502,7 @@ pub fn set_setting(state: State<AppState>, key: String, value: String) -> Result
          ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         params![key, normalized],
     )
-    .map_err(|e| format!("SET-010: {e}"))?;
+    .map_err(|e| format!("CFG-010: {e}"))?;
     audit(
         &tx,
         &user,
@@ -522,6 +522,6 @@ pub fn reset_setting(state: State<AppState>, key: String) -> Result<String, Stri
     let definition = registry()
         .into_iter()
         .find(|item| item.key == key)
-        .ok_or_else(|| format!("SET-009: تنظیم «{key}» شناخته نمی‌شود"))?;
+        .ok_or_else(|| format!("CFG-009: تنظیم «{key}» شناخته نمی‌شود"))?;
     set_setting(state, key, definition.default_value.to_string())
 }

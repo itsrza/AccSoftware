@@ -3519,6 +3519,20 @@ fn reverse_journal(
     if status != "posted" {
         return Err("ACC-009: فقط سند ثبت‌شده قابل برگشت است".into());
     }
+    // تاریخ سند برگشت باید داخل سال مالی باز باشد.
+    //
+    // بدون این بررسی، سند معکوس می‌توانست در دوره‌ی بسته بنشیند و تراز
+    // سال قبل را — که صورت‌های مالی‌اش صادر شده — عوض کند.
+    {
+        let fiscal_year: String = tx
+            .query_row(
+                "SELECT fiscal_year_id FROM journal_entries WHERE id=?1",
+                params![journal_id],
+                |r| r.get(0),
+            )
+            .map_err(|_| "ACC-007: سند یافت نشد".to_string())?;
+        validate_fiscal_date(&tx, &fiscal_year, &entry_date)?;
+    }
     let mut stmt = tx
         .prepare(
             "SELECT account_id,debit,credit FROM journal_lines WHERE journal_id=?1 ORDER BY rowid",
@@ -4428,6 +4442,9 @@ fn settle_invoice(
     if row.2 != "posted" {
         return Err("SET-003: فقط فاکتور ثبت‌شده قابل تسویه است".into());
     }
+    // تاریخ تسویه باید داخل سال مالی باز فاکتور باشد؛ وگرنه سند دریافت
+    // در دوره‌ای می‌نشیند که دفاترش بسته شده است.
+    validate_fiscal_date(&tx, &row.1, &settlement_date)?;
     let allowed: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM company_users WHERE company_id=?1 AND user_id=?2 AND is_active=1",
@@ -7503,6 +7520,7 @@ fn main() {
             production::list_production_orders,
             production::list_cost_allocations,
             production::list_production_expense_accounts,
+            set_api_profile_enabled,
             settings::list_settings,
             settings::set_setting,
             settings::reset_setting,

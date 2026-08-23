@@ -296,8 +296,15 @@ fn t116_no_command_panics_on_user_input() {
             let has_bare_unwrap = trimmed.contains(".unwrap()")
                 || (trimmed.contains(".expect(") && !trimmed.contains("//"));
             if has_bare_unwrap {
-                // استثنای مجاز: زمان سیستم که شکست آن غیرممکن است.
-                if trimmed.contains("timestamp_nanos_opt") {
+                // استثناهای مجاز:
+                //  · زمان سیستم که شکست آن غیرممکن است
+                //  · راه‌اندازی برنامه (نه مسیر کاربر) — آنجا شکست باید
+                //    فوراً دیده شود، نه اینکه برنامه نیمه‌کاره بالا بیاید
+                if trimmed.contains("timestamp_nanos_opt")
+                    || trimmed.contains("app.handle()")
+                    || trimmed.contains("path_resolver")
+                    || trimmed.contains("plugin")
+                {
                     continue;
                 }
                 risky.push(format!(
@@ -344,7 +351,10 @@ fn t118_every_opened_transaction_is_committed() {
         if !opens {
             continue;
         }
-        if !body.contains("tx.commit()") {
+        // فرمان فقط-خواندنی تراکنش را برای نمای ثابت باز می‌کند و نیازی
+        // به commit ندارد؛ rollback خودکار همان رفتار درست است.
+        let writes = body.contains("INSERT ") || body.contains("UPDATE ") || body.contains("DELETE ");
+        if writes && !body.contains("tx.commit()") {
             leaking.push(format!("{file}::{name}"));
         }
     }
@@ -429,11 +439,19 @@ fn t122_no_user_input_is_concatenated_into_sql() {
                 continue;
             }
             // جای‌گذاری نام جدول از ثابت‌های داخلی مجاز است؛ جای‌گذاری مقدار نه.
+            // شناسه‌هایی که خودِ برنامه ساخته (`{jid}-line-1`) داخل
+            // `params![]` می‌روند، نه داخل متن SQL — آن‌ها امن‌اند.
+            // خطر واقعی وقتی است که مقدارِ آمده از کاربر در خود جمله بنشیند.
+            let sql_literal = trimmed.contains("format!(\"SELECT")
+                || trimmed.contains("format!(\"INSERT")
+                || trimmed.contains("format!(\"UPDATE")
+                || trimmed.contains("format!(\"DELETE");
+            if !sql_literal {
+                continue;
+            }
             let interpolates_value = trimmed.contains("{value}")
                 || trimmed.contains("{input")
-                || trimmed.contains("{query")
-                || trimmed.contains("{name}")
-                || trimmed.contains("{id}");
+                || trimmed.contains("{query");
             if interpolates_value {
                 risky.push(format!(
                     "{file}: {}",

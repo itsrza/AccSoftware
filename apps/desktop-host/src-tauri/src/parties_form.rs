@@ -269,11 +269,11 @@ pub struct PartyDetail {
 // ---------------------------------------------------------------------------
 
 fn parse_party_type(value: &str) -> Result<PartyType, String> {
-    PartyType::parse(value).ok_or_else(|| "PRT-001: نوع شخصیت نامعتبر است".to_string())
+    PartyType::parse(value).ok_or_else(|| "PFM-001: نوع شخصیت نامعتبر است".to_string())
 }
 
 fn parse_party_function(value: &str) -> Result<PartyFunction, String> {
-    PartyFunction::parse(value).ok_or_else(|| "PRT-002: نقش شخص نامعتبر است".to_string())
+    PartyFunction::parse(value).ok_or_else(|| "PFM-002: نقش شخص نامعتبر است".to_string())
 }
 
 /// اعتبارسنجی زبانه‌های تکمیلی که هسته از آن‌ها خبر ندارد.
@@ -282,14 +282,14 @@ fn validate_tabs(input: &PartyInput) -> Result<(), String> {
     let mut primary_phones = 0;
     for (index, phone) in input.phones.iter().enumerate() {
         if phone.number.trim().is_empty() {
-            return Err(format!("PRT-010: شماره تلفن ردیف {} خالی است", index + 1));
+            return Err(format!("PFM-010: شماره تلفن ردیف {} خالی است", index + 1));
         }
         if phone.is_primary {
             primary_phones += 1;
         }
     }
     if primary_phones > 1 {
-        return Err("PRT-011: فقط یک شماره می‌تواند پیش‌فرض باشد".into());
+        return Err("PFM-011: فقط یک شماره می‌تواند پیش‌فرض باشد".into());
     }
 
     // حساب‌های بانکی
@@ -297,16 +297,16 @@ fn validate_tabs(input: &PartyInput) -> Result<(), String> {
     for (index, account) in input.bank_accounts.iter().enumerate() {
         let row = index + 1;
         if account.bank_name.trim().is_empty() {
-            return Err(format!("PRT-012: نام بانک ردیف {row} خالی است"));
+            return Err(format!("PFM-012: نام بانک ردیف {row} خالی است"));
         }
         if let Some(iban) = clean(&account.iban) {
             if !iban_is_valid(&iban) {
-                return Err(format!("PRT-013: شماره شبای ردیف {row} معتبر نیست"));
+                return Err(format!("PFM-013: شماره شبای ردیف {row} معتبر نیست"));
             }
         }
         if let Some(card) = clean(&account.card_number) {
             if !card_number_is_valid(&card) {
-                return Err(format!("PRT-014: شماره کارت ردیف {row} معتبر نیست"));
+                return Err(format!("PFM-014: شماره کارت ردیف {row} معتبر نیست"));
             }
         }
         if account.is_default {
@@ -314,40 +314,40 @@ fn validate_tabs(input: &PartyInput) -> Result<(), String> {
         }
     }
     if default_accounts > 1 {
-        return Err("PRT-015: فقط یک حساب بانکی می‌تواند پیش‌فرض باشد".into());
+        return Err("PFM-015: فقط یک حساب بانکی می‌تواند پیش‌فرض باشد".into());
     }
 
     // تصاویر
     let mut primary_images = 0;
     for image in &input.images {
         if image.file_path.trim().is_empty() {
-            return Err("PRT-016: مسیر تصویر خالی است".into());
+            return Err("PFM-016: مسیر تصویر خالی است".into());
         }
         if image.is_primary {
             primary_images += 1;
         }
     }
     if primary_images > 1 {
-        return Err("PRT-017: فقط یک تصویر می‌تواند اصلی باشد".into());
+        return Err("PFM-017: فقط یک تصویر می‌تواند اصلی باشد".into());
     }
 
     // مناسبت‌ها — روز ۳۱ فقط در شش ماه اول سال شمسی وجود دارد.
     for (index, occasion) in input.occasions.iter().enumerate() {
         let row = index + 1;
         if occasion.title.trim().is_empty() {
-            return Err(format!("PRT-018: عنوان مناسبت ردیف {row} خالی است"));
+            return Err(format!("PFM-018: عنوان مناسبت ردیف {row} خالی است"));
         }
         if !(1..=12).contains(&occasion.jalali_month) {
-            return Err(format!("PRT-019: ماه مناسبت ردیف {row} نامعتبر است"));
+            return Err(format!("PFM-019: ماه مناسبت ردیف {row} نامعتبر است"));
         }
         let max_day = if occasion.jalali_month <= 6 { 31 } else { 30 };
         if occasion.jalali_day < 1 || occasion.jalali_day > max_day {
             return Err(format!(
-                "PRT-020: روز مناسبت ردیف {row} در ماه انتخابی وجود ندارد"
+                "PFM-020: روز مناسبت ردیف {row} در ماه انتخابی وجود ندارد"
             ));
         }
         if occasion.remind_days_before < 0 || occasion.remind_days_before > 365 {
-            return Err(format!("PRT-021: روز یادآوری ردیف {row} نامعتبر است"));
+            return Err(format!("PFM-021: روز یادآوری ردیف {row} نامعتبر است"));
         }
     }
 
@@ -355,21 +355,21 @@ fn validate_tabs(input: &PartyInput) -> Result<(), String> {
     if let Some(email) = clean(&input.email) {
         let parts: Vec<&str> = email.split('@').collect();
         if parts.len() != 2 || parts[0].is_empty() || !parts[1].contains('.') {
-            return Err("PRT-022: نشانی ایمیل معتبر نیست".into());
+            return Err("PFM-022: نشانی ایمیل معتبر نیست".into());
         }
     }
 
     if let Some(username) = clean(&input.portal_username) {
         if username.chars().count() < 4 {
-            return Err("PRT-023: نام کاربری باید حداقل چهار نویسه باشد".into());
+            return Err("PFM-023: نام کاربری باید حداقل چهار نویسه باشد".into());
         }
         if let Some(password) = clean(&input.portal_password) {
             if password.chars().count() < 8 {
-                return Err("PRT-024: رمز عبور باید حداقل هشت نویسه باشد".into());
+                return Err("PFM-024: رمز عبور باید حداقل هشت نویسه باشد".into());
             }
         }
     } else if clean(&input.portal_password).is_some() {
-        return Err("PRT-025: برای تعیین رمز، نام کاربری هم لازم است".into());
+        return Err("PFM-025: برای تعیین رمز، نام کاربری هم لازم است".into());
     }
 
     Ok(())
@@ -420,7 +420,7 @@ pub fn save_party_group(
     parent_id: Option<String>,
 ) -> Result<String, String> {
     if code.trim().is_empty() || title.trim().is_empty() {
-        return Err("PRT-030: کد و عنوان گروه الزامی است".into());
+        return Err("PFM-030: کد و عنوان گروه الزامی است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "contacts.create")?;
@@ -430,7 +430,7 @@ pub fn save_party_group(
     // گروه نمی‌تواند والد خودش باشد — حلقه در درخت، صفحه را قفل می‌کند.
     if let (Some(existing), Some(parent)) = (&id, &parent_id) {
         if existing == parent {
-            return Err("PRT-031: گروه نمی‌تواند والد خودش باشد".into());
+            return Err("PFM-031: گروه نمی‌تواند والد خودش باشد".into());
         }
     }
 
@@ -440,7 +440,7 @@ pub fn save_party_group(
                 "UPDATE party_groups SET code=?1,title=?2,parent_id=?3 WHERE id=?4 AND company_id=?5",
                 params![code.trim(), title.trim(), parent_id, existing, company],
             )
-            .map_err(|e| format!("PRT-032: {e}"))?;
+            .map_err(|e| format!("PFM-032: {e}"))?;
             existing.clone()
         }
         None => {
@@ -452,7 +452,7 @@ pub fn save_party_group(
                 "INSERT INTO party_groups(id,company_id,code,title,parent_id) VALUES(?1,?2,?3,?4,?5)",
                 params![new_id, company, code.trim(), title.trim(), parent_id],
             )
-            .map_err(|e| format!("PRT-033: {e}"))?;
+            .map_err(|e| format!("PFM-033: {e}"))?;
             new_id
         }
     };
@@ -525,7 +525,7 @@ pub fn get_party(state: State<AppState>, id: String) -> Result<PartyDetail, Stri
                 })
             },
         )
-        .map_err(|_| "PRT-003: شخص یافت نشد".to_string())?;
+        .map_err(|_| "PFM-003: شخص یافت نشد".to_string())?;
 
     {
         let mut statement = tx
@@ -640,7 +640,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
     };
     definition
         .validate()
-        .map_err(|error| format!("PRT-004: {error}"))?;
+        .map_err(|error| format!("PFM-004: {error}"))?;
     validate_tabs(&input)?;
 
     let display_name = definition.display_name();
@@ -659,9 +659,9 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
         && clean(&input.national_id).is_none()
     {
         return Err(if party_type.is_legal_entity() {
-            "PRT-036: طبق تنظیمات، شناسه ملی شخص حقوقی الزامی است".to_string()
+            "PFM-036: طبق تنظیمات، شناسه ملی شخص حقوقی الزامی است".to_string()
         } else {
-            "PRT-036: طبق تنظیمات، کد ملی شخص حقیقی الزامی است".to_string()
+            "PFM-036: طبق تنظیمات، کد ملی شخص حقیقی الزامی است".to_string()
         });
     }
 
@@ -673,17 +673,17 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
         (
             "party_groups",
             clean(&input.group_id),
-            "PRT-005: گروه معتبر نیست",
+            "PFM-005: گروه معتبر نیست",
         ),
         (
             "party_routes",
             clean(&input.route_id),
-            "PRT-006: مسیر معتبر نیست",
+            "PFM-006: مسیر معتبر نیست",
         ),
         (
             "contacts",
             clean(&input.marketer_id),
-            "PRT-007: بازاریاب معتبر نیست",
+            "PFM-007: بازاریاب معتبر نیست",
         ),
     ] {
         if let Some(reference) = value {
@@ -708,7 +708,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                 )
                 .unwrap_or(0);
             if duplicate > 0 {
-                return Err("PRT-008: کد شخص تکراری است".into());
+                return Err("PFM-008: کد شخص تکراری است".into());
             }
             value
         }
@@ -742,7 +742,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                 )
                 .unwrap_or(0);
             if owned == 0 {
-                return Err("PRT-003: شخص یافت نشد".into());
+                return Err("PFM-003: شخص یافت نشد".into());
             }
             tx.execute(
                 "UPDATE contacts SET code=?1,kind=?2,name=?3,party_type=?4,party_function=?5,\
@@ -785,7 +785,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                     existing
                 ],
             )
-            .map_err(|e| format!("PRT-009: {e}"))?;
+            .map_err(|e| format!("PFM-009: {e}"))?;
             // رمز فقط وقتی عوض می‌شود که کاربر رمز تازه وارد کرده باشد.
             if let Some(hash) = &password_hash {
                 tx.execute(
@@ -845,7 +845,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                     password_hash
                 ],
             )
-            .map_err(|e| format!("PRT-009: {e}"))?;
+            .map_err(|e| format!("PFM-009: {e}"))?;
             new_id
         }
     };
@@ -876,7 +876,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                 i64::from(phone.is_primary)
             ],
         )
-        .map_err(|e| format!("PRT-026: {e}"))?;
+        .map_err(|e| format!("PFM-026: {e}"))?;
     }
     for (index, account) in input.bank_accounts.iter().enumerate() {
         tx.execute(
@@ -894,7 +894,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                 i64::from(account.is_default)
             ],
         )
-        .map_err(|e| format!("PRT-027: {e}"))?;
+        .map_err(|e| format!("PFM-027: {e}"))?;
     }
     for (index, image) in input.images.iter().enumerate() {
         tx.execute(
@@ -907,7 +907,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                 i64::from(image.is_primary)
             ],
         )
-        .map_err(|e| format!("PRT-028: {e}"))?;
+        .map_err(|e| format!("PFM-028: {e}"))?;
     }
     for (index, occasion) in input.occasions.iter().enumerate() {
         tx.execute(
@@ -922,7 +922,7 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
                 occasion.remind_days_before
             ],
         )
-        .map_err(|e| format!("PRT-029: {e}"))?;
+        .map_err(|e| format!("PFM-029: {e}"))?;
     }
 
     audit(
@@ -997,7 +997,7 @@ pub fn list_upcoming_occasions(
     jalali_month: i64,
 ) -> Result<Vec<UpcomingOccasion>, String> {
     if !(1..=12).contains(&jalali_month) {
-        return Err("PRT-019: ماه نامعتبر است".into());
+        return Err("PFM-019: ماه نامعتبر است".into());
     }
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "contacts.create")?;
@@ -1045,7 +1045,7 @@ pub fn deactivate_party(state: State<AppState>, id: String) -> Result<(), String
         )
         .unwrap_or(0);
     if open_checks > 0 {
-        return Err("PRT-034: این شخص چک باز دارد و غیرفعال نمی‌شود".into());
+        return Err("PFM-034: این شخص چک باز دارد و غیرفعال نمی‌شود".into());
     }
     let unpaid: i64 = tx
         .query_row(
@@ -1056,7 +1056,7 @@ pub fn deactivate_party(state: State<AppState>, id: String) -> Result<(), String
         )
         .unwrap_or(0);
     if unpaid > 0 {
-        return Err("PRT-035: این شخص فاکتور تسویه‌نشده دارد".into());
+        return Err("PFM-035: این شخص فاکتور تسویه‌نشده دارد".into());
     }
 
     let changed = tx
@@ -1066,7 +1066,7 @@ pub fn deactivate_party(state: State<AppState>, id: String) -> Result<(), String
         )
         .map_err(|e| e.to_string())?;
     if changed == 0 {
-        return Err("PRT-003: شخص یافت نشد".into());
+        return Err("PFM-003: شخص یافت نشد".into());
     }
     audit(
         &tx,
