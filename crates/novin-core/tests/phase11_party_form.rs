@@ -154,7 +154,10 @@ fn t05_identifiers_use_real_check_digits() {
     // کد ملی حقیقی
     assert!(national_id_is_valid("0499370899"));
     assert!(national_id_is_valid("0012345679"));
-    assert!(!national_id_is_valid("1111111111"), "ارقام یکسان باید رد شود");
+    assert!(
+        !national_id_is_valid("1111111111"),
+        "ارقام یکسان باید رد شود"
+    );
     assert!(!national_id_is_valid("0499370898"), "رقم کنترلی غلط");
     assert!(!national_id_is_valid("049937089"), "طول کوتاه");
 
@@ -173,7 +176,10 @@ fn t05_identifiers_use_real_check_digits() {
 #[test]
 fn t06_bank_identifiers_are_validated() {
     assert!(iban_is_valid("IR280620000000001234567891"));
-    assert!(!iban_is_valid("IR280620000000001234567892"), "کد کنترلی غلط");
+    assert!(
+        !iban_is_valid("IR280620000000001234567892"),
+        "کد کنترلی غلط"
+    );
     assert!(!iban_is_valid("IR2806200000000012345678"), "طول نادرست");
 
     assert!(card_number_is_valid("6037991234567893"));
@@ -202,7 +208,11 @@ fn t07_mobile_is_normalized_to_one_shape() {
             "یکسان‌سازی «{input}» درست نیست"
         );
     }
-    assert_eq!(normalize_mobile("02122334455"), None, "تلفن ثابت موبایل نیست");
+    assert_eq!(
+        normalize_mobile("02122334455"),
+        None,
+        "تلفن ثابت موبایل نیست"
+    );
     assert_eq!(normalize_mobile("091212345"), None, "طول کوتاه");
 }
 
@@ -303,7 +313,10 @@ fn t10_database_rejects_impossible_tab_data() {
     conn.execute("DELETE FROM contacts WHERE id='t10-contact'", [])
         .unwrap();
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM party_phones WHERE contact_id='t10-contact'"),
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM party_phones WHERE contact_id='t10-contact'"
+        ),
         0,
         "تلفن یتیم پس از حذف شخص باقی مانده است"
     );
