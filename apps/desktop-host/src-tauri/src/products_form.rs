@@ -397,7 +397,13 @@ fn validate(input: &ProductInput) -> Result<ProductKind, String> {
             .with_unit(unit.unit_name.trim(), unit.factor)
             .map_err(|error| format!("PRD-012: {error}"))?;
     }
-    if input.units.iter().filter(|unit| unit.is_default_sale).count() > 1 {
+    if input
+        .units
+        .iter()
+        .filter(|unit| unit.is_default_sale)
+        .count()
+        > 1
+    {
         return Err("PRD-013: فقط یک واحد می‌تواند واحد پیش‌فرض فروش باشد".into());
     }
 
@@ -523,8 +529,11 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
     };
 
     // --- سطوح قیمت: پاک و دوباره‌نویسی، چون خالی کردن یک سطح هم معنادار است ---
-    tx.execute("DELETE FROM product_prices WHERE product_id=?1", params![id])
-        .map_err(|e| e.to_string())?;
+    tx.execute(
+        "DELETE FROM product_prices WHERE product_id=?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
     for level in &input.prices {
         if let Some(price) = level.price {
             tx.execute(
@@ -590,7 +599,11 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
     audit(
         &tx,
         &user,
-        if input.id.is_some() { "update" } else { "create" },
+        if input.id.is_some() {
+            "update"
+        } else {
+            "create"
+        },
         "product",
         &id,
         None,

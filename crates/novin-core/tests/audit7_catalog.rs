@@ -53,7 +53,11 @@ fn k2_only_service_has_no_inventory() {
         ProductKind::Variant,
         ProductKind::GoldJewelry,
     ] {
-        assert!(kind.tracks_inventory(), "{} باید موجودی داشته باشد", kind.label());
+        assert!(
+            kind.tracks_inventory(),
+            "{} باید موجودی داشته باشد",
+            kind.label()
+        );
     }
 }
 
@@ -86,7 +90,8 @@ fn k3_seven_price_levels_exist() {
 #[test]
 fn k4_undefined_level_falls_back_up_the_chain() {
     let mut list = PriceList::new();
-    list.set(PriceLevel::Retail, rials(1_000_000)).expect("قیمت");
+    list.set(PriceLevel::Retail, rials(1_000_000))
+        .expect("قیمت");
     list.set(PriceLevel::Partner, rials(880_000)).expect("قیمت");
 
     assert_eq!(
@@ -95,7 +100,10 @@ fn k4_undefined_level_falls_back_up_the_chain() {
         "درجه ۳ باید به همکار برگردد"
     );
     assert!(list.exact(PriceLevel::PartnerTier3).is_none());
-    assert_eq!(list.effective(PriceLevel::Retail).expect("قیمت"), rials(1_000_000));
+    assert_eq!(
+        list.effective(PriceLevel::Retail).expect("قیمت"),
+        rials(1_000_000)
+    );
 }
 
 /// ک۵ — قیمت منفی پذیرفته نمی‌شود.
@@ -141,7 +149,10 @@ fn k8_unit_conversion_and_price_are_consistent() {
         rials(600_000),
         "قیمت کارتن باید دوازده برابر قیمت عدد باشد"
     );
-    assert!(units.to_base(1.0, "پالت").is_err(), "واحد تعریف‌نشده باید رد شود");
+    assert!(
+        units.to_base(1.0, "پالت").is_err(),
+        "واحد تعریف‌نشده باید رد شود"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +186,10 @@ fn k10_exempt_product_pays_nothing() {
         exempt: true,
         ..Default::default()
     };
-    assert_eq!(profile.tax_on(rials(100_000_000)).expect("مالیات"), Money::ZERO);
+    assert_eq!(
+        profile.tax_on(rials(100_000_000)).expect("مالیات"),
+        Money::ZERO
+    );
 }
 
 /// ک۱۱ — عوارض و ارزش افزوده هر دو روی مبلغ محاسبه می‌شوند.
@@ -187,7 +201,10 @@ fn k11_duty_and_vat_are_both_applied() {
         ..Default::default()
     };
     // ۹٪ + ۱٪ روی ۱۰۰ میلیون
-    assert_eq!(profile.tax_on(rials(100_000_000)).expect("مالیات"), rials(10_000_000));
+    assert_eq!(
+        profile.tax_on(rials(100_000_000)).expect("مالیات"),
+        rials(10_000_000)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -284,7 +301,10 @@ fn k15_extended_product_columns_exist() {
         "max_stock",
         "reorder_point",
     ] {
-        assert!(columns.contains(&column.to_string()), "ستون «{column}» نیست");
+        assert!(
+            columns.contains(&column.to_string()),
+            "ستون «{column}» نیست"
+        );
     }
 }
 
