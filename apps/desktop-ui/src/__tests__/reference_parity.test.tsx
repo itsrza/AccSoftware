@@ -11,7 +11,7 @@
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 import { useState } from 'react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   PRESETS,
@@ -328,5 +328,77 @@ describe('انطباق چیدمان داشبورد با مرجع', () => {
     expect(panels.split('\n').length).toBeLessThan(900)
     expect(data.split('\n').length).toBeLessThan(900)
     expect(src('components/FilterBar.tsx').split('\n').length).toBeLessThan(900)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// فهرست فاکتورها
+// ---------------------------------------------------------------------------
+describe('فهرست فاکتور — تصویر مرجع sFpxWK', () => {
+  const invoices = src('pages/Invoices.tsx')
+
+  it('ل۱ — ستون‌های ضروری فهرست فاکتور وجود دارند', () => {
+    // بدون نام طرف حساب و انبار، کاربر نمی‌تواند فاکتور را تشخیص بدهد.
+    for (const column of ['شماره', 'تاریخ', 'طرف حساب', 'انبار', 'جمع کل', 'وضعیت', 'تسویه']) {
+      expect(invoices, `ستون «${column}»`).toContain(column)
+    }
+  })
+
+  it('ل۲ — همه‌ی ستون‌ها قابل مرتب‌سازی‌اند', () => {
+    const headers = invoices.match(/sortProps\('([a-z_]+)'\)/g) ?? []
+    expect(headers.length).toBeGreaterThanOrEqual(9)
+  })
+
+  it('ل۳ — نوار فیلتر و سطر جمع دارد', () => {
+    expect(invoices).toContain('<FilterBar')
+    expect(invoices).toContain('total-row')
+    expect(invoices).toContain('جمع سطرهای نمایش‌داده‌شده')
+  })
+
+  it('ل۴ — خروجی CSV واقعی می‌سازد، نه دکمه‌ی تزئینی', () => {
+    expect(invoices).toContain('new Blob')
+    expect(invoices).toContain("'\\ufeff'")
+    expect(invoices).toContain('link.download')
+  })
+
+  it('ل۵ — دکمه‌ی «فاکتور جدید» به فرم صدور می‌رود', () => {
+    expect(invoices).toContain("onNavigate?.('invoice-form')")
+    expect(src('App.tsx')).toContain('<Invoices page={page} onNavigate={go} />')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// قاعده‌ی «هیچ رابط کاربری ساختگی»
+// ---------------------------------------------------------------------------
+describe('نبود رابط کاربری ساختگی', () => {
+  const files = ['pages', 'components'].flatMap((dir) =>
+    readdirSync(resolve(__dirname, '..', dir))
+      .filter((name) => name.endsWith('.tsx'))
+      .map((name) => ({ name: `${dir}/${name}`, code: src(`${dir}/${name}`) })),
+  )
+
+  it('ک۱ — هیچ دکمه‌ای برای همیشه غیرفعال نیست', () => {
+    // `disabled` بدون شرط یعنی دکمه‌ای که هرگز کار نمی‌کند.
+    const offenders = files
+      .filter((file) => /<button(?![^>]*disabled=\{)[^>]*\sdisabled[\s>]/.test(file.code))
+      .map((file) => file.name)
+    expect(offenders).toEqual([])
+  })
+
+  it('ک۲ — هیچ دکمه‌ای بدون کنش نیست', () => {
+    // ویژگی‌های دکمه ممکن است چندخطی باشند و شامل `=>` هم بشوند؛ پس به‌جای
+    // تطبیق تا نخستین `>`، یک بلوک از ابتدای تگ تا محتوای دکمه بررسی می‌شود.
+    const offenders: string[] = []
+    for (const file of files) {
+      for (const match of file.code.matchAll(/<button\b/g)) {
+        const block = file.code.slice(match.index, match.index + 600)
+        const head = block.slice(0, block.indexOf('</button>') + 1 || 600)
+        if (/onClick|onMouseDown|onPointerDown|type="submit"/.test(head)) continue
+        // دکمه‌ی بدون `type` داخل فرم، پیش‌فرض submit است.
+        if (!head.includes('type=')) continue
+        offenders.push(`${file.name}: ${head.replace(/\s+/g, ' ').slice(0, 70)}`)
+      }
+    }
+    expect(offenders).toEqual([])
   })
 })

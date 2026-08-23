@@ -406,7 +406,7 @@ export default function App() {
       case 'checks':
         return <Checks />
       default:
-        return <Invoices page={page} />
+        return <Invoices page={page} onNavigate={go} />
     }
   }
 
