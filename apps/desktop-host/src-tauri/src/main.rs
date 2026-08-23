@@ -4031,7 +4031,10 @@ fn next_invoice_number(
         .map_err(|e| e.to_string())
 }
 
-pub(crate) fn active_context(tx: &rusqlite::Transaction<'_>, user: &str) -> Result<(String, String), String> {
+pub(crate) fn active_context(
+    tx: &rusqlite::Transaction<'_>,
+    user: &str,
+) -> Result<(String, String), String> {
     let company: String = tx
         .query_row(
             "SELECT company_id FROM company_users WHERE user_id=?1 AND is_active=1 LIMIT 1",
