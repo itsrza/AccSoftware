@@ -880,3 +880,100 @@ export const setQuoteStatus = (id: string, status: string) =>
   api<void>('set_quote_status', {id, status})
 export const convertQuote = (id: string, invoice_date: string) =>
   api<string>('convert_quote', {id, invoiceDate: invoice_date})
+
+// ---- تولید و فرمول تولید ----
+export type FormulaComponentInput = {product_id: string; quantity_per_unit: number; waste_percent: number}
+export type FormulaInput = {
+  id?: string
+  product_id: string
+  title: string
+  output_quantity: number
+  components: FormulaComponentInput[]
+}
+export type FormulaRow = {
+  id: string
+  product_id: string
+  product_name: string
+  title: string
+  output_quantity: number
+  is_active: boolean
+  component_count: number
+  estimated_unit_cost: number
+  producible_now: number
+}
+export type FormulaComponentRow = {
+  id: string
+  product_id: string
+  product_name: string
+  unit: string
+  quantity_per_unit: number
+  waste_percent: number
+  unit_cost: number
+  effective_quantity: number
+  available_stock: number
+}
+export type FormulaDetail = {header: FormulaRow; components: FormulaComponentRow[]}
+export type ExpandedComponent = {
+  product_id: string
+  product_name: string
+  unit: string
+  required_quantity: number
+  available_stock: number
+  unit_cost: number
+}
+export type ProductionInput = {
+  production_date: string
+  warehouse_id: string
+  formula_id?: string
+  cost_allocation: string
+  description?: string
+  inputs: {product_id: string; quantity: number}[]
+  outputs: {product_id: string; quantity: number; market_unit_price?: number}[]
+  expenses: {account_id: string; title: string; amount: number}[]
+}
+export type OutputCostRow = {
+  product_id: string
+  product_name: string
+  quantity: number
+  allocated_cost: number
+  unit_cost: number
+  previous_unit_cost: number
+}
+export type CostingPreview = {
+  materials_total: number
+  expenses_total: number
+  total_cost: number
+  outputs: OutputCostRow[]
+  warnings: string[]
+}
+export type ProductionOrderRow = {
+  id: string
+  number: number
+  production_date: string
+  warehouse_name: string
+  materials_total: number
+  expenses_total: number
+  total_cost: number
+  status: string
+  description?: string
+  journal_id?: string
+  input_count: number
+  output_count: number
+}
+export type AllocationInfo = {value: string; label: string; explanation: string}
+export type ExpenseAccountRow = {id: string; code: string; name: string}
+
+export const saveProductionFormula = (input: FormulaInput) =>
+  api<string>('save_production_formula', {input})
+export const getProductionFormulas = () => api<FormulaRow[]>('list_production_formulas')
+export const getProductionFormula = (id: string) => api<FormulaDetail>('get_production_formula', {id})
+export const expandProductionFormula = (formula_id: string, output_quantity: number) =>
+  api<ExpandedComponent[]>('expand_production_formula', {formulaId: formula_id, outputQuantity: output_quantity})
+export const deleteProductionFormula = (id: string) => api<void>('delete_production_formula', {id})
+export const previewProduction = (input: ProductionInput) =>
+  api<CostingPreview>('preview_production', {input})
+export const postProduction = (input: ProductionInput) => api<string>('post_production', {input})
+export const getProductionOrders = () => api<ProductionOrderRow[]>('list_production_orders')
+export const getCostAllocations = () => api<AllocationInfo[]>('list_cost_allocations')
+export const getProductionExpenseAccounts = () =>
+  api<ExpenseAccountRow[]>('list_production_expense_accounts')

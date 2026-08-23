@@ -12,6 +12,7 @@ import {ChartOfAccounts} from './pages/ChartOfAccounts'
 import {Returns} from './pages/Returns'
 import {InventoryTransfer} from './pages/InventoryTransfer'
 import {Quotes} from './pages/Quotes'
+import {Production} from './pages/Production'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -84,6 +85,7 @@ const MENU: {title: string; items: MenuItem[]}[] = [
           {label: 'موجودی انبار', page: 'inventory'},
           {label: 'انتقال بین انبارها', page: 'inventory-transfer'},
           {label: 'انبارگردانی', page: 'inventory-count'},
+          {label: 'تولید', page: 'production'},
         ],
       },
       {
@@ -142,6 +144,7 @@ const PAGE_TITLES: Record<string, string> = {
   dashboard: 'داشبورد',
   'invoice-form': 'صدور فاکتور فروش',
   sales: 'فاکتورهای فروش',
+  production: 'تولید',
   'sales-return': 'برگشت از فروش',
   proforma: 'پیش‌فاکتورها',
   purchase: 'فاکتورهای خرید',
@@ -297,6 +300,8 @@ export default function App() {
         return <AdvancedInventory />
       case 'inventory-count':
         return <Stocktaking />
+      case 'production':
+        return <Production />
       case 'proforma':
         return <Quotes kind="sales_quote" />
       case 'purchase-order':

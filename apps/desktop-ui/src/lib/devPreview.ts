@@ -364,6 +364,67 @@ const demoQuotes = Array.from({length: 18}, (_, index) => {
   }
 })
 
+/** فرمول‌ها و رسیدهای تولید نمونه. */
+const demoFormulas = Array.from({length: 5}, (_, index) => {
+  const product = products[(index * 9 + 3) % products.length]
+  const componentCount = (index % 2) + 2
+  let estimated = 0
+  for (let offset = 0; offset < componentCount; offset += 1) {
+    const material = products[(index * 4 + offset) % products.length]
+    estimated += material.purchase_price * (offset + 1) * 1.05
+  }
+  return {
+    id: `demo-formula-${index}`,
+    product_id: product.id,
+    product_name: product.name,
+    title: index % 2 === 0 ? 'فرمول استاندارد' : 'فرمول اقتصادی',
+    output_quantity: 1,
+    is_active: true,
+    component_count: componentCount,
+    estimated_unit_cost: Math.round(estimated),
+    producible_now: (index + 1) * 7.5,
+  }
+})
+
+function formulaComponents(header: (typeof demoFormulas)[number]) {
+  const index = demoFormulas.indexOf(header)
+  return Array.from({length: header.component_count}, (_, offset) => {
+    const material = products[(index * 4 + offset) % products.length]
+    const waste = offset === 0 ? 5 : 0
+    const quantity = offset + 1
+    return {
+      id: `${header.id}-c${offset}`,
+      product_id: material.id,
+      product_name: material.name,
+      unit: material.unit,
+      quantity_per_unit: quantity,
+      waste_percent: waste,
+      unit_cost: material.purchase_price,
+      effective_quantity: quantity * (1 + waste / 100),
+      available_stock: (offset + 3) * 12,
+    }
+  })
+}
+
+const demoProductionOrders = Array.from({length: 6}, (_, index) => {
+  const materials = ((index % 4) + 2) * 18_000_000
+  const expenses = ((index % 3) + 1) * 4_500_000
+  return {
+    id: `demo-production-${index}`,
+    number: index + 1,
+    production_date: jalaliDate(index + 12),
+    warehouse_name: warehouses[index % warehouses.length].name,
+    materials_total: materials,
+    expenses_total: expenses,
+    total_cost: materials + expenses,
+    status: 'posted',
+    description: 'تولید دوره‌ای',
+    journal_id: `demo-jrn-production-${index}`,
+    input_count: (index % 2) + 2,
+    output_count: 1,
+  }
+})
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -900,6 +961,80 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   save_quote: () => 'quote-preview',
   set_quote_status: () => undefined,
   convert_quote: () => 'invoice-preview',
+  // ---- تولید ----
+  list_cost_allocations: () => [
+    {value: 'by_quantity', label: 'بر اساس مقدار', explanation: 'کل بهای تمام‌شده به نسبت مقدار هر محصول تقسیم می‌شود. مناسب وقتی محصولات از یک جنس و هم‌ارزش‌اند. اگر ارزش محصولات خیلی متفاوت باشد، این روش بهای محصول ارزان را بالا می‌برد.'},
+    {value: 'by_market_value', label: 'بر اساس ارزش بازار', explanation: 'کل بهای تمام‌شده به نسبت ارزش فروش هر محصول تقسیم می‌شود. مناسب وقتی یک محصول اصلی و یک محصول فرعی دارید. حاشیه‌ی سود هر دو محصول برابر درمی‌آید.'},
+  ],
+  list_production_expense_accounts: () => [
+    {id: 'acc-5300', code: '5300', name: 'دستمزد مستقیم تولید'},
+    {id: 'acc-5400', code: '5400', name: 'سربار تولید'},
+    {id: 'acc-6300', code: '6300', name: 'کسری و ضایعات انبار'},
+  ],
+  list_production_formulas: () => demoFormulas,
+  get_production_formula: (args: Record<string, unknown>) => {
+    const header = demoFormulas.find((f) => f.id === args.id) ?? demoFormulas[0]
+    return {header, components: formulaComponents(header)}
+  },
+  expand_production_formula: (args: Record<string, unknown>) => {
+    const header = demoFormulas.find((f) => f.id === args.formulaId) ?? demoFormulas[0]
+    const quantity = Number(args.outputQuantity ?? 1)
+    return formulaComponents(header).map((component) => ({
+      product_id: component.product_id,
+      product_name: component.product_name,
+      unit: component.unit,
+      required_quantity: Number((component.effective_quantity * quantity).toFixed(4)),
+      available_stock: component.available_stock,
+      unit_cost: component.unit_cost,
+    }))
+  },
+  save_production_formula: () => 'formula-preview',
+  delete_production_formula: () => undefined,
+  preview_production: (args: Record<string, unknown>) => {
+    const input = (args.input ?? {}) as Record<string, unknown>
+    const inputLines = (input.inputs ?? []) as Array<Record<string, number | string>>
+    const outputLines = (input.outputs ?? []) as Array<Record<string, number | string>>
+    const expenseLines = (input.expenses ?? []) as Array<Record<string, number | string>>
+    const costOf = (id: string) => products.find((p) => p.id === id)?.purchase_price ?? 0
+    const materials = inputLines.reduce(
+      (total, line) => total + Number(line.quantity) * costOf(String(line.product_id)),
+      0,
+    )
+    const expenseTotal = expenseLines.reduce((total, line) => total + Number(line.amount ?? 0), 0)
+    const totalCost = Math.round(materials + expenseTotal)
+    const weights = outputLines.map((line) =>
+      input.cost_allocation === 'by_market_value'
+        ? Number(line.quantity) * Number(line.market_unit_price ?? 0)
+        : Number(line.quantity),
+    )
+    const weightSum = weights.reduce((a, b) => a + b, 0) || outputLines.length || 1
+    let assigned = 0
+    const outputs = outputLines.map((line, index) => {
+      const share =
+        index === outputLines.length - 1
+          ? totalCost - assigned
+          : Math.round((totalCost * (weights[index] || 1)) / weightSum)
+      assigned += share
+      const productId = String(line.product_id)
+      return {
+        product_id: productId,
+        product_name: products.find((p) => p.id === productId)?.name ?? productId,
+        quantity: Number(line.quantity),
+        allocated_cost: share,
+        unit_cost: Math.round(share / (Number(line.quantity) || 1)),
+        previous_unit_cost: costOf(productId),
+      }
+    })
+    return {
+      materials_total: Math.round(materials),
+      expenses_total: expenseTotal,
+      total_cost: totalCost,
+      outputs,
+      warnings: [],
+    }
+  },
+  post_production: () => 'production-preview',
+  list_production_orders: () => demoProductionOrders,
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>
     treasuryAccounts
