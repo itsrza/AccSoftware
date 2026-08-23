@@ -349,10 +349,7 @@ pub fn list_production_formulas(state: State<AppState>) -> Result<Vec<FormulaRow
 
 /// جزئیات یک فرمول با موجودی و بهای هر جزء.
 #[tauri::command]
-pub fn get_production_formula(
-    state: State<AppState>,
-    id: String,
-) -> Result<FormulaDetail, String> {
+pub fn get_production_formula(state: State<AppState>, id: String) -> Result<FormulaDetail, String> {
     let all = list_production_formulas(state.clone())?;
     let header = all
         .into_iter()
@@ -389,18 +386,16 @@ pub fn get_production_formula(
     let components = raw
         .into_iter()
         .map(
-            |(component_id, product_id, product_name, unit, quantity, waste)| {
-                FormulaComponentRow {
-                    effective_quantity: quantity * (1.0 + waste / 100.0),
-                    unit_cost: unit_cost_of(&tx, &product_id),
-                    available_stock: total_stock(&tx, &product_id),
-                    id: component_id,
-                    product_id,
-                    product_name,
-                    unit,
-                    quantity_per_unit: quantity,
-                    waste_percent: waste,
-                }
+            |(component_id, product_id, product_name, unit, quantity, waste)| FormulaComponentRow {
+                effective_quantity: quantity * (1.0 + waste / 100.0),
+                unit_cost: unit_cost_of(&tx, &product_id),
+                available_stock: total_stock(&tx, &product_id),
+                id: component_id,
+                product_id,
+                product_name,
+                unit,
+                quantity_per_unit: quantity,
+                waste_percent: waste,
             },
         )
         .collect();
@@ -905,9 +900,7 @@ pub struct ProductionOrderRow {
 }
 
 #[tauri::command]
-pub fn list_production_orders(
-    state: State<AppState>,
-) -> Result<Vec<ProductionOrderRow>, String> {
+pub fn list_production_orders(state: State<AppState>) -> Result<Vec<ProductionOrderRow>, String> {
     let mut c = conn(&state)?;
     let user = require_permission(&state, &c, "inventory.transfer")?;
     let tx = c.transaction().map_err(|e| e.to_string())?;

@@ -429,5 +429,9 @@ pub fn producible_quantity(
         }
         limit = limit.min(available / per_unit);
     }
-    Ok(if limit.is_finite() { limit.max(0.0) } else { 0.0 })
+    Ok(if limit.is_finite() {
+        limit.max(0.0)
+    } else {
+        0.0
+    })
 }
