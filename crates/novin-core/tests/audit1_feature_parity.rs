@@ -112,7 +112,10 @@ fn t01_check_has_all_twelve_tabs_of_the_reference() {
 fn t02_memo_checks_are_financially_inert() {
     assert!(CheckStatus::MemoInHand.is_memo());
     assert!(CheckStatus::MemoReturned.is_memo());
-    assert!(!CheckStatus::MemoInHand.is_open(), "انتظامی نباید در مانده بیاید");
+    assert!(
+        !CheckStatus::MemoInHand.is_open(),
+        "انتظامی نباید در مانده بیاید"
+    );
     assert!(!CheckStatus::MemoReturned.is_open());
     // و وضعیت آغازین چک انتظامی مستقل از نوع چک است.
     assert_eq!(
@@ -189,7 +192,12 @@ fn t05_three_party_roles_with_commission_rule() {
 fn t06_all_seven_party_tabs_have_real_storage() {
     let conn = fresh();
     // زبانه‌های چندردیفی
-    for table in ["party_phones", "party_bank_accounts", "party_images", "party_occasions"] {
+    for table in [
+        "party_phones",
+        "party_bank_accounts",
+        "party_images",
+        "party_occasions",
+    ] {
         assert!(table_exists(&conn, table), "زبانه‌ی «{table}» جدول ندارد");
     }
     // زبانه‌های تک‌ردیفی روی خود شخص
@@ -204,7 +212,10 @@ fn t06_all_seven_party_tabs_have_real_storage() {
         "job_title",       // سایر مشخصات
         "credit_limit",    // سقف اعتبار
     ] {
-        assert!(columns.contains(&column.to_string()), "ستون «{column}» نیست");
+        assert!(
+            columns.contains(&column.to_string()),
+            "ستون «{column}» نیست"
+        );
     }
 }
 
@@ -222,7 +233,8 @@ fn t07_party_group_tree_matches_the_reference_list() {
             .filter_map(Result::ok)
             .collect()
     };
-    for expected in ["بدهکاران تجاری", "بستانکاران تجاری", "سایت", "همکاران"] {
+    for expected in ["بدهکاران تجاری", "بستانکاران تجاری", "سایت", "همکاران"]
+    {
         assert!(
             titles.iter().any(|title| title == expected),
             "گروه «{expected}» تصویر مرجع وجود ندارد"
@@ -230,7 +242,10 @@ fn t07_party_group_tree_matches_the_reference_list() {
     }
     // و گروه‌ها واقعاً عضو دارند، وگرنه درخت خالی است.
     assert!(
-        count(&conn, "SELECT COUNT(*) FROM contacts WHERE group_id IS NOT NULL") >= 40,
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM contacts WHERE group_id IS NOT NULL"
+        ) >= 40,
         "اشخاص نمونه به گروه وصل نشده‌اند"
     );
 }
@@ -339,7 +354,10 @@ fn t12_bank_form_has_every_field_of_the_reference() {
         "negative_policy",
         "linked_account_id",
     ] {
-        assert!(columns.contains(&column.to_string()), "فیلد «{column}» نیست");
+        assert!(
+            columns.contains(&column.to_string()),
+            "فیلد «{column}» نیست"
+        );
     }
 }
 
@@ -365,7 +383,10 @@ fn t14_pos_terminal_support_exists_end_to_end() {
     let conn = fresh();
     // سطر سند خزانه باید شناسه‌ی پایانه را نگه دارد.
     let columns = columns_of(&conn, "treasury_document_lines");
-    assert!(columns.contains(&"terminal_id".to_string()), "شناسه پایانه نیست");
+    assert!(
+        columns.contains(&"terminal_id".to_string()),
+        "شناسه پایانه نیست"
+    );
     // و روش کارتخوان باید حساب خزانه بخواهد (پول به حساب بانکی می‌رود).
     assert!(PaymentMethod::CardTerminal.requires_treasury_account());
     assert!(PaymentMethod::CardTerminal.moves_treasury());
@@ -454,7 +475,11 @@ fn t18_cost_center_and_project_dimensions_exist() {
 #[test]
 fn t19_production_receipt_has_all_three_tabs() {
     let conn = fresh();
-    for table in ["production_outputs", "production_inputs", "production_expenses"] {
+    for table in [
+        "production_outputs",
+        "production_inputs",
+        "production_expenses",
+    ] {
         assert!(table_exists(&conn, table), "زبانه‌ی «{table}» نیست");
     }
     // و فرمول تولید (دکمه‌ی Insert تصویر مرجع)
@@ -496,7 +521,9 @@ fn t21_stocktaking_has_freeze_and_recount() {
     let line_columns = columns_of(&conn, "stocktake_lines");
     // شمارش اول، شمارش مجدد و موجودی فریزشده باید جدا باشند.
     assert!(
-        line_columns.iter().any(|c| c.contains("system") || c.contains("frozen")),
+        line_columns
+            .iter()
+            .any(|c| c.contains("system") || c.contains("frozen")),
         "موجودی سیستمی/فریزشده ذخیره نمی‌شود"
     );
     assert!(
@@ -519,7 +546,10 @@ fn t22_invoice_carries_every_component_of_the_reference() {
     }
     let lines = columns_of(&conn, "sales_invoice_lines");
     for column in ["quantity", "unit_price", "discount", "tax", "line_total"] {
-        assert!(lines.contains(&column.to_string()), "ستون سطر «{column}» نیست");
+        assert!(
+            lines.contains(&column.to_string()),
+            "ستون سطر «{column}» نیست"
+        );
     }
     // تخفیف پلکانی کالا (تصویر تعریف کالا)
     assert!(table_exists(&conn, "product_discount_tiers"));
@@ -557,7 +587,10 @@ fn t24_quotes_and_purchase_orders_exist_with_validity() {
     assert!(table_exists(&conn, "quote_lines"));
     let columns = columns_of(&conn, "quotes");
     for column in ["kind", "valid_until", "status", "converted_invoice_id"] {
-        assert!(columns.contains(&column.to_string()), "ستون «{column}» نیست");
+        assert!(
+            columns.contains(&column.to_string()),
+            "ستون «{column}» نیست"
+        );
     }
     // نوع ساختگی باید رد شود.
     assert!(
@@ -581,7 +614,10 @@ fn t25_distribution_route_and_marketer_are_wired() {
     );
     // اشخاص نمونه باید واقعاً به مسیر وصل باشند، وگرنه قابلیت روی کاغذ است.
     assert!(
-        count(&conn, "SELECT COUNT(*) FROM contacts WHERE route_id IS NOT NULL") >= 40,
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM contacts WHERE route_id IS NOT NULL"
+        ) >= 40,
         "هیچ شخصی به مسیر پخش وصل نیست"
     );
     // بازاریاب نمونه هم باید وجود داشته باشد.

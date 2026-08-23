@@ -22,7 +22,9 @@ use novin_core::money::Money;
 use novin_core::production::{
     assert_cost_balance, calculate_costing, ConsumedMaterial, CostAllocation, ProducedItem,
 };
-use novin_core::treasury::{build_journal, DocumentKind, DocumentLine, PaymentMethod, TreasuryAccounts};
+use novin_core::treasury::{
+    build_journal, DocumentKind, DocumentLine, PaymentMethod, TreasuryAccounts,
+};
 use rusqlite::Connection;
 
 fn seeded() -> Connection {
@@ -135,7 +137,10 @@ fn t29_every_voucher_falls_inside_its_fiscal_year() {
 #[test]
 fn t30_a_sale_touches_lines_inventory_and_ledger_together() {
     let conn = seeded();
-    let invoices = count(&conn, "SELECT COUNT(*) FROM sales_invoices WHERE id LIKE 'demo-sale-%'");
+    let invoices = count(
+        &conn,
+        "SELECT COUNT(*) FROM sales_invoices WHERE id LIKE 'demo-sale-%'",
+    );
     assert!(invoices >= 50, "فاکتور نمونه کم است");
 
     // هر فاکتور باید قلم داشته باشد.
@@ -379,9 +384,14 @@ fn t38_check_never_lands_in_the_cash_box() {
     let journal = build_journal(DocumentKind::Receipt, &[check_line], &accounts).unwrap();
 
     let debit = journal.iter().find(|line| line.debit.rials() > 0).unwrap();
-    assert_eq!(debit.account_id, "acc-1103", "چک باید به اسناد دریافتنی برود");
+    assert_eq!(
+        debit.account_id, "acc-1103",
+        "چک باید به اسناد دریافتنی برود"
+    );
     assert!(
-        !journal.iter().any(|line| line.account_id.contains("treasury")),
+        !journal
+            .iter()
+            .any(|line| line.account_id.contains("treasury")),
         "حساب صندوق در سند چک ظاهر شده"
     );
 }
@@ -437,7 +447,11 @@ fn t40_cash_discount_settles_debt_without_bringing_money() {
         .iter()
         .find(|line| line.account_id == "acc-4400")
         .unwrap();
-    assert_eq!(discount_line.debit.rials(), 500_000, "تخفیف باید بدهکار شود");
+    assert_eq!(
+        discount_line.debit.rials(),
+        500_000,
+        "تخفیف باید بدهکار شود"
+    );
 }
 
 // ===========================================================================
@@ -501,7 +515,10 @@ fn t42_warehouse_transfer_has_zero_financial_footprint() {
 fn t43_no_negative_stock_anywhere() {
     let conn = seeded();
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM inventory_balances WHERE quantity < 0"),
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM inventory_balances WHERE quantity < 0"
+        ),
         0,
         "موجودی منفی وجود دارد"
     );
@@ -538,7 +555,10 @@ fn t44_every_stock_movement_points_at_real_entities() {
         "گردش انبار به انبار ناموجود ارجاع دارد"
     );
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM inventory_movements WHERE quantity <= 0"),
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM inventory_movements WHERE quantity <= 0"
+        ),
         0,
         "گردش انبار با مقدار صفر یا منفی وجود دارد"
     );
@@ -574,7 +594,10 @@ fn t45_jalali_calendar_matches_verified_reference_values() {
 #[test]
 fn t46_jalali_leap_years_are_correct() {
     // ۱۴۰۳ کبیسه است (اسفند ۳۰ روز)، ۱۴۰۴ نیست.
-    assert!(JalaliDate::new(1403, 12, 30).is_ok(), "۱۴۰۳ باید کبیسه باشد");
+    assert!(
+        JalaliDate::new(1403, 12, 30).is_ok(),
+        "۱۴۰۳ باید کبیسه باشد"
+    );
     assert!(
         JalaliDate::new(1404, 12, 30).is_err(),
         "۱۴۰۴ نباید کبیسه باشد"
@@ -649,7 +672,14 @@ fn t49_audit_trail_table_is_wired_for_financial_actions() {
             .collect()
     };
     // ردپا باید بگوید چه کسی، چه کاری، روی چه چیزی، و مقدار قبل و بعد چه بود.
-    for column in ["user_id", "action", "entity_type", "entity_id", "before_json", "after_json"] {
+    for column in [
+        "user_id",
+        "action",
+        "entity_type",
+        "entity_id",
+        "before_json",
+        "after_json",
+    ] {
         assert!(
             columns.contains(&column.to_string()),
             "ستون حسابرسی «{column}» نیست"
