@@ -229,67 +229,98 @@ fn t32_sales_voucher_hits_receivable_revenue_and_tax() {
     assert_eq!(receivable as i64, revenue as i64 + vat as i64);
 }
 
-/// ت۳۳ — موتور فاکتور: ترتیب هشت‌مرحله‌ای محاسبه درست است.
+/// ت۳۳ — موتور فاکتور: ترتیب مرحله‌ای محاسبه درست است.
+///
+/// ترتیب حیاتی است: تخفیف پیش از مالیات، و کرایه پس از مالیات. جابه‌جایی
+/// این ترتیب، مبلغ نهایی و مالیات را عوض می‌کند.
 #[test]
-fn t33_invoice_engine_applies_the_eight_step_order() {
-    // مبلغ ناخالص ۱۰٬۰۰۰٬۰۰۰ · تخفیف سطر ۱٬۰۰۰٬۰۰۰ · مالیات ۹٪ · کرایه ۵۰۰٬۰۰۰
+fn t33_invoice_engine_applies_the_correct_calculation_order() {
+    // ۱۰ واحد × ۱٬۰۰۰٬۰۰۰ = ۱۰٬۰۰۰٬۰۰۰ ناخالص
+    // تخفیف سطری ۱٬۰۰۰٬۰۰۰ → خالص ۹٬۰۰۰٬۰۰۰
+    // مالیات ۹٪ روی خالص = ۸۱۰٬۰۰۰
+    // کرایه ۵۰۰٬۰۰۰ به جمع اضافه می‌شود
+    let line = InvoiceLine {
+        product_id: "p1".into(),
+        quantity: 10.0,
+        unit_price: Money::from_rials(1_000_000),
+        discount_amount: Money::from_rials(1_000_000),
+        discount_bp: 0,
+        tiers: Vec::new(),
+        vat_bp: 900,
+        duty_bp: 0,
+        commission_bp: 0,
+        unit_cost: Money::ZERO,
+    };
     let input = InvoiceInput {
-        lines: vec![InvoiceLine {
-            product_id: "p1".into(),
-            quantity: 10.0,
-            unit_price: Money::from_rials(1_000_000),
-            line_discount: Money::from_rials(1_000_000),
-            vat_basis_points: 900,
-            ..Default::default()
-        }],
+        lines: vec![line],
+        header_discount: Money::ZERO,
+        coupon: None,
         freight: Money::from_rials(500_000),
-        freight_mode: FreightMode::AddToInvoice,
-        ..Default::default()
+        freight_mode: FreightMode::AddToTotal,
     };
     let result = invoicing::calculate(&input).expect("محاسبه‌ی فاکتور");
 
-    assert_eq!(result.gross.rials(), 10_000_000, "مبلغ ناخالص");
-    assert_eq!(result.total_discount.rials(), 1_000_000, "تخفیف");
-    // مالیات باید روی مبلغ پس از تخفیف باشد: ۹٪ از ۹٬۰۰۰٬۰۰۰
-    assert_eq!(result.tax.rials(), 810_000, "مالیات روی مبلغ خالص نیست");
-    // کرایه پس از مالیات به فاکتور اضافه می‌شود
+    assert_eq!(result.subtotal.rials(), 10_000_000, "مبلغ ناخالص");
+    assert_eq!(result.discount_total.rials(), 1_000_000, "تخفیف");
+    assert_eq!(result.net_total.rials(), 9_000_000, "خالص پس از تخفیف");
     assert_eq!(
-        result.payable.rials(),
+        result.vat_total.rials(),
+        810_000,
+        "مالیات باید روی مبلغ پس از تخفیف باشد، نه ناخالص"
+    );
+    assert_eq!(
+        result.total.rials(),
         9_000_000 + 810_000 + 500_000,
-        "قابل پرداخت اشتباه است"
+        "جمع کل اشتباه است"
     );
 }
 
-/// ت۳۴ — کرایه‌ی «جدا از فاکتور» نباید در مبلغ فاکتور بیاید.
+/// ت۳۴ — دو حالت کرایه اثر متفاوتی بر بهای تمام‌شده دارند.
+///
+/// «افزودن به جمع» فقط مبلغ فاکتور را بالا می‌برد؛ «سرشکن روی سطرها» کرایه
+/// را وارد بهای تمام‌شده می‌کند و سود واقعی را کم می‌کند. اگر این دو یکی
+/// شوند، سود گزارش‌شده اشتباه درمی‌آید.
 #[test]
-fn t34_separate_freight_stays_out_of_the_invoice_total() {
-    let base = InvoiceLine {
+fn t34_two_freight_modes_affect_cost_differently() {
+    let make_line = || InvoiceLine {
         product_id: "p1".into(),
-        quantity: 1.0,
+        quantity: 2.0,
         unit_price: Money::from_rials(1_000_000),
-        vat_basis_points: 0,
-        ..Default::default()
+        discount_amount: Money::ZERO,
+        discount_bp: 0,
+        tiers: Vec::new(),
+        vat_bp: 0,
+        duty_bp: 0,
+        commission_bp: 0,
+        unit_cost: Money::from_rials(600_000),
     };
     let added = invoicing::calculate(&InvoiceInput {
-        lines: vec![base.clone()],
+        lines: vec![make_line()],
+        header_discount: Money::ZERO,
+        coupon: None,
         freight: Money::from_rials(200_000),
-        freight_mode: FreightMode::AddToInvoice,
-        ..Default::default()
+        freight_mode: FreightMode::AddToTotal,
     })
     .unwrap();
-    let separate = invoicing::calculate(&InvoiceInput {
-        lines: vec![base],
+    let allocated = invoicing::calculate(&InvoiceInput {
+        lines: vec![make_line()],
+        header_discount: Money::ZERO,
+        coupon: None,
         freight: Money::from_rials(200_000),
-        freight_mode: FreightMode::Separate,
-        ..Default::default()
+        freight_mode: FreightMode::AllocateToLines,
     })
     .unwrap();
 
-    assert_eq!(added.payable.rials(), 1_200_000, "کرایه باید اضافه شود");
-    assert_eq!(
-        separate.payable.rials(),
-        1_000_000,
-        "کرایه‌ی جدا نباید در فاکتور بیاید"
+    // جمع فاکتور در هر دو حالت یکسان است — مشتری همان مبلغ را می‌پردازد.
+    assert_eq!(added.total.rials(), allocated.total.rials());
+    // ولی بهای تمام‌شده و در نتیجه سود متفاوت است.
+    assert!(
+        allocated.cost_total.rials() > added.cost_total.rials(),
+        "سرشکن‌کردن کرایه باید بهای تمام‌شده را بالا ببرد"
+    );
+    assert!(
+        allocated.profit.rials() < added.profit.rials(),
+        "سود در حالت سرشکن باید کمتر باشد"
     );
 }
 
@@ -579,7 +610,7 @@ fn t45_jalali_calendar_matches_verified_reference_values() {
     ];
     for (jalali_text, year, month, day) in cases {
         let parsed = JalaliDate::parse(jalali_text).expect("تاریخ شمسی معتبر");
-        let gregorian = jalali::to_gregorian(parsed).expect("تبدیل به میلادی");
+        let gregorian = parsed.to_gregorian().expect("تبدیل به میلادی");
         let expected =
             chrono::NaiveDate::from_ymd_opt(year, month, day).expect("تاریخ میلادی معتبر");
         assert_eq!(gregorian, expected, "تبدیل «{jalali_text}» اشتباه است");

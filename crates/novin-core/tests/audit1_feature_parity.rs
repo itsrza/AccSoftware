@@ -261,15 +261,15 @@ fn t08_seven_price_levels_of_the_reference() {
         (PriceLevel::Retail, "جزئی"),
         (PriceLevel::Wholesale, "کلی"),
         (PriceLevel::Partner, "همکار"),
-        (PriceLevel::PartnerTwo, "همکار درجه ۲"),
-        (PriceLevel::PartnerThree, "همکار درجه ۳"),
+        (PriceLevel::PartnerTier2, "همکار درجه ۲"),
+        (PriceLevel::PartnerTier3, "همکار درجه ۳"),
         (PriceLevel::Seasonal, "فصلی"),
         (PriceLevel::Exhibition, "نمایشگاه"),
     ];
     assert_eq!(expected.len(), 7, "تعداد سطوح قیمت باید هفت باشد");
     for (level, label) in expected {
         assert_eq!(level.label(), label, "برچسب سطح قیمت نمی‌خواند");
-        assert_eq!(PriceLevel::parse(level.as_str()), Some(level));
+        assert_eq!(PriceLevel::parse(level.as_str()).ok(), Some(level));
     }
 }
 
@@ -281,11 +281,11 @@ fn t09_four_product_kinds_of_the_reference_dialog() {
         (ProductKind::Simple, "کالای عمومی"),
         (ProductKind::Composite, "کالای مرکب"),
         (ProductKind::Variant, "کالای تنوع‌دار"),
-        (ProductKind::Gold, "طلا و جواهر"),
+        (ProductKind::GoldJewelry, "طلا و جواهر"),
     ];
     for (kind, label) in expected {
         assert_eq!(kind.label(), label);
-        assert_eq!(ProductKind::parse(kind.as_str()), Some(kind));
+        assert_eq!(ProductKind::parse(kind.as_str()).ok(), Some(kind));
     }
 }
 
