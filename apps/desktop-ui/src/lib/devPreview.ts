@@ -1305,14 +1305,20 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
         min_stock: product.min_stock,
       })),
   get_recent_invoices: () =>
-    salesInvoices.slice(-8).map((invoice) => ({
-      id: invoice.id,
-      number: invoice.number,
-      invoice_date: invoice.invoice_date,
-      contact_name: invoice.contact_name,
-      total: invoice.total,
-      payment_status: invoice.payment_status,
-    })),
+    [
+      ...salesInvoices.slice(-6).map((invoice) => ({...invoice, invoice_type: 'sales'})),
+      ...purchaseInvoices.slice(-4).map((invoice) => ({...invoice, invoice_type: 'purchase'})),
+    ]
+      .sort((a, b) => b.invoice_date.localeCompare(a.invoice_date))
+      .map((invoice) => ({
+        id: invoice.id,
+        number: invoice.number,
+        invoice_date: invoice.invoice_date,
+        contact_name: invoice.contact_name,
+        total: invoice.total,
+        payment_status: invoice.payment_status,
+        invoice_type: invoice.invoice_type,
+      })),
   get_trial_balance: () => [
     {code: '1101', name: 'صندوق', debit: 241_800_000, credit: 0},
     {code: '1201', name: 'حساب مشتریان', debit: 1_482_000_000, credit: 0},
