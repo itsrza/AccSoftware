@@ -759,3 +759,50 @@ export const saveAccount = (input: {
   })
 export const deactivateAccount = (id: string) => api<void>('deactivate_account', {id})
 export const auditCodingHealth = () => api<CodingIssue[]>('audit_coding_health')
+
+// ---- برگشت از فروش و خرید ----
+export type ReturnableLine = {
+  product_id: string
+  product_name: string
+  unit: string
+  invoiced_quantity: number
+  returned_quantity: number
+  returnable_quantity: number
+  unit_price: number
+}
+export type ReturnRow = {
+  id: string
+  number: number
+  return_date: string
+  original_invoice_id: string
+  original_invoice_number?: number
+  contact_id?: string
+  contact_name?: string
+  warehouse_name?: string
+  status: string
+  status_label: string
+  total: number
+  tax: number
+  grand_total: number
+  journal_id?: string
+  line_count: number
+}
+export type ReturnLineRow = {
+  id: string
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  line_total: number
+}
+export type ReturnDetail = {header: ReturnRow; lines: ReturnLineRow[]}
+
+export const getReturnableLines = (sale: boolean, invoice_id: string) =>
+  api<ReturnableLine[]>('list_returnable_lines', {sale, invoiceId: invoice_id})
+export const getReturns = (sale: boolean, status?: string) =>
+  api<ReturnRow[]>('list_returns', {sale, status})
+export const getReturn = (sale: boolean, id: string) =>
+  api<ReturnDetail>('get_return', {sale, id})
+export const postSalesReturnV2 = (id: string) => api<void>('post_sales_return_v2', {id})
+export const postPurchaseReturnV2 = (id: string) => api<void>('post_purchase_return_v2', {id})
+export const cancelReturn = (sale: boolean, id: string) => api<void>('cancel_return', {sale, id})

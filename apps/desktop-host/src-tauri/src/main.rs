@@ -25,6 +25,7 @@ use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 
 mod chart_of_accounts;
+mod returns;
 mod parties_form;
 mod treasury_accounts;
 mod treasury_docs;
@@ -7475,6 +7476,12 @@ fn main() {
             chart_of_accounts::save_account,
             chart_of_accounts::deactivate_account,
             chart_of_accounts::audit_coding_health,
+            returns::list_returnable_lines,
+            returns::list_returns,
+            returns::get_return,
+            returns::post_sales_return_v2,
+            returns::post_purchase_return_v2,
+            returns::cancel_return,
             create_sales_return,
             create_purchase_return,
             post_sales_return,

@@ -9,6 +9,7 @@ import {Treasury} from './pages/Treasury'
 import {TreasuryDocumentForm} from './pages/TreasuryDocumentForm'
 import {TreasuryAccounts} from './pages/TreasuryAccounts'
 import {ChartOfAccounts} from './pages/ChartOfAccounts'
+import {Returns} from './pages/Returns'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -304,30 +305,12 @@ export default function App() {
         )
       case 'inventory-count':
         return <Stocktaking />
-      case 'sales-return':
-        return (
-          <UnderConstruction
-            title="برگشت از فروش"
-            description="فرم برگشت از فروش با انتخاب فاکتور اصلی، کنترل مقدار برگشتی نسبت به فاکتور، اثر معکوس در انبار و صدور سند خودکار. موتور آن در هسته پیاده شده است."
-            reference="FRPBDr"
-            phase="فاز ۶"
-          />
-        )
       case 'proforma':
         return (
           <UnderConstruction
             title="پیش‌فاکتورها"
             description="صدور پیش‌فاکتور با اعتبار زمانی و تبدیل یک‌کلیکی به فاکتور فروش، بدون اثر انبار و مالی تا زمان تبدیل."
             reference="sFpxWK"
-            phase="فاز ۶"
-          />
-        )
-      case 'purchase-return':
-        return (
-          <UnderConstruction
-            title="برگشت از خرید"
-            description="فرم برگشت از خرید با کنترل مقدار نسبت به فاکتور خرید و اثر معکوس در بهای تمام‌شده."
-            reference="PI5uot"
             phase="فاز ۶"
           />
         )
@@ -340,6 +323,10 @@ export default function App() {
             phase="فاز ۶"
           />
         )
+      case 'sales-return':
+        return <Returns sale />
+      case 'purchase-return':
+        return <Returns sale={false} />
       case 'chart-of-accounts':
         return <ChartOfAccounts />
       case 'accounting':

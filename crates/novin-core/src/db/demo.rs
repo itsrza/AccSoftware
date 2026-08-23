@@ -197,6 +197,7 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
         seed_treasury_documents(&tx, &treasury_ids),
     )?;
     step("checks", seed_checks(&tx, &treasury_ids))?;
+    step("returns", seed_returns(&tx, &warehouse_ids))?;
 
     tx.commit()?;
     Ok(())
@@ -891,6 +892,80 @@ fn seed_checks(tx: &Connection, treasury: &[String]) -> Result<()> {
                 status,
                 format!("بانک {}", CITIES[index % CITIES.len()]),
                 USER
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+/// برگشت از فروش و خرید نمونه.
+///
+/// قاعده‌ای که رعایت می‌شود: مقدار برگشتی هرگز از مقدار فاکتور اصلی بیشتر
+/// نیست. بخشی از برگشت‌ها پیش‌نویس می‌مانند تا هر دو وضعیت در نرم‌افزار
+/// قابل مشاهده باشد. سند حسابداری در همین‌جا صادر نمی‌شود؛ صدور سند کار
+/// «ثبت قطعی» است و باید از مسیر واقعی برنامه انجام شود.
+fn seed_returns(tx: &Connection, warehouses: &[String]) -> Result<()> {
+    let first_number = next_number(tx, "sales_returns")?;
+    for index in 0..8usize {
+        let invoice_id = format!("demo-sale-{:03}", index * 6);
+        // اگر فاکتور مرجع وجود نداشته باشد، از این برگشت صرف‌نظر می‌شود.
+        let invoice: Option<(String, Option<String>)> = tx
+            .query_row(
+                "SELECT id,contact_id FROM sales_invoices WHERE id=?1",
+                params![invoice_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .ok();
+        let Some((invoice_id, contact)) = invoice else {
+            continue;
+        };
+
+        // نخستین قلم فاکتور، با نصف مقدار — برگشت جزئی، حالت رایج واقعی.
+        let line: Option<(String, f64, i64)> = tx
+            .query_row(
+                "SELECT product_id,quantity,unit_price FROM sales_invoice_lines \
+                 WHERE invoice_id=?1 ORDER BY id LIMIT 1",
+                params![invoice_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+        let Some((product, quantity, price)) = line else {
+            continue;
+        };
+        let returned = (quantity / 2.0).max(1.0).min(quantity);
+        let total = (returned * price as f64).round() as i64;
+
+        let return_id = format!("demo-return-{index:03}");
+        let status = if index % 3 == 0 { "draft" } else { "posted" };
+        tx.execute(
+            "INSERT OR IGNORE INTO sales_returns(id,company_id,fiscal_year_id,number,return_date,\
+             original_invoice_id,contact_id,warehouse_id,status,total,created_by) \
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+            params![
+                return_id,
+                COMPANY,
+                FISCAL_YEAR,
+                first_number + index as i64,
+                demo_date(index + 60),
+                invoice_id,
+                contact,
+                warehouses[index % warehouses.len()],
+                status,
+                total,
+                USER
+            ],
+        )?;
+        require_row(tx, "sales_returns", &return_id)?;
+        tx.execute(
+            "INSERT OR IGNORE INTO sales_return_lines(id,return_id,product_id,quantity,\
+             unit_price,line_total) VALUES(?1,?2,?3,?4,?5,?6)",
+            params![
+                format!("{return_id}-l0"),
+                return_id,
+                product,
+                returned,
+                price,
+                total
             ],
         )?;
     }

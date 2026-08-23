@@ -281,6 +281,31 @@ const demoAccounts = RAW_ACCOUNTS.map(([code, name, level, parent, nature, debit
   }
 })
 
+/** برگشت‌های نمونه، متصل به فاکتورهای واقعی دمو. */
+const demoReturns = Array.from({length: 8}, (_, index) => {
+  const invoice = salesInvoices[index * 3]
+  const total = ((index % 4) + 1) * 9_500_000
+  const tax = Math.round((total * 9) / 100)
+  const status = index % 4 === 0 ? 'draft' : index % 7 === 6 ? 'cancelled' : 'posted'
+  return {
+    id: `demo-return-${String(index).padStart(3, '0')}`,
+    number: index + 1,
+    return_date: jalaliDate(index + 6),
+    original_invoice_id: invoice.id,
+    original_invoice_number: invoice.number,
+    contact_id: invoice.contact_id,
+    contact_name: invoice.contact_name,
+    warehouse_name: invoice.warehouse_name,
+    status,
+    status_label: status === 'draft' ? 'پیش‌نویس' : status === 'posted' ? 'ثبت‌شده' : 'باطل‌شده',
+    total,
+    tax,
+    grand_total: total + tax,
+    journal_id: status === 'posted' ? `demo-jrn-return-${index}` : undefined,
+    line_count: 2,
+  }
+})
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -721,6 +746,41 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
         'طول این کد با طرح کدینگ فعلی نمی‌خواند؛ کدینگ مسطح است و کار می‌کند، ولی پیشنهاد کد خودکار برایش دقیق نیست.',
     },
   ],
+  // ---- برگشت از فروش و خرید ----
+  list_returnable_lines: (args: Record<string, unknown>) => {
+    const invoice = salesInvoices.find((row) => row.id === args.invoiceId) ?? salesInvoices[0]
+    const seed = invoice.number
+    return products.slice(seed % 5, (seed % 5) + 3).map((product, index) => {
+      const invoiced = ((seed + index) % 4) + 2
+      const returned = index === 0 ? 1 : 0
+      return {
+        product_id: product.id,
+        product_name: product.name,
+        unit: product.unit,
+        invoiced_quantity: invoiced,
+        returned_quantity: returned,
+        returnable_quantity: invoiced - returned,
+        unit_price: product.sale_price,
+      }
+    })
+  },
+  list_returns: (args: Record<string, unknown>) =>
+    demoReturns.filter((r) => !args.status || r.status === args.status),
+  get_return: (args: Record<string, unknown>) => {
+    const header = demoReturns.find((r) => r.id === args.id) ?? demoReturns[0]
+    const lines = products.slice(0, 2).map((product, index) => ({
+      id: `${header.id}-l${index}`,
+      product_id: product.id,
+      product_name: product.name,
+      quantity: index + 1,
+      unit_price: product.sale_price,
+      line_total: (index + 1) * product.sale_price,
+    }))
+    return {header, lines}
+  },
+  post_sales_return_v2: () => undefined,
+  post_purchase_return_v2: () => undefined,
+  cancel_return: () => undefined,
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>
     treasuryAccounts
