@@ -581,7 +581,8 @@ pub fn save_account(
 
             // اگر هر دو کد با طرح کدینگ بخوانند، پیشوند هم باید بخواند.
             // اگر کدینگ مسطح است، این بررسی نادیده گرفته می‌شود.
-            if let (Ok(_), Ok(expected)) = (scheme.level_of(&parent_code), scheme.parent_code(&code))
+            if let (Ok(_), Ok(expected)) =
+                (scheme.level_of(&parent_code), scheme.parent_code(&code))
             {
                 if expected != parent_code {
                     return Err(format!(
