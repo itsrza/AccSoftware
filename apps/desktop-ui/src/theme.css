@@ -419,7 +419,7 @@ textarea:focus {
 .primary {
   background: var(--brand);
   border-color: var(--brand);
-  color: #fff;
+  color: var(--on-primary);
 }
 .btn-primary:hover:not(:disabled),
 .primary:hover:not(:disabled) {
@@ -429,7 +429,7 @@ textarea:focus {
 .btn-gold {
   background: var(--gold);
   border-color: var(--gold);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-gold:hover:not(:disabled) {
   background: var(--gold-600);
@@ -952,7 +952,7 @@ tr.needs-recount .count-input {
 /* دکمه‌ها با زبان بصری تازه */
 button.primary {
   background: var(--primary);
-  color: #f4f5fd;
+  color: var(--on-primary);
   border: none;
   border-radius: 12px;
   padding: 10px 18px;

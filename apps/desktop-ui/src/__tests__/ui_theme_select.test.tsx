@@ -155,6 +155,23 @@ describe('دراپ‌داون سیستم طراحی', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 
+  it('د۱۰.الف — فهرست با پورتال روی body باز می‌شود تا هیچ overflow آن را نبُرد', () => {
+    // دراپ‌داون‌های داخل پاپ‌آپ و جدول‌های اسکرول‌دار قبلاً بریده می‌شدند.
+    const { container } = render(
+      <div style={{ overflow: 'hidden', height: 20 }}>
+        <Select defaultValue="a">
+          <option value="a">الف</option>
+          <option value="b">ب</option>
+        </Select>
+      </div>,
+    )
+    fireEvent.click(screen.getByRole('combobox'))
+    const list = screen.getByRole('listbox')
+    expect(container.contains(list)).toBe(false)
+    expect(document.body.contains(list)).toBe(true)
+    expect(list.style.position).toBe('fixed')
+  })
+
   it('د۱۱ — هیچ صفحه‌ای دیگر select بومی ندارد', () => {
     const files = [
       'pages/Checks.tsx',
@@ -242,6 +259,25 @@ describe('تم روشن و تیره', () => {
     const modal = theme.slice(theme.indexOf('.modal {'), theme.indexOf('.modal {') + 400)
     expect(modal).toMatch(/background:\s*var\(--surface\)/)
     expect(modal).toMatch(/color:\s*var\(--text\)/)
+  })
+
+  it('ت۹.الف — متن روی سطح رنگی توکن اختصاصی دارد', () => {
+    // بدون --on-primary، دکمه‌ی اصلی در تم تیره سفیدِ روی زمینه‌ی روشن می‌شد.
+    for (const token of ['--on-primary', '--on-accent', '--on-danger']) {
+      const light = design.slice(design.indexOf(':root {'), design.indexOf('.dark {'))
+      const dark = design.slice(design.indexOf('.dark {'), design.indexOf('@theme inline'))
+      expect(light, `${token} در تم روشن`).toContain(token)
+      expect(dark, `${token} در تم تیره`).toContain(token)
+    }
+    // و هیچ سطح رنگی‌ای رنگ متنش را از --surface نمی‌گیرد.
+    expect(styles).not.toMatch(/background:var\(--brand\);color:var\(--surface\)/)
+  })
+
+  it('ت۹.ب — CSS منوی کناری قدیمی حذف شده است', () => {
+    const rules = styles.replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const dead of ['.nav-item', '.subnav ', '.company-switch', '.storage ']) {
+      expect(rules, `${dead} کد مرده است`).not.toContain(dead)
+    }
   })
 
   it('ت۹ — پوشش مرکز تنظیمات مات است تا صفحه‌ی زیرین دیده نشود', () => {

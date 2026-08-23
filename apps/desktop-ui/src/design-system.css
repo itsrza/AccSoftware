@@ -33,6 +33,11 @@
 
   --primary: #21254e;
   --primary-soft: rgba(33, 37, 78, 0.07);
+  /* رنگ متن روی سطح رنگی. در تم تیره خودِ سطح روشن می‌شود، پس متن باید
+     تیره شود؛ بدون این توکن دکمه‌ی اصلی در تم تیره سفیدِ روی روشن می‌شد. */
+  --on-primary: #f4f5fd;
+  --on-accent: #21254e;
+  --on-danger: #ffffff;
   --accent: #dca757;
   --accent-strong: #c8923c;
   --accent-soft: rgba(220, 167, 87, 0.16);
@@ -81,6 +86,9 @@
 
   --primary: #a3a8e8;
   --primary-soft: rgba(163, 168, 232, 0.1);
+  --on-primary: #171a33;
+  --on-accent: #1d1836;
+  --on-danger: #2a1414;
   --accent: #dca757;
   --accent-strong: #e7b96c;
   --accent-soft: rgba(220, 167, 87, 0.14);
