@@ -353,7 +353,8 @@ fn t118_every_opened_transaction_is_committed() {
         }
         // فرمان فقط-خواندنی تراکنش را برای نمای ثابت باز می‌کند و نیازی
         // به commit ندارد؛ rollback خودکار همان رفتار درست است.
-        let writes = body.contains("INSERT ") || body.contains("UPDATE ") || body.contains("DELETE ");
+        let writes =
+            body.contains("INSERT ") || body.contains("UPDATE ") || body.contains("DELETE ");
         if writes && !body.contains("tx.commit()") {
             leaking.push(format!("{file}::{name}"));
         }
