@@ -10,6 +10,7 @@ import {TreasuryDocumentForm} from './pages/TreasuryDocumentForm'
 import {TreasuryAccounts} from './pages/TreasuryAccounts'
 import {ChartOfAccounts} from './pages/ChartOfAccounts'
 import {Returns} from './pages/Returns'
+import {InventoryTransfer} from './pages/InventoryTransfer'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -294,15 +295,6 @@ export default function App() {
         return <DataPage kind="products" />
       case 'inventory':
         return <AdvancedInventory />
-      case 'inventory-transfer':
-        return (
-          <UnderConstruction
-            title="انتقال بین انبارها"
-            description="فرم انتقال کالا بین انبارها با کنترل موجودی مبدأ، موجودی در راه و رسید انبار مقصد. موتور انتقال در هسته آماده است و فرم آن در فاز انبار ساخته می‌شود."
-            reference="8Xmc1p"
-            phase="فاز ۷ — انبار"
-          />
-        )
       case 'inventory-count':
         return <Stocktaking />
       case 'proforma':
@@ -323,6 +315,8 @@ export default function App() {
             phase="فاز ۶"
           />
         )
+      case 'inventory-transfer':
+        return <InventoryTransfer />
       case 'sales-return':
         return <Returns sale />
       case 'purchase-return':

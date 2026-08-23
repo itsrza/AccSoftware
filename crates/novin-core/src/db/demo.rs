@@ -198,6 +198,7 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     )?;
     step("checks", seed_checks(&tx, &treasury_ids))?;
     step("returns", seed_returns(&tx, &warehouse_ids))?;
+    step("transfers", seed_transfers(&tx, &warehouse_ids))?;
 
     tx.commit()?;
     Ok(())
@@ -968,6 +969,122 @@ fn seed_returns(tx: &Connection, warehouses: &[String]) -> Result<()> {
                 total
             ],
         )?;
+    }
+    Ok(())
+}
+
+/// حواله‌های انتقال بین انبارها.
+///
+/// انتقال هیچ اثر مالی ندارد — فقط جای کالا عوض می‌شود. حواله‌های «در راه»
+/// موجودی مبدأ را کم کرده‌اند ولی هنوز به مقصد اضافه نشده‌اند؛ همان وضعیتی
+/// که در دنیای واقعی بین بارگیری و تحویل وجود دارد.
+fn seed_transfers(tx: &Connection, warehouses: &[String]) -> Result<()> {
+    if warehouses.len() < 2 {
+        return Ok(());
+    }
+    for index in 0..10usize {
+        let product = format!("demo-prod-{:03}", (index * 6) % PRODUCT_COUNT);
+        let from = &warehouses[index % warehouses.len()];
+        let to = &warehouses[(index + 1) % warehouses.len()];
+        if from == to {
+            continue;
+        }
+        let unit_cost: i64 = tx
+            .query_row(
+                "SELECT purchase_price FROM products WHERE id=?1",
+                params![product],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let quantity = (index % 6 + 2) as f64;
+
+        // فقط تا سقف موجودی مبدأ منتقل می‌شود؛ انتقال بیش از موجودی یعنی
+        // کالایی که وجود ندارد جابه‌جا شده است.
+        let available: f64 = tx
+            .query_row(
+                "SELECT COALESCE(quantity,0) FROM inventory_balances \
+                 WHERE product_id=?1 AND warehouse_id=?2",
+                params![product, from],
+                |row| row.get(0),
+            )
+            .unwrap_or(0.0);
+        if available < quantity {
+            continue;
+        }
+
+        let status = if index % 3 == 0 {
+            "in_transit"
+        } else {
+            "received"
+        };
+        tx.execute(
+            "INSERT OR IGNORE INTO inventory_transfer_orders(id,company_id,product_id,\
+             from_warehouse_id,to_warehouse_id,quantity,unit_cost,status,note,created_by) \
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            params![
+                format!("demo-transfer-{index:03}"),
+                COMPANY,
+                product,
+                from,
+                to,
+                quantity,
+                unit_cost,
+                status,
+                "تأمین موجودی شعبه",
+                USER
+            ],
+        )?;
+
+        // موجودی مبدأ در هر دو حالت کم می‌شود؛ مقصد فقط پس از تحویل زیاد.
+        tx.execute(
+            "UPDATE inventory_balances SET quantity=quantity-?1 \
+             WHERE product_id=?2 AND warehouse_id=?3",
+            params![quantity, product, from],
+        )?;
+        if status == "in_transit" {
+            tx.execute(
+                "UPDATE inventory_balances SET in_transit_quantity=in_transit_quantity+?1 \
+                 WHERE product_id=?2 AND warehouse_id=?3",
+                params![quantity, product, from],
+            )?;
+        } else {
+            tx.execute(
+                "INSERT INTO inventory_balances(product_id,warehouse_id,quantity) \
+                 VALUES(?1,?2,?3) ON CONFLICT(product_id,warehouse_id) \
+                 DO UPDATE SET quantity=quantity+excluded.quantity",
+                params![product, to, quantity],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,\
+                 movement_type,quantity,unit_cost,reference_type,reference_id,note,created_by) \
+                 VALUES(?1,?2,?3,?4,'transfer_out',?5,?6,'transfer',?7,'انتقال بین انبار',?8)",
+                params![
+                    format!("demo-transfer-{index:03}-out"),
+                    COMPANY,
+                    product,
+                    from,
+                    quantity,
+                    unit_cost,
+                    format!("demo-transfer-{index:03}"),
+                    USER
+                ],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,\
+                 movement_type,quantity,unit_cost,reference_type,reference_id,note,created_by) \
+                 VALUES(?1,?2,?3,?4,'transfer_in',?5,?6,'transfer',?7,'انتقال بین انبار',?8)",
+                params![
+                    format!("demo-transfer-{index:03}-in"),
+                    COMPANY,
+                    product,
+                    to,
+                    quantity,
+                    unit_cost,
+                    format!("demo-transfer-{index:03}"),
+                    USER
+                ],
+            )?;
+        }
     }
     Ok(())
 }

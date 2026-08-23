@@ -306,6 +306,23 @@ const demoReturns = Array.from({length: 8}, (_, index) => {
   }
 })
 
+/** حواله‌های انتقال نمونه بین انبارهای واقعی دمو. */
+const demoTransfers = Array.from({length: 10}, (_, index) => {
+  const product = products[(index * 6) % products.length]
+  const from = warehouses[index % warehouses.length]
+  const to = warehouses[(index + 1) % warehouses.length]
+  return {
+    id: `demo-transfer-${String(index).padStart(3, '0')}`,
+    product_id: product.id,
+    from_warehouse_id: from.id,
+    to_warehouse_id: to.id,
+    quantity: (index % 6) + 2,
+    unit_cost: product.purchase_price,
+    status: index % 3 === 0 ? 'in_transit' : index % 7 === 6 ? 'cancelled' : 'received',
+    note: index % 2 === 0 ? 'تأمین موجودی شعبه' : undefined,
+  }
+})
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -468,7 +485,6 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   get_inventory_valuation_method: () => 'fifo',
   list_inventory_lots: () => [],
   list_inventory_counts: () => [],
-  list_inventory_transfer_orders: () => [],
   list_product_groups: () => [
     {id: 'pgroup-food', code: '1', title: 'مواد غذایی', product_count: 15},
     {id: 'pgroup-misc', code: '2', title: 'کالاهای متفرقه', product_count: 15},
@@ -781,6 +797,10 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   post_sales_return_v2: () => undefined,
   post_purchase_return_v2: () => undefined,
   cancel_return: () => undefined,
+  // ---- انتقال بین انبارها ----
+  list_inventory_transfer_orders: () => demoTransfers,
+  create_inventory_transfer_order: () => 'transfer-preview',
+  receive_inventory_transfer: () => undefined,
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>
     treasuryAccounts

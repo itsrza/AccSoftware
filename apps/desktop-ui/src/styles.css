@@ -386,3 +386,7 @@ button{font:inherit}
 .qty-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-100)}
 .qty-input:disabled{opacity:.4;cursor:not-allowed}
 .large-table tr.total-row td{font-weight:700;color:var(--brand);border-top:2px solid var(--gold);background:var(--surface-2)}
+
+/* ---- خلاصه‌ی درون‌خطی فرم‌ها ---- */
+.inline-summary{display:flex;flex-wrap:wrap;gap:22px;margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--surface-2);border-inline-start:3px solid var(--gold);font-size:12.5px;color:var(--text-2)}
+.inline-summary b{color:var(--text);font-variant-numeric:tabular-nums}
