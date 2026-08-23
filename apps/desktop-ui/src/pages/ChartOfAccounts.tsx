@@ -352,8 +352,8 @@ export function ChartOfAccounts() {
       </div>
 
       {draft && (
-        <div className="modal-backdrop" onClick={() => setDraft(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal">
             <div className="modal-head">
               <div>
                 <h2>{draft.id ? 'ویرایش حساب' : 'حساب جدید'}</h2>

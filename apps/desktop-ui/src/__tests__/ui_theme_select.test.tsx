@@ -364,3 +364,119 @@ describe('ورود و خروج اطلاعات', () => {
     expect(page).toContain("'\\ufeff'")
   })
 })
+
+// ---------------------------------------------------------------------------
+// پاپ‌آپ‌ها
+// ---------------------------------------------------------------------------
+describe('رفتار بستن پاپ‌آپ‌ها', () => {
+  /** فرم‌های ورود داده: کلیک بیرون نباید کار نیمه‌تمام را دور بیندازد. */
+  const DATA_ENTRY = [
+    'pages/InvoiceForm.tsx',
+    'pages/PartyForm.tsx',
+    'pages/Quotes.tsx',
+    'pages/Stocktaking.tsx',
+    'pages/ChartOfAccounts.tsx',
+    'pages/ProductionFormulaDialogs.tsx',
+    'pages/DataPage.tsx',
+    'pages/Operations.tsx',
+    'pages/AdvancedInventory.tsx',
+    'pages/Treasury.tsx',
+    'pages/TreasuryAccounts.tsx',
+  ]
+
+  it('پ۱ — فرم افزودن کالای فاکتور فقط با دکمه بسته می‌شود', () => {
+    const code = src('pages/InvoiceForm.tsx')
+    expect(code).toContain('<div className="modal-backdrop" role="presentation">')
+    expect(code).not.toMatch(/modal-backdrop"\s+onClick/)
+    // ولی راه بستن باید وجود داشته باشد: هم دکمه‌ی بستن، هم انصراف.
+    expect(code).toContain('aria-label="بستن"')
+    expect(code).toMatch(/>\s*انصراف\s*</)
+  })
+
+  it('پ۲ — هیچ فرم ورود داده‌ای با کلیک روی پس‌زمینه بسته نمی‌شود', () => {
+    // تنها پاپ‌آپ‌هایی حق دارند با کلیک بیرون بسته شوند که «نمایش جزئیات»
+    // باشند؛ نام state آن‌ها این را نشان می‌دهد.
+    const readOnlyClosers = /setDetail\(|setSelected\(|setFormulaDetail\(/
+    const offenders: string[] = []
+    for (const file of DATA_ENTRY) {
+      for (const match of src(file).matchAll(/modal-backdrop"\s+onClick=\{([^}]*)\}/g)) {
+        if (!readOnlyClosers.test(match[1])) offenders.push(`${file}: ${match[1]}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('پ۲.ب — هر فایل حداقل یک پاپ‌آپ غیرقابل‌بستن با کلیک بیرون دارد', () => {
+    const offenders = DATA_ENTRY.filter(
+      (file) => !src(file).includes('modal-backdrop" role="presentation"'),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  it('پ۳ — هر فرم ورود داده راه بستن صریح دارد', () => {
+    const offenders = DATA_ENTRY.filter((file) => {
+      const code = src(file)
+      return !/انصراف/.test(code) && !/aria-label="بستن"/.test(code)
+    })
+    expect(offenders).toEqual([])
+  })
+
+  it('پ۴ — پاپ‌آپ‌های فقط-خواندنی همچنان با کلیک بیرون بسته می‌شوند', () => {
+    // بستن تصادفی یک «نمایش جزئیات» چیزی را از بین نمی‌برد؛ اینجا سرعت مهم‌تر است.
+    for (const file of ['pages/Checks.tsx', 'pages/Returns.tsx']) {
+      expect(src(file), file).toMatch(/modal-backdrop"\s+onClick/)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// کامل بودن داده‌ی نمونه‌ی پیش‌نمایش
+// ---------------------------------------------------------------------------
+describe('داده‌ی نمونه‌ی پیش‌نمایش', () => {
+  const apiSource = src('api.ts')
+  const preview = src('lib/devPreview.ts')
+  const extras = src('lib/preview/extras.ts')
+
+  const commands = Array.from(
+    new Set([
+      ...Array.from(apiSource.matchAll(/api<[^>]*>\('([a-z0-9_]+)'/g)).map((m) => m[1]),
+      ...Array.from(apiSource.matchAll(/\bapi\('([a-z0-9_]+)'/g)).map((m) => m[1]),
+    ]),
+  )
+
+  const simulated = new Set([
+    ...Array.from(preview.matchAll(/^ {2}([a-z0-9_]+):/gm)).map((m) => m[1]),
+    ...Array.from(extras.matchAll(/^ {4}([a-z0-9_]+):/gm)).map((m) => m[1]),
+  ])
+
+  it('ن۱ — هر فرمانی که رابط کاربری صدا می‌زند در پیش‌نمایش پاسخ دارد', () => {
+    const missing = commands.filter((command) => !simulated.has(command))
+    expect(missing, 'فرمان بدون پاسخ باعث می‌شود صفحه خالی بماند').toEqual([])
+    expect(commands.length).toBeGreaterThan(150)
+  })
+
+  it('ن۲ — بخش‌های ابزار خالی برنمی‌گردند', () => {
+    for (const marker of [
+      'list_print_templates',
+      'list_custom_reports',
+      'list_api_profiles',
+      'list_plugins',
+      'list_backups',
+      'list_permissions',
+    ]) {
+      expect(extras, `${marker} باید محتوای نمونه بدهد`).toContain(marker)
+    }
+    expect(extras).not.toMatch(/list_print_templates: \(\) => \[\]/)
+  })
+
+  it('ن۳ — گزارش‌ها از همان فاکتورهای دمو ساخته می‌شوند، نه عدد ثابت', () => {
+    expect(extras).toMatch(/get_sales_report:[\s\S]{0,200}salesInvoices/)
+    expect(extras).toMatch(/get_purchase_report:[\s\S]{0,200}purchaseInvoices/)
+  })
+
+  it('ن۴ — شبیه‌ساز از ماژول جدا می‌آید تا فایل غول‌پیکر نشود', () => {
+    expect(preview).toContain("from './preview/extras'")
+    expect(preview.split('\n').length).toBeLessThan(1500)
+    expect(extras.split('\n').length).toBeLessThan(700)
+  })
+})

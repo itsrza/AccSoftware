@@ -200,8 +200,8 @@ export function PartyForm({
     set({ occasions: form.occasions.filter((_, i) => i !== index) })
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal party-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal party-modal">
         <div className="modal-head">
           <div>
             <h2>{partyId ? 'ویرایش شخص' : 'افزودن شخص'}</h2>

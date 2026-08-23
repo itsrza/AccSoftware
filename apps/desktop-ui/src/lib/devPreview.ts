@@ -13,6 +13,8 @@
  * نه با سه ردیف نمایشی.
  */
 
+import { buildExtraResponses } from './preview/extras'
+
 export const isTauriRuntime = () =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
@@ -1318,17 +1320,27 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
     {code: '2101', name: 'تأمین‌کنندگان', debit: 0, credit: 420_000_000},
     {code: '4100', name: 'فروش کالا', debit: 0, credit: 2_283_800_000},
   ],
-  list_custom_reports: () => [],
-  list_print_templates: () => [],
-  list_api_profiles: () => [],
-  list_plugins: () => [],
-  list_permissions: () => [],
-  list_backups: () => [],
+}
+
+/* پاسخ‌های مشتق (گزارش‌ها، خزانه، ابزارها) از ماژول جدا می‌آیند تا این فایل
+ * غول‌پیکر نشود و منطق «داده» از منطق «گزارش» جدا بماند. */
+const allResponses: Record<string, (args: Record<string, unknown>) => unknown> = {
+  ...responses,
+  ...buildExtraResponses({
+    products,
+    contacts,
+    salesInvoices,
+    purchaseInvoices,
+    accounts: demoAccounts,
+    treasuryAccounts,
+    warehouses,
+    jalaliDate,
+  }),
 }
 
 /** پاسخ شبیه‌سازی‌شده برای یک فرمان. */
 export function designPreviewInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  const handler = responses[command]
+  const handler = allResponses[command]
   if (handler) {
     return new Promise((resolve) => setTimeout(() => resolve(handler(args ?? {}) as T), 60))
   }

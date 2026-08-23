@@ -4,6 +4,7 @@
 //! یکپارچگی داده در یک نقطه تضمین شود.
 
 pub mod demo;
+pub mod demo_extras;
 
 use rusqlite::{Connection, Result};
 use std::path::Path;

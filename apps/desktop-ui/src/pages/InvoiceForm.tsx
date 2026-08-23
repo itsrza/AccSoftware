@@ -572,8 +572,8 @@ function LineEditor({
     setDraft({...draft, [field]: parseAmount(event.target.value) ?? 0})
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal form-modal" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal form-modal">
         <div className="modal-head">
           <div>
             <div className="eyebrow">سطر فاکتور</div>

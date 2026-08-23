@@ -42,8 +42,8 @@ export function ProductionFormulaDialogs({
   return (
     <>
     {formulaForm && (
-      <div className="modal-backdrop" onClick={() => setFormulaForm(null)}>
-        <div className="modal party-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-backdrop" role="presentation">
+        <div className="modal party-modal">
           <div className="modal-head">
             <div>
               <h2>فرمول تولید</h2>
@@ -211,7 +211,7 @@ export function ProductionFormulaDialogs({
 
     {formulaDetail && (
       <div className="modal-backdrop" onClick={() => setFormulaDetail(undefined)}>
-        <div className="modal form-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal form-modal">
           <div className="modal-head">
             <div>
               <h2>{formulaDetail.header.title}</h2>

@@ -345,8 +345,8 @@ export function Quotes({ kind }: { kind: Kind }) {
       </div>
 
       {formOpen && (
-        <div className="modal-backdrop" onClick={() => setFormOpen(false)}>
-          <div className="modal party-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal party-modal">
             <div className="modal-head">
               <div>
                 <h2>{sales ? 'پیش‌فاکتور جدید' : 'سفارش خرید جدید'}</h2>
@@ -513,7 +513,7 @@ export function Quotes({ kind }: { kind: Kind }) {
 
       {detail && (
         <div className="modal-backdrop" onClick={() => setDetail(undefined)}>
-          <div className="modal form-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal form-modal">
             <div className="modal-head">
               <div>
                 <h2>

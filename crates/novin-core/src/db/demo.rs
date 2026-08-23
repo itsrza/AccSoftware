@@ -165,6 +165,24 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
         |row| row.get(0),
     )?;
     if existing >= PRODUCT_COUNT as i64 {
+        // داده‌ی جریان اصلی قبلاً ساخته شده است.
+        //
+        // ولی نسخه‌های بعدی ممکن است بخش‌های پشتیبان تازه‌ای اضافه کنند
+        // (تولید، انبارگردانی، قالب چاپ…). اگر اینجا زودهنگام برگردیم،
+        // کاربری که قبلاً برنامه را باز کرده هرگز آن‌ها را نمی‌بیند. پس
+        // فقط بخش پشتیبان — که خودش Idempotent است — دوباره اجرا می‌شود.
+        let tx = conn.unchecked_transaction()?;
+        let warehouse_ids = collect_ids(
+            &tx,
+            "SELECT id FROM warehouses WHERE company_id=?1 ORDER BY code",
+        )?;
+        if !warehouse_ids.is_empty() {
+            step(
+                "supporting",
+                super::demo_extras::seed_supporting_data(&tx, &warehouse_ids),
+            )?;
+        }
+        tx.commit()?;
         return Ok(());
     }
 
@@ -200,6 +218,10 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     step("returns", seed_returns(&tx, &warehouse_ids))?;
     step("transfers", seed_transfers(&tx, &warehouse_ids))?;
     step("quotes", seed_quotes(&tx, &warehouse_ids))?;
+    step(
+        "supporting",
+        super::demo_extras::seed_supporting_data(&tx, &warehouse_ids),
+    )?;
 
     tx.commit()?;
     Ok(())

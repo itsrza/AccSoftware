@@ -395,8 +395,8 @@ export function Stocktaking() {
       )}
 
       {creating && (
-        <div className="modal-backdrop" onClick={() => setCreating(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal">
             <h2>دوره‌ی جدید انبارگردانی</h2>
             <p style={{fontSize: 12.5, color: 'var(--text-2)', marginTop: 0}}>
               با ایجاد دوره، موجودی سیستمی همه‌ی کالاهای این انبار در همین لحظه فریز می‌شود تا

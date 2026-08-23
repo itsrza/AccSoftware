@@ -257,8 +257,8 @@ export function TreasuryAccounts({ mode }: { mode: Mode }) {
       </div>
 
       {form && (
-        <div className="modal-backdrop" onClick={() => setForm(null)}>
-          <div className="modal form-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal form-modal">
             <div className="modal-head">
               <div>
                 <h2>{form.id ? 'ویرایش حساب' : 'حساب جدید'}</h2>
