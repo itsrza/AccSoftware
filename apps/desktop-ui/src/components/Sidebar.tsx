@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { Avatar } from './Avatar'
 
 /**
  * منوی کناری — منطبق با سیستم طراحی مرجع.
@@ -324,6 +325,8 @@ export function Sidebar({
   fiscalYear,
   userName,
   userRole,
+  avatar,
+  onOpenSettings,
 }: {
   groups: NavGroup[]
   bottom: NavItem[]
@@ -337,11 +340,18 @@ export function Sidebar({
   fiscalYear: string
   userName: string
   userRole: string
+  avatar?: string
+  onOpenSettings: () => void
 }) {
   const body = (isCollapsed: boolean) => (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative">
-        <div className={cn('flex items-center gap-3 px-4 pt-5 pb-4', isCollapsed && 'justify-center px-2')}>
+        <div
+          className={cn(
+            'brand-shine flex items-center gap-3 px-4 pt-5 pb-4',
+            isCollapsed && 'justify-center px-2',
+          )}
+        >
           <div className="relative grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] shadow-[0_8px_20px_-6px_rgba(220,167,87,.55)]">
             <svg viewBox="0 0 24 24" className="size-6 text-[#21254E]" fill="currentColor" aria-hidden>
               <path d="M12 2 2.5 9.5 12 22l9.5-12.5L12 2Zm0 3.1 5.4 4.4L12 17.2 6.6 9.5 12 5.1Z" />
@@ -418,9 +428,13 @@ export function Sidebar({
         </ul>
 
         {!isCollapsed ? (
-          <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-[var(--sidebar-border)] bg-white/5 px-3 py-2.5">
-            <span className="relative grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#565fa8] to-[#2e3270] text-xs font-extrabold text-white">
-              {userName.slice(0, 2)}
+          <button
+            onClick={onOpenSettings}
+            aria-label="مرکز تنظیمات"
+            className="mt-3 flex w-full items-center gap-2.5 rounded-xl border border-[var(--sidebar-border)] bg-white/5 px-3 py-2.5 text-start transition-colors hover:bg-white/10"
+          >
+            <span className="relative shrink-0">
+              <Avatar src={avatar} name={userName} size={36} />
               <span
                 className="pulse-dot absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full border-2 border-[#1d2046] bg-success"
                 aria-hidden
@@ -431,17 +445,21 @@ export function Sidebar({
               <span className="block text-[10px] text-[var(--sidebar-text)]">{userRole}</span>
             </span>
             <CircleUserRound className="size-4 shrink-0 text-[var(--sidebar-text)]" aria-hidden />
-          </div>
+          </button>
         ) : (
-          <div className="mt-3 flex justify-center">
-            <span className="relative grid size-9 place-items-center rounded-full bg-gradient-to-br from-[#565fa8] to-[#2e3270] text-xs font-extrabold text-white">
-              {userName.slice(0, 2)}
+          <button
+            onClick={onOpenSettings}
+            aria-label="مرکز تنظیمات"
+            className="mt-3 flex w-full justify-center"
+          >
+            <span className="relative">
+              <Avatar src={avatar} name={userName} size={36} />
               <span
                 className="pulse-dot absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full border-2 border-[#1d2046] bg-success"
                 aria-hidden
               />
             </span>
-          </div>
+          </button>
         )}
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { Avatar } from './Avatar'
 import { todayJalali } from '../lib/format'
 
 /**
@@ -192,11 +193,13 @@ function NotificationsMenu({
 function ProfileMenu({
   userName,
   userRole,
+  avatar,
   onSettings,
   onLogout,
 }: {
   userName: string
   userRole: string
+  avatar?: string
   onSettings: () => void
   onLogout: () => void
 }) {
@@ -211,9 +214,7 @@ function ProfileMenu({
         aria-expanded={open}
         className="flex items-center gap-2 rounded-xl border border-border bg-card px-2 py-1.5 transition-colors hover:border-border-strong"
       >
-        <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-[#565fa8] to-[#2e3270] text-[10px] font-extrabold text-white">
-          {userName.slice(0, 2)}
-        </span>
+        <Avatar src={avatar} name={userName} size={28} />
         <span className="hidden min-w-0 leading-tight sm:block">
           <span className="block truncate text-[11px] font-bold text-text">{userName}</span>
           <span className="block text-[10px] text-faint">{userRole}</span>
@@ -222,9 +223,7 @@ function ProfileMenu({
       {open && (
         <div className="fade-up absolute top-[calc(100%+8px)] end-0 z-50 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
           <div className="flex items-center gap-2.5 rounded-xl bg-bg-soft px-2.5 py-2.5">
-            <span className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-[#565fa8] to-[#2e3270] text-xs font-extrabold text-white">
-              {userName.slice(0, 2)}
-            </span>
+            <Avatar src={avatar} name={userName} size={36} />
             <span className="min-w-0 leading-tight">
               <span className="block truncate text-xs font-bold text-text">{userName}</span>
               <span className="block text-[10px] text-muted">{userRole}</span>
@@ -254,48 +253,6 @@ function ProfileMenu({
   )
 }
 
-function QuickCreate({
-  actions,
-  navigate,
-}: {
-  actions: QuickAction[]
-  navigate: (page: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useDismiss(() => setOpen(false))
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((value) => !value)}
-        aria-label="ایجاد سریع"
-        aria-expanded={open}
-        className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-bold text-[#f4f5fd] transition-transform hover:scale-[1.03] active:scale-95 dark:bg-accent dark:text-[#1d1836]"
-      >
-        <Plus className="size-4" aria-hidden />
-        <span className="hidden sm:inline">ایجاد سریع</span>
-      </button>
-      {open && (
-        <div className="fade-up absolute top-[calc(100%+8px)] end-0 z-50 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
-          <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">عملیات پرکاربرد</p>
-          {actions.map((action) => (
-            <button
-              key={action.page}
-              onClick={() => {
-                setOpen(false)
-                navigate(action.page)
-              }}
-              className="block w-full rounded-lg px-2.5 py-2 text-start text-xs text-muted transition-colors hover:bg-bg-soft hover:text-text"
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function Topbar({
   title,
   breadcrumb,
@@ -307,9 +264,9 @@ export function Topbar({
   search,
   navigate,
   notifications,
-  quickActions,
   userName,
   userRole,
+  avatar,
 }: {
   title: string
   breadcrumb: string
@@ -321,9 +278,10 @@ export function Topbar({
   search: (query: string) => SearchHit[]
   navigate: (page: string) => void
   notifications: NotificationItem[]
-  quickActions: QuickAction[]
   userName: string
   userRole: string
+  /** تصویر پروفایل کاربر؛ خالی یعنی نشان پیش‌فرض طلایی. */
+  avatar?: string
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] backdrop-blur-md">
@@ -341,12 +299,13 @@ export function Topbar({
           <h1 className="truncate text-[15px] font-extrabold text-text">{title}</h1>
         </div>
 
-        <div className="flex min-w-0 flex-1 justify-center px-2">
-          <GlobalSearch search={search} navigate={navigate} />
-        </div>
+        {/* فضای انعطاف‌پذیر: خوشه‌ی چپ همیشه سر جایش می‌ماند و با تغییر
+          * طول عنوان صفحه جابه‌جا نمی‌شود. */}
+        <div className="min-w-0 flex-1" aria-hidden />
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden rounded-xl border border-border bg-card px-3 py-2 text-[11px] font-semibold text-muted xl:inline-block">
+          <GlobalSearch search={search} navigate={navigate} />
+          <span className="hidden rounded-xl border border-border bg-card px-3 py-2 text-[11px] font-semibold text-muted whitespace-nowrap xl:inline-block">
             {todayJalali()}
           </span>
           <button
@@ -357,20 +316,13 @@ export function Topbar({
             {dark ? <Sun className="size-4.5" aria-hidden /> : <Moon className="size-4.5" aria-hidden />}
           </button>
           <NotificationsMenu items={notifications} navigate={navigate} />
-          <QuickCreate actions={quickActions} navigate={navigate} />
           <ProfileMenu
             userName={userName}
             userRole={userRole}
+            avatar={avatar}
             onSettings={onOpenSettings}
             onLogout={onLogout}
           />
-          <button
-            onClick={onOpenSettings}
-            aria-label="مرکز تنظیمات"
-            className="hidden size-10 place-items-center rounded-xl border border-border bg-card text-muted transition-colors hover:text-text sm:grid"
-          >
-            <CircleUserRound className="size-4.5" aria-hidden />
-          </button>
         </div>
       </div>
     </header>

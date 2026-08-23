@@ -153,23 +153,36 @@ export function ProductPricing() {
                       const key = `${row.id}:${price.level}`
                       return (
                         <td key={price.level} className="price-cell">
+                          {/* مبلغ فقط داخل خود کادر دیده می‌شود.
+                            * پیش از این، عدد خام داخل کادر و شکل خوانا زیر
+                            * آن تکرار می‌شد؛ همان عدد دو بار در یک خانه.
+                            * حالا هنگام ویرایش رقم خام و در حالت عادی شکل
+                            * جداشده نمایش داده می‌شود. */}
                           <input
-                            defaultValue={price.price === null ? '' : String(price.price)}
+                            key={`${key}:${price.price ?? ''}`}
+                            defaultValue={price.price === null ? '' : formatRials(price.price)}
                             disabled={savingKey === key}
                             placeholder="—"
                             inputMode="numeric"
+                            onFocus={(event) => {
+                              event.currentTarget.value =
+                                price.price === null ? '' : String(price.price)
+                              event.currentTarget.select()
+                            }}
                             onBlur={(event) => {
-                              const next = event.target.value.trim()
-                              const previous = price.price === null ? '' : String(price.price)
-                              if (next !== previous) commit(row.id, price.level, next)
+                              const next = parseAmount(event.target.value)
+                              const previous = price.price
+                              if (next === previous) {
+                                event.currentTarget.value =
+                                  previous === null ? '' : formatRials(previous)
+                                return
+                              }
+                              commit(row.id, price.level, next === null ? '' : String(next))
                             }}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') event.currentTarget.blur()
                             }}
                           />
-                          {price.price !== null && (
-                            <small>{formatRials(price.price)}</small>
-                          )}
                         </td>
                       )
                     })}

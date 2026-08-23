@@ -648,9 +648,12 @@ body,
   min-width: 0;
   max-width: 100%;
 }
+/* بازمانده‌ی چیدمان قدیمی: ریشه ارتفاع ثابت و `overflow:hidden` داشت، چون
+ * آن زمان ناحیه‌ی `.workspace` خودش اسکرول می‌کرد. پوسته‌ی تازه با جریان
+ * عادی سند کار می‌کند، پس بریدن ریشه یعنی بدنه‌ی هیچ صفحه‌ای اسکرول نشود و
+ * فقط منوی کناری — که اسکرول مستقل دارد — حرکت کند. */
 #root {
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 /* --- فیلترها فشرده‌تر (تصویر ۵ و ۶) --- */
 .date-filter,
@@ -1192,4 +1195,71 @@ code {
   color: var(--text);
   direction: ltr;
   display: inline-block;
+}
+
+
+/* ==========================================================================
+   افکت درخشش نام برنامه در منوی کناری
+   --------------------------------------------------------------------------
+   یک باریکه‌ی نور هر چند ثانیه از روی نشان و نام عبور می‌کند. عمداً کند و
+   کم‌تکرار است: انیمیشن دائمی در نرم‌افزاری که ساعت‌ها باز می‌ماند، آزاردهنده
+   می‌شود. با `prefers-reduced-motion` هم کاملاً خاموش می‌شود.
+   ========================================================================== */
+.brand-shine {
+  position: relative;
+  overflow: hidden;
+}
+.brand-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.42) 48%,
+    rgba(231, 189, 117, 0.55) 52%,
+    transparent 66%
+  );
+  transform: translateX(-160%);
+  animation: brand-sweep 6s ease-in-out infinite;
+}
+@keyframes brand-sweep {
+  0%,
+  62% {
+    transform: translateX(-160%);
+  }
+  84%,
+  100% {
+    transform: translateX(160%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-shine::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* دکمه‌ی شناور: تپش ملایم روی رنگ خودش تا در نگاه اول دیده شود. */
+@keyframes fab-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 12px 28px -8px rgba(220, 167, 87, 0.6),
+      0 0 0 0 rgba(220, 167, 87, 0.55);
+  }
+  55% {
+    box-shadow:
+      0 12px 28px -8px rgba(220, 167, 87, 0.6),
+      0 0 0 14px rgba(220, 167, 87, 0);
+  }
+}
+.fab-pulse {
+  animation: fab-pulse 2.6s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fab-pulse {
+    animation: none;
+  }
 }

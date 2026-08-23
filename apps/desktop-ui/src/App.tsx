@@ -26,7 +26,7 @@ import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {Stocktaking} from './pages/Stocktaking'
-import {getDemoStatus, deleteDemo, login, getParties, getProducts, getCheckDashboard, getChecks} from './api'
+import {getDemoStatus, deleteDemo, login, getParties, getProducts, getCheckDashboard, getChecks, getSettings} from './api'
 import {Plus} from 'lucide-react'
 import {cn} from './lib/cn'
 import {Sidebar, ICONS, type NavGroup, type NavItem} from './components/Sidebar'
@@ -138,6 +138,7 @@ const MENU: {title: string; items: MenuItem[]}[] = [
         ],
       },
       {id: 'data-tools', label: 'ورود و خروج اطلاعات', icon: 'upload', page: 'data-tools'},
+      {id: 'settings', label: 'مرکز تنظیمات', icon: 'settings', page: '__settings'},
     ],
   },
 ]
@@ -207,7 +208,8 @@ export default function App() {
   const [page, setPage] = useState('dashboard')
   // همه‌ی منوها هنگام باز شدن برنامه بسته‌اند.
   const [expanded, setExpanded] = useState<string[]>([])
-  const [dark, setDark] = useState(false)
+  // تم پیش‌فرض تیره است — انتخاب کاربر در همین جلسه بر آن مقدم می‌شود.
+  const [dark, setDark] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileNav, setMobileNav] = useState(false)
   // داده‌ی سبک برای جستجوی سراسری و اعلان‌ها؛ یک بار خوانده می‌شود.
@@ -221,10 +223,14 @@ export default function App() {
     unpaidInvoices: number
   }>({parties: [], products: [], checks: [], lowStock: 0, overdueChecks: 0, dueSoonChecks: 0, unpaidInvoices: 0})
   const [settings, setSettings] = useState(false)
+  // تصویر پروفایل از تنظیمات خوانده می‌شود؛ خالی یعنی نشان پیش‌فرض طلایی.
+  const [avatar, setAvatar] = useState('')
   const [palette, setPalette] = useState(false)
   const [openMenu, setOpenMenu] = useState<'' | 'bell' | 'profile' | 'company' | 'fab'>('')
 
-  const DEMO_BUILD = import.meta.env.VITE_DEMO_MODE === 'true'
+  // در پیش‌نمایش مرورگر هم داده‌ی نمونه باید دیده شود؛ وگرنه داشبورد و
+  // همه‌ی فهرست‌ها «حالت خالی» نشان می‌دهند و چیزی برای بازبینی نمی‌ماند.
+  const DEMO_BUILD = import.meta.env.VITE_DEMO_MODE === 'true' || isDesignPreview()
   const [demo, setDemo] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [booting, setBooting] = useState(true)
@@ -234,7 +240,9 @@ export default function App() {
     let alive = true
     const boot = async () => {
       try {
-        if (DEMO_BUILD && !isDesignPreview()) {
+        if (isDesignPreview()) {
+          if (alive) setDemo(true)
+        } else if (DEMO_BUILD) {
           await login('admin', 'demo')
           const status = await getDemoStatus()
           if (alive) setDemo(status)
@@ -250,6 +258,25 @@ export default function App() {
       alive = false
     }
   }, [DEMO_BUILD])
+
+  // تصویر پروفایل و تم اولیه از تنظیمات می‌آیند.
+  useEffect(() => {
+    if (booting || bootError) return
+    let alive = true
+    getSettings()
+      .then((list) => {
+        if (!alive) return
+        setAvatar(list.find((item) => item.key === 'user.avatar')?.value ?? '')
+        const stored = list.find((item) => item.key === 'appearance.dark_mode')
+        if (stored?.is_customized) setDark(stored.value === 'true')
+      })
+      .catch(() => {
+        /* نبود تنظیمات نباید پوسته را از کار بیندازد */
+      })
+    return () => {
+      alive = false
+    }
+  }, [booting, bootError])
 
   // جستجوی سراسری و اعلان‌ها روی داده‌ی واقعی کار می‌کنند، نه فهرست ثابت.
   useEffect(() => {
@@ -322,6 +349,12 @@ export default function App() {
   const fabRef = useOutsideClose(closeMenus)
 
   const go = (target: string) => {
+    // «مرکز تنظیمات» صفحه نیست؛ یک پوشش تمام‌صفحه است.
+    if (target === '__settings') {
+      setSettings(true)
+      setOpenMenu('')
+      return
+    }
     setPage(target)
     setOpenMenu('')
   }
@@ -495,6 +528,8 @@ export default function App() {
         fiscalYear="۱۴۰۵"
         userName="مدیر سیستم"
         userRole="دسترسی کامل"
+        avatar={avatar}
+        onOpenSettings={() => setSettings(true)}
       />
 
       <div
@@ -514,16 +549,18 @@ export default function App() {
           search={globalSearch}
           navigate={go}
           notifications={notifications}
-          quickActions={QUICK_ACTIONS.map((action) => ({label: action.label, page: action.page}))}
           userName="مدیر سیستم"
           userRole="دسترسی کامل"
+          avatar={avatar}
         />
 
         <main className="px-4 pt-5 pb-24 sm:px-6">{renderPage()}</main>
       </div>
 
-      {/* دکمه‌ی شناور ایجاد سریع — پایین سمت چپ، دور از منو */}
-      <div className="fixed bottom-6 start-6 z-40" ref={fabRef}>
+      {/* دکمه‌ی شناور ایجاد سریع — همیشه پایین سمت چپ صفحه.
+        * در راست‌به‌چپ `end` یعنی چپ؛ پس منوی کناری (که سمت راست است) را
+        * نمی‌پوشاند و در چپ‌به‌راست هم کنار منو نمی‌افتد. */}
+      <div className="fixed bottom-6 end-6 z-40" ref={fabRef}>
         {openMenu === 'fab' && (
           <div className="fade-up mb-3 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
             <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">افزودن سریع</p>
@@ -542,7 +579,7 @@ export default function App() {
           aria-label="افزودن سریع"
           onClick={() => setOpenMenu(openMenu === 'fab' ? '' : 'fab')}
           className={cn(
-            'grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] text-[#21254E] shadow-[0_12px_28px_-8px_rgba(220,167,87,.6)] transition-transform hover:scale-105 active:scale-95',
+            'fab-pulse grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] text-[#21254E] transition-transform hover:scale-105 active:scale-95',
             openMenu === 'fab' && 'rotate-45',
           )}
         >

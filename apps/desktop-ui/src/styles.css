@@ -103,6 +103,9 @@ kbd{font-size:9px;background:var(--surface-3);border:1px solid var(--border);pad
 table{width:100%;border-collapse:collapse}
 th{font-size:8px;color:var(--faint);font-weight:600;text-align:right;padding:9px;border-bottom:1px solid var(--border);white-space:nowrap}
 td{font-size:9px;padding:11px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
+/* رنگ نشان وضعیت فقط رنگ است؛ اندازه و شعاع از تعریف واحد `.status` در
+ * theme.css می‌آید. پیش از این، «برگشتی» تعریف جداگانه‌ای با padding و
+ * شعاع متفاوت داشت و کنار «وصول شده» بزرگ‌تر دیده می‌شد. */
 .status.done{background:var(--success-soft);color:var(--success)}
 .status.pending{background:var(--warning-bg);color:var(--gold-600)}
 .status.danger{background:var(--danger-bg);color:var(--danger)}
@@ -208,7 +211,6 @@ button{font:inherit}
 .modal-actions{display:flex;justify-content:flex-start;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--surface-3)}
 .secondary{border:1px solid var(--border-strong);background:var(--surface);color:var(--brand);border-radius:9px;padding:10px 16px;cursor:pointer}
 .danger{border:1px solid var(--danger);background:var(--danger-bg);color:var(--danger);border-radius:9px;padding:10px 16px;cursor:pointer}
-.status.danger{background:var(--danger-bg);color:var(--danger)}
 .command-backdrop{position:fixed;inset:0;background:rgba(20,25,50,.42);backdrop-filter:blur(4px);z-index:80;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh}
 .command-palette{width:min(650px,calc(100vw - 30px));background:var(--surface);border-radius:14px;box-shadow:0 30px 80px rgba(20,25,50,.28);overflow:hidden}
 .command-input{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--border)}
@@ -224,7 +226,7 @@ button{font:inherit}
 /* v1.2 accounting + inventory workflow */
 .quick-actions-inline{display:flex;gap:8px;align-items:center}
 .quick-actions-inline .secondary{padding:10px 14px}
-.status.danger{background:var(--danger-bg);color:var(--danger);padding:5px 8px;border-radius:7px}/* v1.4 Advanced Inventory */
+/* v1.4 Advanced Inventory */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
 .kpi{padding:18px;border:1px solid var(--border,var(--border));border-radius:14px;background:var(--surface,var(--surface));display:flex;flex-direction:column;gap:8px}
 .kpi span{color:var(--text-3);font-size:13px}
@@ -280,7 +282,8 @@ button{font:inherit}
 .price-cell{min-width:110px}
 .price-cell input{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:left;direction:ltr}
 .price-cell input:focus{border-color:var(--brand);outline:none;background:var(--bg)}
-.price-cell small{display:block;margin-top:2px;font-size:11px;color:var(--text-3)}
+/* شکل خوانای مبلغ داخل خود کادر است؛ تکرار زیر آن حذف شد. */
+.price-cell input{font-variant-numeric:tabular-nums}
 .search-input{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit}
 .toolbar select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit}
 /* --- مدیریت اشخاص (فاز ۴) --- */

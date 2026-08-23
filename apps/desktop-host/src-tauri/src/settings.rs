@@ -390,6 +390,20 @@ pub fn registry() -> Vec<SettingDefinition> {
             choices: Vec::new(),
             sensitive: false,
         },
+        SettingDefinition {
+            key: "user.avatar",
+            group: "company",
+            group_label: "هویت مجموعه",
+            label: "تصویر پروفایل کاربر",
+            description: "تصویری که کنار نام کاربر در نوار بالا و منوی کناری دیده می‌شود. خالی یعنی نشان پیش‌فرض طلایی.",
+            effect: "نوار بالا و پای منوی کناری",
+            kind: SettingKind::Image,
+            default_value: "",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
         // ---------------- بارکدخوان ----------------
         SettingDefinition {
             key: "hardware.barcode_enabled",
