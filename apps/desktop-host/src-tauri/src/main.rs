@@ -24,6 +24,7 @@ use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 
+mod chart_of_accounts;
 mod parties_form;
 mod treasury_accounts;
 mod treasury_docs;
@@ -7467,6 +7468,13 @@ fn main() {
             parties_form::list_upcoming_occasions,
             parties_form::deactivate_party,
             parties_form::find_duplicate_party,
+            chart_of_accounts::get_coding_scheme,
+            chart_of_accounts::set_coding_scheme,
+            chart_of_accounts::list_account_tree,
+            chart_of_accounts::suggest_account_code,
+            chart_of_accounts::save_account,
+            chart_of_accounts::deactivate_account,
+            chart_of_accounts::audit_coding_health,
             create_sales_return,
             create_purchase_return,
             post_sales_return,
