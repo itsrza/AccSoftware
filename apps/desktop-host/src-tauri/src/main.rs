@@ -24,7 +24,9 @@ use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 
-struct AppState {
+mod treasury_docs;
+
+pub(crate) struct AppState {
     db_path: Mutex<PathBuf>,
     user_id: Mutex<Option<String>>,
 }
@@ -101,7 +103,7 @@ struct StockBalance {
     available_quantity: f64,
 }
 
-fn conn(state: &State<AppState>) -> Result<Connection, String> {
+pub(crate) fn conn(state: &State<AppState>) -> Result<Connection, String> {
     Connection::open(
         state
             .db_path
@@ -126,7 +128,7 @@ fn has_permission(c: &Connection, user_id: &str, permission: &str) -> Result<boo
     Ok(count > 0)
 }
 
-fn require_permission(
+pub(crate) fn require_permission(
     state: &State<AppState>,
     c: &Connection,
     permission: &str,
@@ -140,7 +142,7 @@ fn require_permission(
     Ok(user)
 }
 
-fn audit(
+pub(crate) fn audit(
     tx: &rusqlite::Transaction<'_>,
     user_id: &str,
     action: &str,
@@ -4029,7 +4031,7 @@ fn next_invoice_number(
         .map_err(|e| e.to_string())
 }
 
-fn active_context(tx: &rusqlite::Transaction<'_>, user: &str) -> Result<(String, String), String> {
+pub(crate) fn active_context(tx: &rusqlite::Transaction<'_>, user: &str) -> Result<(String, String), String> {
     let company: String = tx
         .query_row(
             "SELECT company_id FROM company_users WHERE user_id=?1 AND is_active=1 LIMIT 1",
@@ -5514,7 +5516,7 @@ struct PeriodStatus {
     posted_journals: i64,
 }
 
-fn validate_fiscal_date(
+pub(crate) fn validate_fiscal_date(
     tx: &rusqlite::Transaction<'_>,
     fy: &str,
     date: &str,
@@ -5526,7 +5528,7 @@ fn validate_fiscal_date(
     Ok(())
 }
 
-fn next_journal_number(
+pub(crate) fn next_journal_number(
     tx: &rusqlite::Transaction<'_>,
     company: &str,
     fy: &str,
@@ -7443,6 +7445,11 @@ fn main() {
             create_check,
             update_check_status,
             check_transition_options,
+            treasury_docs::preview_treasury_document,
+            treasury_docs::create_treasury_document,
+            treasury_docs::list_treasury_documents,
+            treasury_docs::get_treasury_document,
+            treasury_docs::list_payment_methods,
             create_sales_return,
             create_purchase_return,
             post_sales_return,

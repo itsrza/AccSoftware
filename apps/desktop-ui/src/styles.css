@@ -321,3 +321,24 @@ button{font:inherit}
 .transition-btn small{font-size:10px;color:var(--text-3)}
 .status.neutral{background:var(--surface-3);color:var(--text-2)}
 .muted{color:var(--text-3);font-size:12px}
+
+/* ---- سند دریافت و پرداخت ---- */
+.kind-switch{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.kind-switch button{padding:10px 22px;border:none;background:var(--surface);color:var(--text-2);font-family:inherit;font-size:13px;cursor:pointer}
+.kind-switch button.active{background:var(--brand);color:#fff}
+.line-editor{display:flex;flex-direction:column;gap:12px}
+.line-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+.line-row label{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--text-3);min-width:130px}
+.line-row label.grow{flex:1;min-width:180px}
+.line-row input,.line-row select{padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px}
+.line-row input:focus,.line-row select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-100)}
+.danger-icon{color:var(--danger)}
+.danger-icon:disabled{opacity:.35;cursor:not-allowed}
+.preview-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px}
+.mini-table{width:100%;border-collapse:collapse;font-size:13px}
+.mini-table th{text-align:right;font-size:11px;color:var(--text-3);font-weight:600;padding:8px 6px;border-bottom:1px solid var(--border)}
+.mini-table td{padding:8px 6px;border-bottom:1px solid var(--surface-3)}
+.mini-table td.num{text-align:left;font-variant-numeric:tabular-nums}
+.mini-table tr.total-row td{font-weight:700;color:var(--brand);border-top:2px solid var(--gold)}
+.success-box{background:var(--success-bg);color:var(--success);border:1px solid var(--success);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px}
+.large-table td.num{text-align:left;font-variant-numeric:tabular-nums}

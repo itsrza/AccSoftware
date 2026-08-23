@@ -168,6 +168,70 @@ const checks = Array.from({length: 20}, (_, index) => ({
   bank_name: `بانک ${CITIES[index % CITIES.length]}`,
 }))
 
+const treasuryAccounts = [
+  {id: 'treasury-cash-1', name: 'صندوق مرکزی', account_type: 'cash', balance: 184_500_000, is_active: true},
+  {id: 'treasury-cash-2', name: 'صندوق فروشگاه', account_type: 'cash', balance: 42_300_000, is_active: true},
+  {id: 'treasury-bank-mellat', name: 'بانک ملت — جاری ۱۲۳۴', account_type: 'bank', balance: 1_284_000_000, is_active: true},
+  {id: 'treasury-bank-saderat', name: 'بانک صادرات — جاری ۵۶۷۸', account_type: 'bank', balance: 620_500_000, is_active: true},
+  {id: 'treasury-petty', name: 'تنخواه اداری', account_type: 'petty_cash', balance: 15_000_000, is_active: true},
+]
+
+/** اسناد دریافت و پرداخت نمونه، متصل به همان اشخاص و حساب‌های خزانه. */
+const TREASURY_METHODS = ['cash', 'check', 'bank_transfer', 'card_terminal', 'discount', 'offset']
+const METHOD_LABELS: Record<string, string> = {
+  cash: 'نقد',
+  check: 'چک',
+  bank_transfer: 'حواله بانکی',
+  card_terminal: 'کارتخوان',
+  discount: 'تخفیف نقدی',
+  offset: 'تهاتر',
+}
+const treasuryDocuments = Array.from({length: 24}, (_, index) => {
+  const contact = contacts[(index * 7) % contacts.length]
+  const kind = index % 3 === 2 ? 'payment' : 'receipt'
+  return {
+    id: `demo-tdoc-${String(index).padStart(3, '0')}`,
+    kind,
+    kind_label: kind === 'receipt' ? 'دریافت' : 'پرداخت',
+    number: index + 1,
+    document_date: jalaliDate(index + 2),
+    party_id: contact.id,
+    party_name: contact.name,
+    description: kind === 'receipt' ? 'دریافت بابت فاکتور فروش' : 'پرداخت به تأمین‌کننده',
+    total: ((index % 9) + 2) * 11_000_000,
+    status: 'posted',
+    status_label: 'ثبت‌شده',
+    journal_id: `demo-jrn-tdoc-${index}`,
+    line_count: (index % 3) + 1,
+  }
+})
+
+function treasuryDocumentLines(header: (typeof treasuryDocuments)[number]) {
+  const count = header.line_count
+  const share = Math.floor(header.total / count)
+  return Array.from({length: count}, (_, index) => {
+    const method = TREASURY_METHODS[(header.number + index) % TREASURY_METHODS.length]
+    const amount = index === count - 1 ? header.total - share * (count - 1) : share
+    const account = treasuryAccounts[(header.number + index) % treasuryAccounts.length]
+    const needsAccount = ['cash', 'bank_transfer', 'card_terminal'].includes(method)
+    return {
+      id: `${header.id}-l${index}`,
+      method,
+      method_label: METHOD_LABELS[method],
+      amount,
+      description: undefined,
+      treasury_account_id: needsAccount ? account.id : undefined,
+      treasury_account_name: needsAccount ? account.name : undefined,
+      terminal_id: method === 'card_terminal' ? `POS-${1000 + header.number}` : undefined,
+      check_serial: method === 'check' ? String(810000 + header.number) : undefined,
+      check_due_date: method === 'check' ? jalaliDate(header.number + 40) : undefined,
+      check_bank_name: method === 'check' ? 'بانک ملت' : undefined,
+      sayad_id: undefined,
+      check_id: undefined,
+    }
+  })
+}
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -497,13 +561,7 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   create_single_line_journal: () => 'journal-preview-1',
 
   // --- خزانه و چک ---
-  list_treasury_accounts: () => [
-    {id: 'treasury-cash-1', name: 'صندوق مرکزی', account_type: 'cash', balance: 184_500_000},
-    {id: 'treasury-cash-2', name: 'صندوق فروشگاه', account_type: 'cash', balance: 42_300_000},
-    {id: 'treasury-bank-mellat', name: 'بانک ملت — جاری ۱۲۳۴', account_type: 'bank', balance: 1_284_000_000},
-    {id: 'treasury-bank-saderat', name: 'بانک صادرات — جاری ۵۶۷۸', account_type: 'bank', balance: 620_500_000},
-    {id: 'treasury-petty', name: 'تنخواه اداری', account_type: 'petty_cash', balance: 15_000_000},
-  ],
+  list_treasury_accounts: () => treasuryAccounts,
   list_treasury_transactions: () =>
     Array.from({length: 20}, (_, index) => ({
       id: `demo-tx-${index}`,
@@ -518,6 +576,63 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
     receipts: 320_000_000,
     payments: 180_000_000,
   }),
+  // ---- سند دریافت و پرداخت ----
+  list_payment_methods: () => [
+    {value: 'cash', label: 'نقد', requires_treasury_account: true, requires_terminal: false, requires_check_details: false, moves_treasury: true},
+    {value: 'check', label: 'چک', requires_treasury_account: false, requires_terminal: false, requires_check_details: true, moves_treasury: false},
+    {value: 'bank_transfer', label: 'حواله بانکی', requires_treasury_account: true, requires_terminal: false, requires_check_details: false, moves_treasury: true},
+    {value: 'card_terminal', label: 'کارتخوان', requires_treasury_account: true, requires_terminal: true, requires_check_details: false, moves_treasury: true},
+    {value: 'discount', label: 'تخفیف نقدی', requires_treasury_account: false, requires_terminal: false, requires_check_details: false, moves_treasury: false},
+    {value: 'offset', label: 'تهاتر', requires_treasury_account: false, requires_terminal: false, requires_check_details: false, moves_treasury: false},
+  ],
+  // بازتاب ساده‌ی build_journal هسته، فقط برای دیدن چیدمان در مرورگر.
+  preview_treasury_document: (args: Record<string, unknown>) => {
+    const kind = args.kind as string
+    const lines = (args.lines ?? []) as Array<Record<string, unknown>>
+    const bucket = (name: string) =>
+      lines.filter((l) => l.method === name).reduce((sum, l) => sum + Number(l.amount ?? 0), 0)
+    const total = lines.reduce((sum, l) => sum + Number(l.amount ?? 0), 0)
+    const movesTreasury = ['cash', 'bank_transfer', 'card_terminal']
+    const accountName = (line: Record<string, unknown>) => {
+      if (line.method === 'check') return kind === 'receipt' ? 'اسناد دریافتنی' : 'اسناد پرداختنی'
+      if (line.method === 'discount') return 'تخفیفات نقدی اعطایی'
+      if (line.method === 'offset') return kind === 'receipt' ? 'حساب مشتریان' : 'تأمین کنندگان'
+      const account = treasuryAccounts.find((a) => a.id === line.treasury_account_id)
+      return account?.name ?? 'صندوق'
+    }
+    const journal = lines.map((line) => ({
+      account_id: String(line.treasury_account_id ?? line.method),
+      account_name: accountName(line),
+      debit: kind === 'receipt' ? Number(line.amount ?? 0) : 0,
+      credit: kind === 'receipt' ? 0 : Number(line.amount ?? 0),
+    }))
+    journal.push({
+      account_id: kind === 'receipt' ? 'acc-1201' : 'acc-2101',
+      account_name: kind === 'receipt' ? 'حساب مشتریان' : 'تأمین کنندگان',
+      debit: kind === 'receipt' ? 0 : total,
+      credit: kind === 'receipt' ? total : 0,
+    })
+    return {
+      cash: bucket('cash'),
+      check: bucket('check'),
+      bank_transfer: bucket('bank_transfer'),
+      card_terminal: bucket('card_terminal'),
+      discount: bucket('discount'),
+      offset: bucket('offset'),
+      total,
+      treasury_movement: lines
+        .filter((l) => movesTreasury.includes(String(l.method)))
+        .reduce((sum, l) => sum + Number(l.amount ?? 0), 0),
+      journal_preview: journal,
+    }
+  },
+  list_treasury_documents: (args: Record<string, unknown>) =>
+    treasuryDocuments.filter((d) => !args.kind || d.kind === args.kind),
+  get_treasury_document: (args: Record<string, unknown>) => {
+    const header = treasuryDocuments.find((d) => d.id === args.id) ?? treasuryDocuments[0]
+    return {header, lines: treasuryDocumentLines(header)}
+  },
+  create_treasury_document: () => 'tdoc-preview',
   list_checks: () => checks,
   list_checks_filtered: () => checks,
   // بازتاب ماشین حالت هسته، فقط برای پیش‌نمایش مرورگر؛ منبع حقیقت Rust است.

@@ -6,6 +6,7 @@ import {Reports} from './pages/Reports'
 import {ReportBuilder} from './pages/ReportBuilder'
 import {Integrations} from './pages/Integrations'
 import {Treasury} from './pages/Treasury'
+import {TreasuryDocumentForm} from './pages/TreasuryDocumentForm'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -85,9 +86,10 @@ const MENU: {title: string; items: MenuItem[]}[] = [
         id: 'treasury',
         label: 'خزانه',
         icon: 'wallet',
-        page: 'treasury',
+        page: 'treasury-document',
         children: [
-          {label: 'دریافت و پرداخت', page: 'treasury'},
+          {label: 'سند دریافت و پرداخت', page: 'treasury-document'},
+          {label: 'گردش خزانه', page: 'treasury'},
           {label: 'بانک‌ها', page: 'banks'},
           {label: 'صندوق‌ها', page: 'cashboxes'},
         ],
@@ -168,6 +170,7 @@ const QUICK_ACTIONS = [
   {page: 'products', label: 'ثبت کالای جدید', icon: 'package'},
   {page: 'parties', label: 'ثبت شخص جدید', icon: 'users'},
   {page: 'single-journal', label: 'ثبت سند حسابداری', icon: 'file'},
+  {page: 'treasury-document', label: 'ثبت سند دریافت', icon: 'wallet'},
 ]
 
 /** بستن منوی بازشو با کلیک بیرون از آن. */
@@ -375,6 +378,8 @@ export default function App() {
         return <DataTools />
       case 'print-templates':
         return <PrintTemplates />
+      case 'treasury-document':
+        return <TreasuryDocumentForm />
       case 'treasury':
       case 'banks':
       case 'cashboxes':

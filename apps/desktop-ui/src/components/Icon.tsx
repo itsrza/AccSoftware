@@ -1,6 +1,6 @@
 import React from 'react'
 
-type Name = 'grid'|'receipt'|'cart'|'package'|'users'|'wallet'|'check'|'file'|'bar'|'settings'|'search'|'bell'|'plus'|'arrow'|'trend'|'bank'|'cash'|'warehouse'|'more'|'moon'|'sun'|'chevron'|'close'|'filter'|'download'|'refresh'|'box'|'factory'
+type Name = 'grid'|'receipt'|'cart'|'package'|'users'|'wallet'|'check'|'file'|'bar'|'settings'|'search'|'bell'|'plus'|'arrow'|'trend'|'bank'|'cash'|'warehouse'|'more'|'moon'|'sun'|'chevron'|'close'|'filter'|'download'|'refresh'|'box'|'factory'|'trash'
 
 const paths: Record<Name, React.ReactNode> = {
   grid:<><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -30,7 +30,8 @@ const paths: Record<Name, React.ReactNode> = {
   download:<><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></>,
   refresh:<><path d="M20 11a8 8 0 0 0-14.5-4L4 9"/><path d="M4 4v5h5M4 13a8 8 0 0 0 14.5 4L20 15"/><path d="M20 20v-5h-5"/></>,
   box:<><path d="m4 7 8-4 8 4v10l-8 4-8-4z"/><path d="m4 7 8 4 8-4M12 11v10"/></>,
-  factory:<><path d="M3 21V9l7 4V9l7 4V5h4v16z"/><path d="M7 17h.01M11 17h.01M15 17h.01"/></>
+  factory:<><path d="M3 21V9l7 4V9l7 4V5h4v16z"/><path d="M7 17h.01M11 17h.01M15 17h.01"/></>,
+  trash:<><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></>
 }
 
 export function Icon({name,size=18}:{name:Name,size?:number}){

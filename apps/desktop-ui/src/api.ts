@@ -473,3 +473,85 @@ export const applyBulkPrice = (
 
 export const getLowStock = () => api<LowStockRow[]>('get_low_stock')
 export const getValuationMethods = () => api<ValuationInfo[]>('list_valuation_methods')
+
+// ---- سند دریافت و پرداخت چندروشی ----
+export type PaymentMethodInfo = {
+  value: string
+  label: string
+  requires_treasury_account: boolean
+  requires_terminal: boolean
+  requires_check_details: boolean
+  moves_treasury: boolean
+}
+export type TreasuryDocumentLineInput = {
+  method: string
+  amount: number
+  description?: string
+  treasury_account_id?: string
+  terminal_id?: string
+  check_serial?: string
+  check_due_date?: string
+  check_bank_name?: string
+  sayad_id?: string
+}
+export type JournalPreviewLine = {account_id: string; account_name: string; debit: number; credit: number}
+export type TreasuryDocumentPreview = {
+  cash: number
+  check: number
+  bank_transfer: number
+  card_terminal: number
+  discount: number
+  offset: number
+  total: number
+  treasury_movement: number
+  journal_preview: JournalPreviewLine[]
+}
+export type TreasuryDocumentRow = {
+  id: string
+  kind: string
+  kind_label: string
+  number: number
+  document_date: string
+  party_id?: string
+  party_name?: string
+  description?: string
+  total: number
+  status: string
+  status_label: string
+  journal_id?: string
+  line_count: number
+}
+export type TreasuryDocumentLineRow = {
+  id: string
+  method: string
+  method_label: string
+  amount: number
+  description?: string
+  treasury_account_id?: string
+  treasury_account_name?: string
+  terminal_id?: string
+  check_serial?: string
+  check_due_date?: string
+  check_bank_name?: string
+  sayad_id?: string
+  check_id?: string
+}
+export type TreasuryDocumentDetail = {header: TreasuryDocumentRow; lines: TreasuryDocumentLineRow[]}
+
+export const getPaymentMethods = () => api<PaymentMethodInfo[]>('list_payment_methods')
+export const previewTreasuryDocument = (kind: 'receipt' | 'payment', lines: TreasuryDocumentLineInput[]) =>
+  api<TreasuryDocumentPreview>('preview_treasury_document', {kind, lines})
+export const createTreasuryDocument = (
+  kind: 'receipt' | 'payment',
+  document_date: string,
+  party_id: string,
+  description: string | undefined,
+  lines: TreasuryDocumentLineInput[],
+) => api<string>('create_treasury_document', {kind, documentDate: document_date, partyId: party_id, description, lines})
+export const getTreasuryDocuments = (
+  kind?: 'receipt' | 'payment',
+  party_id?: string,
+  from_date?: string,
+  to_date?: string,
+) => api<TreasuryDocumentRow[]>('list_treasury_documents', {kind, partyId: party_id, fromDate: from_date, toDate: to_date})
+export const getTreasuryDocument = (id: string) => api<TreasuryDocumentDetail>('get_treasury_document', {id})
