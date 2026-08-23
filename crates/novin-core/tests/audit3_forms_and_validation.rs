@@ -338,11 +338,11 @@ fn t62_credit_limit_blocks_over_limit_credit_sales() {
     let current = Money::from_rials(8_000_000);
     let limit = 10_000_000;
     // فروش ۱٬۵۰۰٬۰۰۰ زیر سقف است
-    assert!(check_credit_limit(current, Money::from_rials(1_500_000), limit).is_ok());
+    assert!(check_credit_limit(current, limit, Money::from_rials(1_500_000)).is_ok());
     // فروش ۳٬۰۰۰٬۰۰۰ از سقف رد می‌شود
-    assert!(check_credit_limit(current, Money::from_rials(3_000_000), limit).is_err());
+    assert!(check_credit_limit(current, limit, Money::from_rials(3_000_000)).is_err());
     // سقف صفر یعنی بدون محدودیت
-    assert!(check_credit_limit(current, Money::from_rials(999_000_000), 0).is_ok());
+    assert!(check_credit_limit(current, 0, Money::from_rials(999_000_000)).is_ok());
 }
 
 /// ت۶۳ — اعتبار باقیمانده درست محاسبه می‌شود و منفی نمی‌شود.
@@ -408,7 +408,7 @@ fn t65_uncounted_line_is_not_the_same_as_zero() {
     assert!(!uncounted.has_variance());
 
     let mut counted_zero = CountLine::new("p2", 10.0, Money::from_rials(100_000));
-    counted_zero.first_count = Some(0.0);
+    counted_zero.counted_quantity = Some(0.0);
     assert!(counted_zero.is_counted());
     assert_eq!(
         counted_zero.variance(),
@@ -421,11 +421,11 @@ fn t65_uncounted_line_is_not_the_same_as_zero() {
 #[test]
 fn t66_recount_overrides_the_first_count() {
     let mut item = CountLine::new("p1", 100.0, Money::from_rials(50_000));
-    item.first_count = Some(90.0);
+    item.counted_quantity = Some(90.0);
     assert_eq!(item.final_quantity(), Some(90.0));
     assert_eq!(item.variance(), Some(-10.0));
 
-    item.recount = Some(98.0);
+    item.recount_quantity = Some(98.0);
     assert_eq!(
         item.final_quantity(),
         Some(98.0),
@@ -460,25 +460,29 @@ fn t67_locked_stocktake_session_accepts_no_more_counts() {
 #[test]
 fn t68_stocktake_summary_separates_shortage_from_surplus() {
     let mut shortage = CountLine::new("p1", 100.0, Money::from_rials(10_000));
-    shortage.first_count = Some(90.0);
+    shortage.counted_quantity = Some(90.0);
     let mut surplus = CountLine::new("p2", 50.0, Money::from_rials(20_000));
-    surplus.first_count = Some(55.0);
+    surplus.counted_quantity = Some(55.0);
     let summary = stocktaking::summarize(&[shortage, surplus]).unwrap();
 
     assert_eq!(summary.shortage_value.rials(), 100_000, "ارزش کسری");
     assert_eq!(summary.surplus_value.rials(), 100_000, "ارزش اضافی");
     // خالص صفر است ولی دو مشکل وجود دارد — هر دو باید دیده شوند.
     assert_eq!(summary.counted_lines, 2);
-    assert_eq!(summary.variance_lines, 2, "هر دو قلم اختلاف دارند");
+    // کسری و اضافی جدا شمرده می‌شوند، نه یک عدد جبری.
+    assert_eq!(summary.shortage_lines, 1, "یک قلم کسری دارد");
+    assert_eq!(summary.surplus_lines, 1, "یک قلم اضافی دارد");
+    assert_eq!(summary.net_value.rials(), 0, "اثر خالص صفر است");
 }
 
 // ===========================================================================
 // ارزش‌گذاری موجودی
 // ===========================================================================
 
-/// ت۶۹ — سه روش ارزش‌گذاری، سه نتیجه‌ی متفاوت می‌دهند.
+/// ت۶۹ — سه روش ارزش‌گذاری، ارزش موجودی متفاوتی می‌دهند.
 ///
-/// اگر نتیجه‌ی هر سه یکی باشد، یعنی روش واقعاً اعمال نمی‌شود.
+/// اگر نتیجه‌ی هر سه یکی باشد، یعنی روش انتخابی کاربر واقعاً اعمال نمی‌شود
+/// و تنظیم «روش ارزش‌گذاری» تزئینی است.
 #[test]
 fn t69_three_valuation_methods_give_different_results() {
     // دو ورود با بهای متفاوت، سپس یک خروج
@@ -488,23 +492,29 @@ fn t69_three_valuation_methods_give_different_results() {
         inventory::Movement::new(MovementKind::Issue, 5.0, 0),
     ];
     let fifo = inventory::valuate(&movements, ValuationMethod::Fifo).unwrap();
-    let lifo = inventory::valuate(&movements, ValuationMethod::Lifo).unwrap();
-    let average = inventory::valuate(&movements, ValuationMethod::WeightedAverage).unwrap();
+    let moving = inventory::valuate(&movements, ValuationMethod::MovingAverage).unwrap();
+    let weighted = inventory::valuate(&movements, ValuationMethod::WeightedAverage).unwrap();
 
-    // موجودی در هر سه روش یکسان است — روش فقط بر ارزش اثر دارد.
+    // موجودی پایانی در هر سه روش یکسان است — روش فقط بر ارزش اثر دارد.
     assert_eq!(fifo.quantity, 15.0);
-    assert_eq!(lifo.quantity, 15.0);
-    assert_eq!(average.quantity, 15.0);
+    assert_eq!(moving.quantity, 15.0);
+    assert_eq!(weighted.quantity, 15.0);
 
-    // ولی بهای کالای خارج‌شده متفاوت است.
+    // FIFO ارزان‌ترین لایه را خارج می‌کند، پس موجودی باقیمانده گران‌تر است.
     assert!(
-        fifo.issued_cost.rials() < average.issued_cost.rials(),
-        "FIFO باید ارزان‌ترین لایه را خارج کند"
+        fifo.total_value > weighted.total_value,
+        "FIFO باید ارزش موجودی بالاتری بدهد: {} در برابر {}",
+        fifo.total_value,
+        weighted.total_value
     );
-    assert!(
-        lifo.issued_cost.rials() > average.issued_cost.rials(),
-        "LIFO باید گران‌ترین لایه را خارج کند"
-    );
+    // و بهای واحد هر روش با ارزش کل آن می‌خواند.
+    for valuation in [fifo, moving, weighted] {
+        let expected = (valuation.unit_cost as f64 * valuation.quantity).round() as i64;
+        assert!(
+            (valuation.total_value - expected).abs() <= 1,
+            "ارزش کل با بهای واحد نمی‌خواند"
+        );
+    }
 }
 
 /// ت۷۰ — هر روش ارزش‌گذاری توضیح ساده و قابل فهم دارد.
@@ -515,7 +525,7 @@ fn t70_each_valuation_method_has_a_plain_explanation() {
     for method in [
         ValuationMethod::WeightedAverage,
         ValuationMethod::Fifo,
-        ValuationMethod::Lifo,
+        ValuationMethod::MovingAverage,
     ] {
         assert!(!method.label().is_empty(), "برچسب خالی");
         let explanation = method.plain_explanation();

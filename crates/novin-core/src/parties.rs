@@ -506,5 +506,13 @@ pub fn remaining_credit(current_balance: Money, credit_limit: i64) -> Option<Mon
     if credit_limit <= 0 {
         return None;
     }
-    Some(Money::from_rials(credit_limit - current_balance.rials()))
+    // اعتبار باقیمانده هرگز منفی نمی‌شود.
+    //
+    // اگر مانده از سقف رد شده باشد، «باقیمانده» صفر است نه عدد منفی.
+    // نمایش «اعتبار باقیمانده: منفی دو میلیون» برای کاربر بی‌معناست؛ آنچه
+    // باید ببیند این است که اعتبارش تمام شده. مبلغ تجاوز از سقف، اطلاعات
+    // جداگانه‌ای است که در خلاصه‌ی حساب نشان داده می‌شود.
+    Some(Money::from_rials(
+        (credit_limit - current_balance.rials()).max(0),
+    ))
 }
