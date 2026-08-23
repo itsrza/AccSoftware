@@ -242,14 +242,7 @@ fn seed_required_accounts(tx: &Connection) -> Result<()> {
             Some("acc-2100"),
             "credit",
         ),
-        (
-            "acc-2401",
-            "2401",
-            "مالیات بر ارزش افزوده",
-            "general",
-            Some("acc-2000"),
-            "credit",
-        ),
+
         (
             "acc-1100",
             "1100",
