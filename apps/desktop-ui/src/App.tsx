@@ -11,6 +11,7 @@ import {TreasuryAccounts} from './pages/TreasuryAccounts'
 import {ChartOfAccounts} from './pages/ChartOfAccounts'
 import {Returns} from './pages/Returns'
 import {InventoryTransfer} from './pages/InventoryTransfer'
+import {Quotes} from './pages/Quotes'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -23,7 +24,6 @@ import {SingleLineJournal} from './pages/SingleLineJournal'
 import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
 import {InvoiceForm} from './pages/InvoiceForm'
-import {UnderConstruction} from './components/UnderConstruction'
 import {Stocktaking} from './pages/Stocktaking'
 import {getDemoStatus, deleteDemo, login} from './api'
 import {isDesignPreview} from './lib/devPreview'
@@ -298,23 +298,9 @@ export default function App() {
       case 'inventory-count':
         return <Stocktaking />
       case 'proforma':
-        return (
-          <UnderConstruction
-            title="پیش‌فاکتورها"
-            description="صدور پیش‌فاکتور با اعتبار زمانی و تبدیل یک‌کلیکی به فاکتور فروش، بدون اثر انبار و مالی تا زمان تبدیل."
-            reference="sFpxWK"
-            phase="فاز ۶"
-          />
-        )
+        return <Quotes kind="sales_quote" />
       case 'purchase-order':
-        return (
-          <UnderConstruction
-            title="سفارش خرید"
-            description="درخواست و سفارش خرید با پیگیری وضعیت و تبدیل به فاکتور خرید."
-            reference="dgNqWj"
-            phase="فاز ۶"
-          />
-        )
+        return <Quotes kind="purchase_order" />
       case 'inventory-transfer':
         return <InventoryTransfer />
       case 'sales-return':

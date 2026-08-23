@@ -199,6 +199,7 @@ pub fn seed_demo_dataset(conn: &Connection) -> Result<()> {
     step("checks", seed_checks(&tx, &treasury_ids))?;
     step("returns", seed_returns(&tx, &warehouse_ids))?;
     step("transfers", seed_transfers(&tx, &warehouse_ids))?;
+    step("quotes", seed_quotes(&tx, &warehouse_ids))?;
 
     tx.commit()?;
     Ok(())
@@ -1082,6 +1083,109 @@ fn seed_transfers(tx: &Connection, warehouses: &[String]) -> Result<()> {
                     unit_cost,
                     format!("demo-transfer-{index:03}"),
                     USER
+                ],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// پیش‌فاکتور فروش و سفارش خرید نمونه.
+///
+/// نکته‌ی حسابداری: این اسناد **هیچ سند مالی و هیچ گردش انباری** نمی‌سازند؛
+/// فقط تعهد ثبت می‌کنند. به همین دلیل اینجا هیچ درجی در `journal_entries` یا
+/// `inventory_movements` انجام نمی‌شود.
+fn seed_quotes(tx: &Connection, warehouses: &[String]) -> Result<()> {
+    let statuses = ["draft", "sent", "accepted", "rejected", "converted"];
+    for index in 0..18usize {
+        let sales = index % 3 != 2;
+        let kind = if sales { "sales_quote" } else { "purchase_order" };
+        let quote_id = format!("demo-quote-{index:03}");
+        let contact = format!("demo-contact-{:03}", (index * 5) % CONTACT_COUNT);
+        let status = statuses[index % statuses.len()];
+
+        // سه قلم واقعی از کاتالوگ
+        let mut subtotal = 0i64;
+        let mut discount = 0i64;
+        let mut items = Vec::with_capacity(3);
+        for offset in 0..3usize {
+            let product = format!("demo-prod-{:03}", (index * 3 + offset) % PRODUCT_COUNT);
+            let price: i64 = tx
+                .query_row(
+                    "SELECT sale_price FROM products WHERE id=?1",
+                    params![product],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
+            let quantity = (offset + 2) as f64;
+            let gross = (price as f64 * quantity).round() as i64;
+            let line_discount = if offset == 1 { gross / 20 } else { 0 };
+            subtotal += gross;
+            discount += line_discount;
+            items.push((product, quantity, price, line_discount, gross));
+        }
+        let net = subtotal - discount;
+        let tax = net * 900 / 10_000;
+        let total = net + tax;
+
+        let number = tx
+            .query_row(
+                "SELECT COALESCE(MAX(number),0)+1 FROM quotes \
+                 WHERE company_id=?1 AND fiscal_year_id=?2 AND kind=?3",
+                params![COMPANY, FISCAL_YEAR, kind],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(1);
+
+        tx.execute(
+            "INSERT OR IGNORE INTO quotes(id,company_id,fiscal_year_id,kind,number,issue_date,\
+             valid_until,contact_id,warehouse_id,description,subtotal,discount,tax,total,status,\
+             converted_invoice_id,created_by) \
+             VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+            params![
+                quote_id,
+                COMPANY,
+                FISCAL_YEAR,
+                kind,
+                number,
+                demo_date(index + 2),
+                demo_date(index + 32),
+                contact,
+                warehouses[index % warehouses.len()],
+                if sales { "پیشنهاد قیمت" } else { "سفارش تأمین موجودی" },
+                subtotal,
+                discount,
+                tax,
+                total,
+                status,
+                // فقط سند تبدیل‌شده شناسه‌ی فاکتور دارد.
+                if status == "converted" {
+                    Some(format!("demo-sale-{:03}", index % SALES_INVOICE_COUNT))
+                } else {
+                    None
+                },
+                USER
+            ],
+        )?;
+        require_row(tx, "quotes", &quote_id)?;
+
+        for (offset, (product, quantity, price, line_discount, gross)) in
+            items.into_iter().enumerate()
+        {
+            let line_net = gross - line_discount;
+            let line_tax = line_net * 900 / 10_000;
+            tx.execute(
+                "INSERT OR IGNORE INTO quote_lines(id,quote_id,product_id,quantity,unit_price,\
+                 discount,tax,line_total) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![
+                    format!("{quote_id}-l{offset}"),
+                    quote_id,
+                    product,
+                    quantity,
+                    price,
+                    line_discount,
+                    line_tax,
+                    line_net + line_tax
                 ],
             )?;
         }

@@ -26,6 +26,7 @@ use tauri::{Manager, State};
 
 mod chart_of_accounts;
 mod parties_form;
+mod quotes;
 mod returns;
 mod treasury_accounts;
 mod treasury_docs;
@@ -7482,6 +7483,13 @@ fn main() {
             returns::post_sales_return_v2,
             returns::post_purchase_return_v2,
             returns::cancel_return,
+            quotes::preview_quote,
+            quotes::save_quote,
+            quotes::list_quotes,
+            quotes::get_quote,
+            quotes::quote_transitions,
+            quotes::set_quote_status,
+            quotes::convert_quote,
             create_sales_return,
             create_purchase_return,
             post_sales_return,

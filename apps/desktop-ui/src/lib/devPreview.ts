@@ -323,6 +323,47 @@ const demoTransfers = Array.from({length: 10}, (_, index) => {
   }
 })
 
+/** پیش‌فاکتور و سفارش خرید نمونه، با وضعیت‌های متنوع. */
+const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'converted']
+const QUOTE_STATUS_LABELS: Record<string, string> = {
+  draft: 'پیش‌نویس',
+  sent: 'ارسال‌شده',
+  accepted: 'پذیرفته‌شده',
+  rejected: 'ردشده',
+  expired: 'منقضی',
+  converted: 'تبدیل به فاکتور',
+  cancelled: 'باطل‌شده',
+}
+const demoQuotes = Array.from({length: 18}, (_, index) => {
+  const sales = index % 3 !== 2
+  const contact = contacts[(index * 5) % contacts.length]
+  const subtotal = ((index % 7) + 3) * 14_500_000
+  const discount = index % 4 === 0 ? Math.round(subtotal * 0.04) : 0
+  const tax = Math.round(((subtotal - discount) * 9) / 100)
+  const status = QUOTE_STATUSES[index % QUOTE_STATUSES.length]
+  return {
+    id: `demo-quote-${String(index).padStart(3, '0')}`,
+    kind: sales ? 'sales_quote' : 'purchase_order',
+    kind_label: sales ? 'پیش‌فاکتور فروش' : 'سفارش خرید',
+    number: Math.floor(index / 2) + 1,
+    issue_date: jalaliDate(index + 1),
+    valid_until: jalaliDate(index + 30),
+    contact_id: contact.id,
+    contact_name: contact.name,
+    warehouse_name: warehouses[index % warehouses.length].name,
+    description: sales ? 'پیشنهاد قیمت' : 'سفارش تأمین موجودی',
+    subtotal,
+    discount,
+    tax,
+    total: subtotal - discount + tax,
+    status,
+    status_label: QUOTE_STATUS_LABELS[status],
+    converted_invoice_id: status === 'converted' ? `demo-sale-${index}` : undefined,
+    line_count: 3,
+    is_expired: index % 9 === 8,
+  }
+})
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -801,6 +842,64 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   list_inventory_transfer_orders: () => demoTransfers,
   create_inventory_transfer_order: () => 'transfer-preview',
   receive_inventory_transfer: () => undefined,
+  // ---- پیش‌فاکتور و سفارش خرید ----
+  list_quotes: (args: Record<string, unknown>) =>
+    demoQuotes.filter(
+      (q) => q.kind === args.kind && (!args.status || q.status === args.status),
+    ),
+  get_quote: (args: Record<string, unknown>) => {
+    const header = demoQuotes.find((q) => q.id === args.id) ?? demoQuotes[0]
+    const lines = products.slice(header.number % 8, (header.number % 8) + 3).map((product, index) => {
+      const quantity = index + 2
+      const gross = quantity * product.sale_price
+      const discount = index === 1 ? Math.round(gross * 0.05) : 0
+      const tax = Math.round(((gross - discount) * 9) / 100)
+      return {
+        id: `${header.id}-l${index}`,
+        product_id: product.id,
+        product_name: product.name,
+        unit: product.unit,
+        quantity,
+        unit_price: product.sale_price,
+        discount,
+        tax,
+        line_total: gross - discount + tax,
+        description: undefined,
+      }
+    })
+    return {header, lines}
+  },
+  quote_transitions: (args: Record<string, unknown>) => {
+    const row = demoQuotes.find((q) => q.id === args.id)
+    const map: Record<string, Array<{status: string; label: string}>> = {
+      draft: [
+        {status: 'sent', label: 'ارسال‌شده'},
+        {status: 'cancelled', label: 'باطل‌شده'},
+      ],
+      sent: [
+        {status: 'accepted', label: 'پذیرفته‌شده'},
+        {status: 'rejected', label: 'ردشده'},
+        {status: 'expired', label: 'منقضی'},
+        {status: 'cancelled', label: 'باطل‌شده'},
+      ],
+      accepted: [{status: 'cancelled', label: 'باطل‌شده'}],
+      rejected: [{status: 'draft', label: 'پیش‌نویس'}],
+      expired: [{status: 'draft', label: 'پیش‌نویس'}],
+    }
+    return map[row?.status ?? ''] ?? []
+  },
+  preview_quote: (args: Record<string, unknown>) => {
+    const lines = (args.lines ?? []) as Array<Record<string, number>>
+    const vat = Number(args.vatBasisPoints ?? 0)
+    const subtotal = lines.reduce((total, line) => total + line.quantity * line.unit_price, 0)
+    const discount = lines.reduce((total, line) => total + (line.discount ?? 0), 0)
+    const net = subtotal - discount
+    const tax = Math.floor((net * vat) / 10_000)
+    return {subtotal, discount, net, tax, total: net + tax}
+  },
+  save_quote: () => 'quote-preview',
+  set_quote_status: () => undefined,
+  convert_quote: () => 'invoice-preview',
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>
     treasuryAccounts

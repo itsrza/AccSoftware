@@ -806,3 +806,77 @@ export const getReturn = (sale: boolean, id: string) =>
 export const postSalesReturnV2 = (id: string) => api<void>('post_sales_return_v2', {id})
 export const postPurchaseReturnV2 = (id: string) => api<void>('post_purchase_return_v2', {id})
 export const cancelReturn = (sale: boolean, id: string) => api<void>('cancel_return', {sale, id})
+
+// ---- پیش‌فاکتور و سفارش خرید ----
+export type QuoteLineInput = {
+  product_id: string
+  quantity: number
+  unit_price: number
+  discount?: number
+  description?: string
+}
+export type QuoteInput = {
+  id?: string
+  kind: 'sales_quote' | 'purchase_order'
+  issue_date: string
+  valid_until?: string
+  contact_id: string
+  warehouse_id?: string
+  description?: string
+  vat_basis_points: number
+  lines: QuoteLineInput[]
+}
+export type QuotePreview = {
+  subtotal: number
+  discount: number
+  net: number
+  tax: number
+  total: number
+}
+export type QuoteRow = {
+  id: string
+  kind: string
+  kind_label: string
+  number: number
+  issue_date: string
+  valid_until?: string
+  contact_id?: string
+  contact_name?: string
+  warehouse_name?: string
+  description?: string
+  subtotal: number
+  discount: number
+  tax: number
+  total: number
+  status: string
+  status_label: string
+  converted_invoice_id?: string
+  line_count: number
+  is_expired: boolean
+}
+export type QuoteLineRow = {
+  id: string
+  product_id: string
+  product_name: string
+  unit: string
+  quantity: number
+  unit_price: number
+  discount: number
+  tax: number
+  line_total: number
+  description?: string
+}
+export type QuoteDetail = {header: QuoteRow; lines: QuoteLineRow[]}
+export type QuoteTransition = {status: string; label: string}
+
+export const previewQuote = (lines: QuoteLineInput[], vat_basis_points: number) =>
+  api<QuotePreview>('preview_quote', {lines, vatBasisPoints: vat_basis_points})
+export const saveQuote = (input: QuoteInput) => api<string>('save_quote', {input})
+export const getQuotes = (kind: 'sales_quote' | 'purchase_order', status?: string) =>
+  api<QuoteRow[]>('list_quotes', {kind, status})
+export const getQuote = (id: string) => api<QuoteDetail>('get_quote', {id})
+export const getQuoteTransitions = (id: string) => api<QuoteTransition[]>('quote_transitions', {id})
+export const setQuoteStatus = (id: string, status: string) =>
+  api<void>('set_quote_status', {id, status})
+export const convertQuote = (id: string, invoice_date: string) =>
+  api<string>('convert_quote', {id, invoiceDate: invoice_date})

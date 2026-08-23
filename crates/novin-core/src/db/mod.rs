@@ -321,6 +321,51 @@ pub fn migrate(conn: &Connection) -> Result<()> {
       status TEXT NOT NULL CHECK(status IN ('draft','posted','cancelled')), total INTEGER NOT NULL DEFAULT 0, journal_id TEXT REFERENCES journal_entries(id), created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(company_id,fiscal_year_id,number)
     );
+    /* پیش‌فاکتور و سفارش خرید.
+     *
+     * هر دو «تعهد» هستند، نه «رویداد مالی»: هیچ سند حسابداری نمی‌سازند و
+     * موجودی انبار را تغییر نمی‌دهند. فقط وقتی به فاکتور تبدیل شوند، اثر
+     * مالی و انبارگردانی پیدا می‌کنند. به همین دلیل جدول جدا دارند و در
+     * دفتر کل دیده نمی‌شوند.
+     *
+     * `valid_until` برای پیش‌فاکتور معنا دارد: قیمت پیشنهادی تاریخ انقضا دارد.
+     */
+    CREATE TABLE IF NOT EXISTS quotes(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id),
+      kind TEXT NOT NULL CHECK(kind IN ('sales_quote','purchase_order')),
+      number INTEGER NOT NULL,
+      issue_date TEXT NOT NULL,
+      valid_until TEXT,
+      contact_id TEXT REFERENCES contacts(id),
+      warehouse_id TEXT REFERENCES warehouses(id),
+      description TEXT,
+      subtotal INTEGER NOT NULL DEFAULT 0 CHECK(subtotal >= 0),
+      discount INTEGER NOT NULL DEFAULT 0 CHECK(discount >= 0),
+      tax INTEGER NOT NULL DEFAULT 0 CHECK(tax >= 0),
+      total INTEGER NOT NULL DEFAULT 0 CHECK(total >= 0),
+      status TEXT NOT NULL DEFAULT 'draft'
+        CHECK(status IN ('draft','sent','accepted','rejected','expired','converted','cancelled')),
+      /* فاکتوری که این پیش‌فاکتور به آن تبدیل شده — تبدیل دوباره ممنوع است. */
+      converted_invoice_id TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, fiscal_year_id, kind, number)
+    );
+    CREATE TABLE IF NOT EXISTS quote_lines(
+      id TEXT PRIMARY KEY,
+      quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL CHECK(quantity > 0),
+      unit_price INTEGER NOT NULL CHECK(unit_price >= 0),
+      discount INTEGER NOT NULL DEFAULT 0 CHECK(discount >= 0),
+      tax INTEGER NOT NULL DEFAULT 0 CHECK(tax >= 0),
+      line_total INTEGER NOT NULL CHECK(line_total >= 0),
+      description TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_quotes_company ON quotes(company_id,kind,status);
+    CREATE INDEX IF NOT EXISTS idx_quote_lines_quote ON quote_lines(quote_id);
     CREATE TABLE IF NOT EXISTS custom_reports(
       id TEXT PRIMARY KEY, company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name TEXT NOT NULL, source TEXT NOT NULL, config_json TEXT NOT NULL,
