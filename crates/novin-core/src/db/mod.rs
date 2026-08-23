@@ -1295,7 +1295,12 @@ pub fn seed(conn: &Connection) -> Result<()> {
         ("pgroup-site", "G03", "سایت", None),
         ("pgroup-colleagues", "G04", "همکاران", None),
         ("pgroup-staff", "G05", "کارکنان", None),
-        ("pgroup-vip", "G06", "مشتریان ویژه", Some("pgroup-trade-debtor")),
+        (
+            "pgroup-vip",
+            "G06",
+            "مشتریان ویژه",
+            Some("pgroup-trade-debtor"),
+        ),
     ] {
         tx.execute(
             "INSERT OR IGNORE INTO party_groups(id,company_id,code,title,parent_id) \

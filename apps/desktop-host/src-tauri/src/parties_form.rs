@@ -659,9 +659,21 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
 
     // ارجاع‌های اختیاری باید متعلق به همین شرکت باشند.
     for (table, value, error) in [
-        ("party_groups", clean(&input.group_id), "PRT-005: گروه معتبر نیست"),
-        ("party_routes", clean(&input.route_id), "PRT-006: مسیر معتبر نیست"),
-        ("contacts", clean(&input.marketer_id), "PRT-007: بازاریاب معتبر نیست"),
+        (
+            "party_groups",
+            clean(&input.group_id),
+            "PRT-005: گروه معتبر نیست",
+        ),
+        (
+            "party_routes",
+            clean(&input.route_id),
+            "PRT-006: مسیر معتبر نیست",
+        ),
+        (
+            "contacts",
+            clean(&input.marketer_id),
+            "PRT-007: بازاریاب معتبر نیست",
+        ),
     ] {
         if let Some(reference) = value {
             let sql = format!("SELECT COUNT(*) FROM {table} WHERE id=?1 AND company_id=?2");
@@ -909,7 +921,9 @@ pub fn save_party(state: State<AppState>, input: PartyInput) -> Result<String, S
         "contact",
         &contact_id,
         None,
-        Some(&format!("{{\"name\":\"{display_name}\",\"code\":\"{code}\"}}")),
+        Some(&format!(
+            "{{\"name\":\"{display_name}\",\"code\":\"{code}\"}}"
+        )),
     )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(contact_id)
@@ -1043,7 +1057,15 @@ pub fn deactivate_party(state: State<AppState>, id: String) -> Result<(), String
     if changed == 0 {
         return Err("PRT-003: شخص یافت نشد".into());
     }
-    audit(&tx, &user, "contacts.deactivate", "contact", &id, None, None)?;
+    audit(
+        &tx,
+        &user,
+        "contacts.deactivate",
+        "contact",
+        &id,
+        None,
+        None,
+    )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
