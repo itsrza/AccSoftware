@@ -153,7 +153,10 @@ pub fn list_returnable_lines(
 
     let owned: i64 = tx
         .query_row(
-            &format!("SELECT COUNT(*) FROM {} WHERE id=?1 AND company_id=?2", t.invoices),
+            &format!(
+                "SELECT COUNT(*) FROM {} WHERE id=?1 AND company_id=?2",
+                t.invoices
+            ),
             params![invoice_id, company],
             |row| row.get(0),
         )
@@ -274,11 +277,7 @@ pub fn list_returns(
 
 /// جزئیات یک برگشت.
 #[tauri::command]
-pub fn get_return(
-    state: State<AppState>,
-    sale: bool,
-    id: String,
-) -> Result<ReturnDetail, String> {
+pub fn get_return(state: State<AppState>, sale: bool, id: String) -> Result<ReturnDetail, String> {
     let t = tables(sale);
     let all = list_returns(state.clone(), sale, None)?;
     let header = all
@@ -432,7 +431,11 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
                 quantity,
                 price,
                 return_id,
-                if sale { "برگشت از فروش" } else { "برگشت از خرید" },
+                if sale {
+                    "برگشت از فروش"
+                } else {
+                    "برگشت از خرید"
+                },
                 user
             ],
         )
@@ -535,7 +538,11 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
         &tx,
         &user,
         permission,
-        if sale { "sales_return" } else { "purchase_return" },
+        if sale {
+            "sales_return"
+        } else {
+            "purchase_return"
+        },
         return_id,
         Some("{\"status\":\"draft\"}"),
         Some(&format!(
@@ -590,11 +597,22 @@ pub fn cancel_return(state: State<AppState>, sale: bool, id: String) -> Result<(
         _ => {}
     }
     tx.execute(
-        &format!("UPDATE {rt} SET status='cancelled' WHERE id=?1", rt = t.returns),
+        &format!(
+            "UPDATE {rt} SET status='cancelled' WHERE id=?1",
+            rt = t.returns
+        ),
         params![id],
     )
     .map_err(|e| e.to_string())?;
-    audit(&tx, &user, permission, "return", &id, None, Some("{\"status\":\"cancelled\"}"))?;
+    audit(
+        &tx,
+        &user,
+        permission,
+        "return",
+        &id,
+        None,
+        Some("{\"status\":\"cancelled\"}"),
+    )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }

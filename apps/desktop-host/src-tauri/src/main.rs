@@ -25,8 +25,8 @@ use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 
 mod chart_of_accounts;
-mod returns;
 mod parties_form;
+mod returns;
 mod treasury_accounts;
 mod treasury_docs;
 

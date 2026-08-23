@@ -272,11 +272,17 @@ fn t10_demo_returns_cover_both_states_with_unique_numbers() {
         "برگشت نمونه کم است"
     );
     assert!(
-        count(&conn, "SELECT COUNT(*) FROM sales_returns WHERE status='draft'") >= 1,
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM sales_returns WHERE status='draft'"
+        ) >= 1,
         "برگشت پیش‌نویس نمونه وجود ندارد"
     );
     assert!(
-        count(&conn, "SELECT COUNT(*) FROM sales_returns WHERE status='posted'") >= 1,
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM sales_returns WHERE status='posted'"
+        ) >= 1,
         "برگشت ثبت‌شده‌ی نمونه وجود ندارد"
     );
 
