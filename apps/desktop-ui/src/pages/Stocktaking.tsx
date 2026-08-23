@@ -152,7 +152,7 @@ export function Stocktaking() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">INVENTORY</div>
+          <div className="eyebrow">انبار</div>
           <h1>انبارگردانی</h1>
           <p>
             فریز موجودی ← شمارش ← شمارش مجدد ← تأیید اختلاف ← ثبت و صدور سند تعدیل

@@ -241,7 +241,7 @@ export function InvoiceForm() {
     <section className="page invoice-page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">SALES</div>
+          <div className="eyebrow">فروش</div>
           <h1>صدور فاکتور فروش</h1>
           <p>Insert افزودن سطر · F7 ویرایش · Delete حذف — همه‌ی محاسبات از موتور مالی می‌آید.</p>
         </div>

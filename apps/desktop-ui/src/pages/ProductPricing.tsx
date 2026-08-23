@@ -92,7 +92,7 @@ export function ProductPricing() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">CATALOG</div>
+          <div className="eyebrow">کالا و خدمات</div>
           <h1>قیمت کالاها</h1>
           <p>هفت سطح قیمت برای هر کالا. سطح خالی یعنی از سطح بالاتر استفاده می‌شود.</p>
         </div>

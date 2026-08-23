@@ -161,7 +161,7 @@ export function SingleLineJournal() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">ACCOUNTING</div>
+          <div className="eyebrow">حسابداری</div>
           <h1>صدور سند یک‌سطری</h1>
           <p>سریع‌ترین راه ثبت سند: یک مبلغ، یک طرف بدهکار، یک طرف بستانکار.</p>
         </div>

@@ -95,7 +95,7 @@ export function Parties() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">PARTIES</div>
+          <div className="eyebrow">اشخاص</div>
           <h1>مدیریت اشخاص</h1>
           <p>مشتریان، تأمین‌کنندگان، بازاریاب‌ها و سوپروایزرها با مانده‌ی واقعی حساب.</p>
         </div>
