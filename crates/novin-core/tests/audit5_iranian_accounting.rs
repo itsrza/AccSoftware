@@ -551,13 +551,8 @@ fn h23_every_stored_date_is_a_valid_jalali_date() {
 /// به میلادی مرتب شوند.
 #[test]
 fn h24_textual_date_sort_equals_chronological_sort() {
-    let mut texts = vec![
-        "1405/01/09".to_string(),
-        "1404/12/29".to_string(),
-        "1405/01/10".to_string(),
-        "1404/02/05".to_string(),
-    ];
-    texts.sort();
+    let mut texts = ["1405/01/09", "1404/12/29", "1405/01/10", "1404/02/05"];
+    texts.sort_unstable();
     let as_dates: Vec<NaiveDate> = texts
         .iter()
         .map(|text| {
