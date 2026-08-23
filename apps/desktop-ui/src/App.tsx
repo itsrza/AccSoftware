@@ -335,7 +335,7 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard':
-        return <Dashboard demo={demo} onSettings={() => setSettings(true)} onNavigate={setPage} />
+        return <Dashboard demo={demo} />
       case 'invoice-form':
         return <InvoiceForm />
       case 'parties':
