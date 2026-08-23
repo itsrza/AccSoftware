@@ -19,6 +19,7 @@ pub mod invoicing;
 pub mod jalali;
 pub mod money;
 pub mod parties;
+pub mod production;
 pub mod stocktaking;
 pub mod treasury;
 

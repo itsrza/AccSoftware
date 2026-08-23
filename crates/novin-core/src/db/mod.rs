@@ -366,6 +366,77 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     );
     CREATE INDEX IF NOT EXISTS idx_quotes_company ON quotes(company_id,kind,status);
     CREATE INDEX IF NOT EXISTS idx_quote_lines_quote ON quote_lines(quote_id);
+    /* تولید و فرمول تولید.
+     *
+     * معادله‌ی محوری: مواد مصرفی + هزینه‌ها = بهای تمام‌شده‌ی محصولات.
+     * تولید سود نمی‌سازد؛ فقط شکل دارایی از «مواد اولیه» به «کالای ساخته‌شده»
+     * تغییر می‌کند. سود در لحظه‌ی فروش محقق می‌شود.
+     */
+    CREATE TABLE IF NOT EXISTS production_formulas(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      title TEXT NOT NULL,
+      output_quantity REAL NOT NULL CHECK(output_quantity > 0),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, product_id, title)
+    );
+    CREATE TABLE IF NOT EXISTS production_formula_components(
+      id TEXT PRIMARY KEY,
+      formula_id TEXT NOT NULL REFERENCES production_formulas(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity_per_unit REAL NOT NULL CHECK(quantity_per_unit > 0),
+      waste_percent REAL NOT NULL DEFAULT 0 CHECK(waste_percent >= 0 AND waste_percent < 100),
+      UNIQUE(formula_id, product_id)
+    );
+    CREATE TABLE IF NOT EXISTS production_orders(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id),
+      number INTEGER NOT NULL,
+      production_date TEXT NOT NULL,
+      warehouse_id TEXT NOT NULL REFERENCES warehouses(id),
+      formula_id TEXT REFERENCES production_formulas(id),
+      cost_allocation TEXT NOT NULL DEFAULT 'by_quantity'
+        CHECK(cost_allocation IN ('by_quantity','by_market_value')),
+      materials_total INTEGER NOT NULL DEFAULT 0 CHECK(materials_total >= 0),
+      expenses_total INTEGER NOT NULL DEFAULT 0 CHECK(expenses_total >= 0),
+      total_cost INTEGER NOT NULL DEFAULT 0 CHECK(total_cost >= 0),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','posted','cancelled')),
+      description TEXT,
+      journal_id TEXT REFERENCES journal_entries(id),
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, fiscal_year_id, number)
+    );
+    CREATE TABLE IF NOT EXISTS production_inputs(
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES production_orders(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL CHECK(quantity > 0),
+      unit_cost INTEGER NOT NULL CHECK(unit_cost >= 0),
+      line_total INTEGER NOT NULL CHECK(line_total >= 0)
+    );
+    CREATE TABLE IF NOT EXISTS production_outputs(
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES production_orders(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity REAL NOT NULL CHECK(quantity > 0),
+      market_unit_price INTEGER,
+      allocated_cost INTEGER NOT NULL DEFAULT 0 CHECK(allocated_cost >= 0),
+      unit_cost INTEGER NOT NULL DEFAULT 0 CHECK(unit_cost >= 0)
+    );
+    CREATE TABLE IF NOT EXISTS production_expenses(
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES production_orders(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      title TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK(amount >= 0)
+    );
+    CREATE INDEX IF NOT EXISTS idx_production_orders ON production_orders(company_id,status);
+    CREATE INDEX IF NOT EXISTS idx_production_inputs ON production_inputs(order_id);
+    CREATE INDEX IF NOT EXISTS idx_production_outputs ON production_outputs(order_id);
     CREATE TABLE IF NOT EXISTS custom_reports(
       id TEXT PRIMARY KEY, company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       name TEXT NOT NULL, source TEXT NOT NULL, config_json TEXT NOT NULL,
@@ -1437,6 +1508,52 @@ pub fn seed(conn: &Connection) -> Result<()> {
             rusqlite::params![id, code, name, level, parent, nature],
         )?;
     }
+    // حساب‌های تولید.
+    //
+    // «موجودی مواد اولیه» و «موجودی کالای ساخته‌شده» جدا از هم‌اند، چون
+    // ارزش این دو در ترازنامه معنای متفاوتی دارد و گزارش بهای تمام‌شده به
+    // تفکیک آن‌ها نیاز دارد.
+    for (id, code, name, level, parent, nature) in [
+        (
+            "acc-1310",
+            "1310",
+            "موجودی مواد اولیه",
+            "general",
+            Some("acc-1000"),
+            "debit",
+        ),
+        (
+            "acc-1320",
+            "1320",
+            "موجودی کالای ساخته شده",
+            "general",
+            Some("acc-1000"),
+            "debit",
+        ),
+        (
+            "acc-5300",
+            "5300",
+            "دستمزد مستقیم تولید",
+            "general",
+            Some("acc-5000"),
+            "debit",
+        ),
+        (
+            "acc-5400",
+            "5400",
+            "سربار تولید",
+            "general",
+            Some("acc-5000"),
+            "debit",
+        ),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \
+             VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",
+            rusqlite::params![id, code, name, level, parent, nature],
+        )?;
+    }
+
     // حساب‌های خزانه برای سند دریافت و پرداخت چندروشی.
     for (id, code, name, level, parent, nature) in [
         (

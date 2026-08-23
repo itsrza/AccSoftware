@@ -26,6 +26,7 @@ use tauri::{Manager, State};
 
 mod chart_of_accounts;
 mod parties_form;
+mod production;
 mod quotes;
 mod returns;
 mod treasury_accounts;
@@ -7490,6 +7491,16 @@ fn main() {
             quotes::quote_transitions,
             quotes::set_quote_status,
             quotes::convert_quote,
+            production::save_production_formula,
+            production::list_production_formulas,
+            production::get_production_formula,
+            production::expand_production_formula,
+            production::delete_production_formula,
+            production::preview_production,
+            production::post_production,
+            production::list_production_orders,
+            production::list_cost_allocations,
+            production::list_production_expense_accounts,
             create_sales_return,
             create_purchase_return,
             post_sales_return,
