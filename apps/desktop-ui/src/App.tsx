@@ -24,6 +24,7 @@ import {PrintTemplates} from './pages/PrintTemplates'
 import {SingleLineJournal} from './pages/SingleLineJournal'
 import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
+import {Products} from './pages/Products'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {Stocktaking} from './pages/Stocktaking'
 import {getDemoStatus, deleteDemo, login, getParties, getProducts, getCheckDashboard, getChecks, getSettings} from './api'
@@ -397,7 +398,7 @@ export default function App() {
       case 'single-journal':
         return <SingleLineJournal />
       case 'products':
-        return <DataPage kind="products" />
+        return <Products />
       case 'inventory':
         return <AdvancedInventory />
       case 'inventory-count':

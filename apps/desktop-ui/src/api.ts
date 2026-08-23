@@ -1001,3 +1001,103 @@ export type SettingWithValue = {
 export const getSettings = () => api<SettingWithValue[]>('list_settings')
 export const setSetting = (key: string, value: string) => api<string>('set_setting', {key, value})
 export const resetSetting = (key: string) => api<string>('reset_setting', {key})
+
+// ---------------------------------------------------------------------------
+// تعریف کالا — فرم چندزبانه (مرجع: تصویر NztJl5)
+// ---------------------------------------------------------------------------
+export type ProductKindOption = {value: string; label: string; tracks_inventory: boolean}
+export type PriceLevelOption = {value: string; label: string}
+export type ProductPriceLevel = {level: string; label: string; price: number | null}
+export type ProductUnitRow = {unit_name: string; factor: number; is_default_sale: boolean}
+export type ProductTierRow = {min_quantity: number; discount_bp: number}
+export type ProductStockRow = {warehouse_id: string; warehouse_name: string; quantity: number}
+export type ProductGold = {
+  weight_grams: number
+  carat: number
+  making_charge_bp: number
+  profit_bp: number
+}
+export type ProductDetail = {
+  id: string
+  kind: string
+  kind_label: string
+  sku: string
+  barcode?: string
+  name: string
+  display_name?: string
+  brand?: string
+  group_id?: string
+  group_title?: string
+  unit: string
+  sale_price: number
+  purchase_price: number
+  min_stock: number
+  max_stock: number
+  reorder_point: number
+  vat_basis_points: number
+  duty_basis_points: number
+  tax_code?: string
+  tax_exempt: boolean
+  prices: ProductPriceLevel[]
+  units: ProductUnitRow[]
+  tiers: ProductTierRow[]
+  gold?: ProductGold
+  stock: ProductStockRow[]
+  total_stock: number
+}
+export type ProductListRow = {
+  id: string
+  kind: string
+  kind_label: string
+  sku: string
+  barcode?: string
+  name: string
+  unit: string
+  group_title?: string
+  quantity: number
+  retail_price: number
+  partner_price: number
+  purchase_price: number
+  min_stock: number
+  vat_basis_points: number
+  tax_exempt: boolean
+}
+export type ProductInput = {
+  id?: string
+  kind: string
+  sku: string
+  barcode?: string
+  name: string
+  display_name?: string
+  brand?: string
+  group_id?: string
+  unit: string
+  purchase_price: number
+  min_stock: number
+  max_stock: number
+  reorder_point: number
+  vat_basis_points: number
+  duty_basis_points: number
+  tax_code?: string
+  tax_exempt: boolean
+  prices: {level: string; price: number | null}[]
+  units: ProductUnitRow[]
+  tiers: ProductTierRow[]
+  gold?: ProductGold
+}
+export type GoldBreakdown = {
+  metal_value: number
+  making_charge: number
+  profit: number
+  vat: number
+  total: number
+}
+
+export const getProductKinds = () =>
+  api<{kinds: ProductKindOption[]; levels: PriceLevelOption[]}>('list_product_kinds')
+export const getProductProfile = (id: string) => api<ProductDetail>('get_product_profile', {id})
+export const saveProductProfile = (input: ProductInput) =>
+  api<string>('save_product_profile', {input})
+export const getProductsDetailed = () => api<ProductListRow[]>('list_products_detailed')
+export const previewGoldPrice = (id: string, ratePerGram: number) =>
+  api<GoldBreakdown>('preview_gold_price', {id, ratePerGram})

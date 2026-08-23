@@ -444,9 +444,11 @@ describe('داده‌ی نمونه‌ی پیش‌نمایش', () => {
     ]),
   )
 
+  const catalog = src('lib/preview/catalog.ts')
   const simulated = new Set([
     ...Array.from(preview.matchAll(/^ {2}([a-z0-9_]+):/gm)).map((m) => m[1]),
     ...Array.from(extras.matchAll(/^ {4}([a-z0-9_]+):/gm)).map((m) => m[1]),
+    ...Array.from(catalog.matchAll(/^ {2,6}([a-z0-9_]+):/gm)).map((m) => m[1]),
   ])
 
   it('ن۱ — هر فرمانی که رابط کاربری صدا می‌زند در پیش‌نمایش پاسخ دارد', () => {
@@ -478,5 +480,6 @@ describe('داده‌ی نمونه‌ی پیش‌نمایش', () => {
     expect(preview).toContain("from './preview/extras'")
     expect(preview.split('\n').length).toBeLessThan(1500)
     expect(extras.split('\n').length).toBeLessThan(700)
+    expect(src('lib/preview/catalog.ts').split('\n').length).toBeLessThan(700)
   })
 })

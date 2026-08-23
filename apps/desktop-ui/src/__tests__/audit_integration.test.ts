@@ -170,7 +170,7 @@ describe('مسیریابی و منو', () => {
     })
     // این‌ها اجزای داخلی صفحات دیگرند، نه صفحه‌ی مستقل.
     // اجزای داخلی که از صفحه‌ی والدشان فراخوانی می‌شوند، نه از مسیریاب.
-    const internal = ['PartyForm', 'DataPage', 'ProductionFormulaDialogs']
+    const internal = ['PartyForm', 'ProductForm', 'DataPage', 'ProductionFormulaDialogs']
     const meaningful = unused.filter((file) => !internal.includes(file.name.replace('.tsx', '')))
     expect(meaningful.map((file) => file.name)).toEqual([])
   })

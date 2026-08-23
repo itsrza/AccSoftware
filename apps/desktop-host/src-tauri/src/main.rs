@@ -27,6 +27,7 @@ use tauri::{Manager, State};
 mod chart_of_accounts;
 mod parties_form;
 mod production;
+mod products_form;
 mod quotes;
 mod returns;
 mod settings;
@@ -7391,6 +7392,11 @@ fn main() {
             login,
             logout,
             current_user,
+            products_form::list_product_kinds,
+            products_form::get_product_profile,
+            products_form::save_product_profile,
+            products_form::list_products_detailed,
+            products_form::preview_gold_price,
             get_company,
             list_accounts,
             list_contacts,

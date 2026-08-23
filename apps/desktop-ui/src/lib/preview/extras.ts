@@ -83,6 +83,8 @@ export type PreviewDataset = {
   jalaliDate: (index: number) => string
 }
 
+import { catalogResponses } from './catalog'
+
 type Handler = (args: Record<string, unknown>) => unknown
 
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
@@ -600,6 +602,8 @@ export function buildExtraResponses(data: PreviewDataset): Record<string, Handle
     list_permissions: () => permissions,
     list_backups: () => backups,
     verify_backup_file: () => 'فایل پشتیبان سالم است و قابل بازیابی می‌باشد.',
+
+    ...catalogResponses(data),
 
     // ------------------------------------------------------- عملیات نوشتنی
     create_contact: () => 'demo-contact-new',
