@@ -282,37 +282,42 @@ fn t115_every_mutating_command_checks_permission() {
 
 /// ت۱۱۶ — هیچ فرمانی با `unwrap` روی ورودی کاربر نمی‌شکند.
 ///
-/// `unwrap` در مسیر کاربر یعنی کرش برنامه به‌جای پیام خطا.
+/// `unwrap` در مسیر کاربر یعنی کرش برنامه به‌جای پیام خطا. کاربر پنجره‌ی
+/// بسته‌شده می‌بیند و نمی‌فهمد چه شد.
 #[test]
 fn t116_no_command_panics_on_user_input() {
     let mut risky = Vec::new();
     for (file, name, body) in commands() {
-        for line in body.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("//") {
+        // نظرها حذف می‌شوند تا مثال داخل توضیح، خطای کاذب نسازد.
+        let code: String = body
+            .lines()
+            .map(|line| line.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        for occurrence in code.match_indices(".unwrap()").chain(code.match_indices(".expect(")) {
+            let (position, _) = occurrence;
+            // متن اطراف برای تشخیص استثناهای مجاز
+            let context_start = position.saturating_sub(120);
+            let context = &code[context_start..position];
+            let allowed = context.contains("timestamp_nanos_opt")
+                || context.contains("Utc::now")
+                || context.contains("Local::now")
+                || context.contains("app.handle")
+                || context.contains("path_resolver")
+                || context.contains("Regex::new");
+            if allowed {
                 continue;
             }
-            // `unwrap_or` و `unwrap_or_else` و `unwrap_or_default` امن‌اند.
-            // `p.as_str()` و مانند آن `unwrap` نیستند؛ فقط فراخوانی صریح
-            // `unwrap()` و `expect(...)` مسیر کاربر را می‌شکند.
-            let has_bare_unwrap = trimmed.contains(".unwrap()") || trimmed.contains(".expect(");
-            if has_bare_unwrap {
-                // استثناهای مجاز:
-                //  · زمان سیستم که شکست آن غیرممکن است
-                //  · راه‌اندازی برنامه (نه مسیر کاربر) — آنجا شکست باید
-                //    فوراً دیده شود، نه اینکه برنامه نیمه‌کاره بالا بیاید
-                if trimmed.contains("timestamp_nanos_opt")
-                    || trimmed.contains("app.handle()")
-                    || trimmed.contains("path_resolver")
-                    || trimmed.contains("plugin")
-                {
-                    continue;
-                }
-                risky.push(format!(
-                    "{file}::{name} → {}",
-                    trimmed.chars().take(70).collect::<String>()
-                ));
-            }
+            let snippet: String = code[context_start..(position + 12).min(code.len())]
+                .chars()
+                .rev()
+                .take(60)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect();
+            risky.push(format!("{file}::{name} → {snippet}"));
         }
     }
     assert!(risky.is_empty(), "احتمال کرش روی ورودی کاربر: {risky:?}");

@@ -7520,7 +7520,6 @@ fn main() {
             production::list_production_orders,
             production::list_cost_allocations,
             production::list_production_expense_accounts,
-            set_api_profile_enabled,
             settings::list_settings,
             settings::set_setting,
             settings::reset_setting,
