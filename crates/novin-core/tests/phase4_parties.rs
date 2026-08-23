@@ -411,12 +411,7 @@ fn t09_credit_limit_protects_against_over_selling() {
     );
     // و تلاش برای فروش نسیه‌ی بیشتر باید صریحاً رد شود.
     assert!(
-        check_credit_limit(
-            Money::from_rials(600_000_000),
-            limit,
-            Money::from_rials(1)
-        )
-        .is_err(),
+        check_credit_limit(Money::from_rials(600_000_000), limit, Money::from_rials(1)).is_err(),
         "فروش نسیه پس از عبور از سقف باید رد شود"
     );
 }
