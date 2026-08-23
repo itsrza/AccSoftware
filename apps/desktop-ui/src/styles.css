@@ -342,3 +342,19 @@ button{font:inherit}
 .mini-table tr.total-row td{font-weight:700;color:var(--brand);border-top:2px solid var(--gold)}
 .success-box{background:var(--success-bg);color:var(--success);border:1px solid var(--success);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px}
 .large-table td.num{text-align:left;font-variant-numeric:tabular-nums}
+
+/* ---- تعریف بانک و صندوق ---- */
+.inline-check{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2);cursor:pointer}
+.inline-check input{width:16px;height:16px;accent-color:var(--gold)}
+.checkbox-row{gap:24px;margin-top:16px}
+.policy-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:6px}
+.policy-card{display:flex;flex-direction:column;gap:5px;padding:13px 15px;border:1px solid var(--border);border-radius:11px;background:var(--surface);cursor:pointer}
+.policy-card.selected{border-color:var(--gold);background:var(--gold-100)}
+.policy-card input{position:absolute;opacity:0;pointer-events:none}
+.policy-card b{font-size:13px;color:var(--text)}
+.policy-card small{font-size:10.5px;line-height:1.7;color:var(--text-3)}
+.chip{display:inline-block;margin-inline-start:7px;padding:2px 8px;border-radius:20px;background:var(--gold-100);color:var(--gold-600);font-size:10px}
+.row-muted{opacity:.5}
+.table-action{margin-inline-end:6px;padding:5px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2);font-family:inherit;font-size:11.5px;cursor:pointer}
+.table-action:hover:not(:disabled){border-color:var(--gold);color:var(--gold-600)}
+.table-action:disabled{opacity:.45;cursor:not-allowed}

@@ -24,6 +24,7 @@ use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 
+mod treasury_accounts;
 mod treasury_docs;
 
 pub(crate) struct AppState {
@@ -7453,6 +7454,10 @@ fn main() {
             treasury_docs::list_treasury_documents,
             treasury_docs::get_treasury_document,
             treasury_docs::list_payment_methods,
+            treasury_accounts::list_treasury_account_details,
+            treasury_accounts::save_treasury_account,
+            treasury_accounts::deactivate_treasury_account,
+            treasury_accounts::list_negative_policies,
             create_sales_return,
             create_purchase_return,
             post_sales_return,

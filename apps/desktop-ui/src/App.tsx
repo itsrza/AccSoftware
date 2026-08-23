@@ -7,6 +7,7 @@ import {ReportBuilder} from './pages/ReportBuilder'
 import {Integrations} from './pages/Integrations'
 import {Treasury} from './pages/Treasury'
 import {TreasuryDocumentForm} from './pages/TreasuryDocumentForm'
+import {TreasuryAccounts} from './pages/TreasuryAccounts'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -338,24 +339,6 @@ export default function App() {
             phase="فاز ۶"
           />
         )
-      case 'banks':
-        return (
-          <UnderConstruction
-            title="حساب‌های بانکی"
-            description="تعریف بانک با شماره شبا، شماره کارت، شعبه، پایانه فروشگاهی و سیاست هشدار منفی شدن موجودی. اعتبارسنجی شبا و کارت در هسته آماده و تست‌شده است."
-            reference="p6hT01"
-            phase="فاز ۶ — خزانه"
-          />
-        )
-      case 'cashboxes':
-        return (
-          <UnderConstruction
-            title="صندوق‌ها"
-            description="تعریف صندوق با گروه تفصیلی، کد تفصیلی و سیاست هشدار منفی شدن موجودی (خطا / هشدار / بی‌تأثیر)."
-            reference="WLumbs"
-            phase="فاز ۶ — خزانه"
-          />
-        )
       case 'chart-of-accounts':
         return (
           <UnderConstruction
@@ -380,9 +363,11 @@ export default function App() {
         return <PrintTemplates />
       case 'treasury-document':
         return <TreasuryDocumentForm />
-      case 'treasury':
       case 'banks':
+        return <TreasuryAccounts mode="bank" />
       case 'cashboxes':
+        return <TreasuryAccounts mode="cash" />
+      case 'treasury':
         return <Treasury />
       case 'checks':
         return <Checks />

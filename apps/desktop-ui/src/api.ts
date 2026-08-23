@@ -555,3 +555,57 @@ export const getTreasuryDocuments = (
   to_date?: string,
 ) => api<TreasuryDocumentRow[]>('list_treasury_documents', {kind, partyId: party_id, fromDate: from_date, toDate: to_date})
 export const getTreasuryDocument = (id: string) => api<TreasuryDocumentDetail>('get_treasury_document', {id})
+
+// ---- صندوق‌ها و حساب‌های بانکی ----
+export type TreasuryAccountRow = {
+  id: string
+  name: string
+  account_type: 'cash' | 'bank' | 'petty_cash'
+  account_type_label: string
+  account_number?: string
+  iban?: string
+  card_number?: string
+  branch_name?: string
+  branch_code?: string
+  holder_name?: string
+  has_pos_terminal: boolean
+  negative_policy: string
+  negative_policy_label: string
+  linked_account_id?: string
+  linked_account_name?: string
+  is_active: boolean
+  balance: number
+  inflow: number
+  outflow: number
+  transaction_count: number
+}
+export type TreasuryAccountInput = {
+  id?: string
+  name: string
+  account_type: 'cash' | 'bank' | 'petty_cash'
+  account_number?: string
+  iban?: string
+  card_number?: string
+  branch_name?: string
+  branch_code?: string
+  holder_name?: string
+  has_pos_terminal: boolean
+  negative_policy: string
+  linked_account_id?: string
+  is_active: boolean
+}
+export type PolicyInfo = {value: string; label: string; explanation: string}
+
+export const getTreasuryAccountDetails = (
+  account_type?: 'cash' | 'bank' | 'petty_cash',
+  include_inactive = false,
+) =>
+  api<TreasuryAccountRow[]>('list_treasury_account_details', {
+    accountType: account_type,
+    includeInactive: include_inactive,
+  })
+export const saveTreasuryAccount = (input: TreasuryAccountInput) =>
+  api<string>('save_treasury_account', {input})
+export const deactivateTreasuryAccount = (id: string) =>
+  api<void>('deactivate_treasury_account', {id})
+export const getNegativePolicies = () => api<PolicyInfo[]>('list_negative_policies')

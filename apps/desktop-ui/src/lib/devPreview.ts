@@ -562,6 +562,40 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
 
   // --- خزانه و چک ---
   list_treasury_accounts: () => treasuryAccounts,
+  list_treasury_account_details: (args: Record<string, unknown>) =>
+    treasuryAccounts
+      .filter((a) => !args.accountType || a.account_type === args.accountType)
+      .map((a, index) => {
+        const inflow = ((index % 5) + 2) * 45_000_000
+        const outflow = ((index % 4) + 1) * 30_000_000
+        return {
+          ...a,
+          account_type_label:
+            a.account_type === 'bank' ? 'حساب بانکی' : a.account_type === 'cash' ? 'صندوق' : 'تنخواه',
+          account_number: a.account_type === 'bank' ? `${1234567 + index}` : undefined,
+          iban: a.account_type === 'bank' ? `IR${28062 + index}0000000012345678${index}1` : undefined,
+          card_number: a.account_type === 'bank' ? '6037991234567893' : undefined,
+          branch_name: a.account_type === 'bank' ? 'شعبه مرکزی' : undefined,
+          branch_code: a.account_type === 'bank' ? String(1200 + index) : undefined,
+          holder_name: 'شرکت نوین پرداز',
+          has_pos_terminal: a.account_type === 'bank',
+          negative_policy: a.account_type === 'bank' ? 'warn' : 'error',
+          negative_policy_label: a.account_type === 'bank' ? 'هشدار' : 'خطا',
+          linked_account_id: 'acc-1101',
+          linked_account_name: 'موجودی نقد و بانک',
+          balance: inflow - outflow,
+          inflow,
+          outflow,
+          transaction_count: (index + 1) * 7,
+        }
+      }),
+  list_negative_policies: () => [
+    {value: 'error', label: 'خطا', explanation: 'اگر برداشت باعث منفی شدن موجودی شود، عملیات انجام نمی‌شود. مناسب صندوق نقدی، چون پولی که در صندوق نیست قابل پرداخت نیست.'},
+    {value: 'warn', label: 'هشدار', explanation: 'عملیات انجام می‌شود ولی هشدار داده می‌شود. مناسب حساب بانکی که ممکن است اضافه‌برداشت داشته باشد.'},
+    {value: 'ignore', label: 'بی‌تأثیر', explanation: 'هیچ بررسی‌ای انجام نمی‌شود. فقط وقتی استفاده کنید که مانده‌ی این حساب را جای دیگری کنترل می‌کنید.'},
+  ],
+  save_treasury_account: () => 'treasury-preview',
+  deactivate_treasury_account: () => undefined,
   list_treasury_transactions: () =>
     Array.from({length: 20}, (_, index) => ({
       id: `demo-tx-${index}`,
