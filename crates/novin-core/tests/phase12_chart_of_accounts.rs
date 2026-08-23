@@ -61,12 +61,20 @@ fn t02_parent_code_is_derived_from_child() {
 fn t03_next_code_skips_taken_codes() {
     let scheme = CodingScheme::default();
     let taken = vec![
-        "11031".to_string(),
-        "11032".to_string(),
-        "11034".to_string(),
+        "11001".to_string(),
+        "11002".to_string(),
+        "11004".to_string(),
     ];
-    assert_eq!(scheme.next_child_code("110", &taken).unwrap(), "11033");
+    // شماره‌ی ۳ آزاد است، پس باید همان پیشنهاد شود — نه ۵.
+    assert_eq!(scheme.next_child_code("110", &taken).unwrap(), "11003");
     assert_eq!(scheme.next_child_code("110", &[]).unwrap(), "11001");
+    // کد گرفته‌شده‌ی خارج از توالی نباید ترتیب را به هم بزند.
+    assert_eq!(
+        scheme
+            .next_child_code("110", &["11031".to_string()])
+            .unwrap(),
+        "11001"
+    );
 }
 
 /// ت۰۴ — ظرفیت هر سطح محدود است و پر شدنش باید خطا بدهد، نه کد تکراری.
@@ -149,13 +157,36 @@ fn t08_seeded_chart_has_a_sound_tree() {
     let self_parent = count(&conn, "SELECT COUNT(*) FROM accounts WHERE parent_id = id");
     assert_eq!(self_parent, 0, "حساب والد خودش است");
 
-    // ماهیت فرزند باید با والد بخواند (والد دوطرفه استثناست).
+    // ماهیت فرزند باید با والد بخواند، مگر والد «دوطرفه» باشد.
+    //
+    // نکته‌ی حسابداری: گروه‌هایی مثل «درآمد فروش» هم حساب عادی دارند (فروش
+    // کالا، بستانکار) و هم حساب کاهنده (برگشت از فروش و تخفیف، بدهکار). چنین
+    // گروهی ذاتاً دوطرفه است و باید همان‌طور هم تعریف شود؛ وگرنه یا قاعده
+    // نقض می‌شود یا حساب کاهنده جای اشتباهی می‌نشیند.
     let mismatched = count(
         &conn,
         "SELECT COUNT(*) FROM accounts c JOIN accounts p ON p.id=c.parent_id \
          WHERE p.nature <> 'mixed' AND p.nature <> c.nature",
     );
-    assert_eq!(mismatched, 0, "ماهیت فرزند با والد نمی‌خواند");
+    assert_eq!(
+        mismatched, 0,
+        "ماهیت فرزند با والد نمی‌خواند؛ اگر حساب کاهنده است، والد باید دوطرفه باشد"
+    );
+
+    // و برعکس: گروهی که حساب کاهنده دارد حتماً باید دوطرفه باشد.
+    for group in ["acc-4000", "acc-5000"] {
+        let nature: String = conn
+            .query_row(
+                "SELECT nature FROM accounts WHERE id=?1",
+                rusqlite::params![group],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            nature, "mixed",
+            "گروه «{group}» حساب کاهنده دارد و باید دوطرفه باشد"
+        );
+    }
 }
 
 /// ت۰۹ — سند فقط روی برگ‌های درخت نشسته است.

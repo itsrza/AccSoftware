@@ -986,6 +986,17 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             [],
         )?;
     }
+    // گروه‌های دارای حساب کاهنده باید دوطرفه باشند — اصلاح پایگاه داده‌های موجود.
+    //
+    // «برگشت از فروش» و «تخفیف نقدی» ماهیت بدهکار دارند ولی زیر گروه درآمد
+    // می‌نشینند؛ «برگشت از خرید» بستانکار است ولی زیر گروه بهای تمام‌شده.
+    // اگر گروه دوطرفه نباشد، قاعده‌ی «ماهیت فرزند با والد بخواند» نقض می‌شود.
+    conn.execute(
+        "UPDATE accounts SET nature='mixed' WHERE level='group' AND EXISTS \
+         (SELECT 1 FROM accounts child WHERE child.parent_id = accounts.id \
+          AND child.nature <> accounts.nature)",
+        [],
+    )?;
     migrate_check_statuses(conn)?;
     seed(conn)?;
     Ok(())
@@ -1111,9 +1122,12 @@ pub fn seed(conn: &Connection) -> Result<()> {
             "credit",
         ),
         ("2101", "تأمین کنندگان", "detail", Some("2100"), "credit"),
-        ("4000", "درآمد فروش", "group", None, "credit"),
+        // گروه دوطرفه: هم فروش (بستانکار) و هم حساب‌های کاهنده‌ی فروش
+        // (برگشت از فروش و تخفیف نقدی، بدهکار) زیر آن می‌نشینند.
+        ("4000", "درآمد فروش", "group", None, "mixed"),
         ("4100", "فروش کالا", "general", Some("4000"), "credit"),
-        ("5000", "بهای تمام شده", "group", None, "debit"),
+        // گروه دوطرفه: بهای تمام‌شده (بدهکار) و برگشت از خرید (بستانکار).
+        ("5000", "بهای تمام شده", "group", None, "mixed"),
         (
             "5100",
             "بهای تمام شده کالای فروش رفته",
