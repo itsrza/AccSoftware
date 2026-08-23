@@ -6931,9 +6931,15 @@ fn register_plugin(
     )
     .map_err(|e| e.to_string())?;
     for p in perms {
+        // مجوز باید رشته باشد. افزونه‌ای که عدد یا شیء بفرستد، پیش از این
+        // برنامه را کرش می‌کرد — یعنی یک فایل افزونه‌ی خراب کافی بود تا
+        // نرم‌افزار حسابداری بسته شود.
+        let permission = p
+            .as_str()
+            .ok_or_else(|| "PLUGIN-014: فهرست مجوزهای افزونه باید متنی باشد".to_string())?;
         tx.execute(
             "INSERT INTO plugin_permissions(plugin_id,permission) VALUES(?1,?2)",
-            params![id, p.as_str().unwrap()],
+            params![id, permission],
         )
         .map_err(|e| e.to_string())?;
     }
