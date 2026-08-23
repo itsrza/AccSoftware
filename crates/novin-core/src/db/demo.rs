@@ -788,9 +788,39 @@ fn seed_treasury_documents(tx: &Connection, treasury: &[String]) -> Result<()> {
     for index in 0..20 {
         let doc_id = format!("demo-receipt-{index:03}");
         let contact = format!("demo-contact-{:03}", (index * 3) % CONTACT_COUNT);
-        let date = demo_date(index + 1);
-        let amount = ((index as i64 % 8) + 1) * 12_500_000;
         let treasury = &treasury[index % treasury.len()];
+
+        // مبلغ دریافت از بدهی واقعی همان مشتری می‌آید، نه از عددی دلخواه.
+        //
+        // چرا مهم است: دریافت بیش از بدهی، حساب مشتریان را بستانکار می‌کند —
+        // یعنی گزارش می‌گوید شرکت به مشتری بدهکار است. این وضعیت فقط با
+        // پیش‌دریافت واقعی معنا دارد، نه به‌عنوان داده‌ی نمونه‌ی تصادفی.
+        let owed: i64 = tx
+            .query_row(
+                "SELECT COALESCE(SUM(total),0) FROM sales_invoices \
+                 WHERE contact_id=?1 AND status='posted'",
+                params![contact],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let already_received: i64 = tx
+            .query_row(
+                "SELECT COALESCE(SUM(total),0) FROM treasury_documents \
+                 WHERE party_id=?1 AND kind='receipt'",
+                params![contact],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let outstanding = owed - already_received;
+        if outstanding <= 0 {
+            // این مشتری بدهی ندارد؛ دریافتی هم ثبت نمی‌شود.
+            continue;
+        }
+        // دریافت جزئی — حالت رایج واقعی — ولی هرگز بیش از بدهی.
+        let amount = (outstanding * 60 / 100).max(1).min(outstanding);
+
+        // تاریخ دریافت باید پس از تاریخ فاکتور باشد.
+        let date = demo_date(index + 70);
 
         tx.execute(
             "INSERT OR IGNORE INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,\

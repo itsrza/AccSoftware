@@ -130,7 +130,7 @@ fn invoice_tax_ratio(
     tx.query_row(&sql, params![invoice_id], |row| {
         Ok((row.get(0)?, row.get(1)?))
     })
-    .map_err(|_| "RET-001: فاکتور اصلی یافت نشد".to_string())
+    .map_err(|_| "RTN-001: فاکتور اصلی یافت نشد".to_string())
 }
 
 /// اقلام قابل برگشت یک فاکتور، با کسر برگشت‌های قبلی.
@@ -162,7 +162,7 @@ pub fn list_returnable_lines(
         )
         .unwrap_or(0);
     if owned == 0 {
-        return Err("RET-001: فاکتور اصلی یافت نشد".into());
+        return Err("RTN-001: فاکتور اصلی یافت نشد".into());
     }
 
     let sql = format!(
@@ -283,7 +283,7 @@ pub fn get_return(state: State<AppState>, sale: bool, id: String) -> Result<Retu
     let header = all
         .into_iter()
         .find(|row| row.id == id)
-        .ok_or_else(|| "RET-006: برگشت یافت نشد".to_string())?;
+        .ok_or_else(|| "RTN-006: برگشت یافت نشد".to_string())?;
 
     let mut c = conn(&state)?;
     let permission = if sale {
@@ -360,14 +360,14 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
                 ))
             },
         )
-        .map_err(|_| "RET-006: برگشت یافت نشد".to_string())?;
+        .map_err(|_| "RTN-006: برگشت یافت نشد".to_string())?;
 
     if status != "draft" {
-        return Err("RET-007: فقط برگشت پیش‌نویس قابل ثبت است".into());
+        return Err("RTN-007: فقط برگشت پیش‌نویس قابل ثبت است".into());
     }
     let warehouse = warehouse
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| "RET-008: انبار برگشت مشخص نیست".to_string())?;
+        .ok_or_else(|| "RTN-008: انبار برگشت مشخص نیست".to_string())?;
 
     // تاریخ سند = تاریخ برگشت، و باید داخل سال مالی باز باشد.
     crate::validate_fiscal_date(&tx, &fy, &return_date)?;
@@ -387,7 +387,7 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
         .collect();
     drop(statement);
     if items.is_empty() {
-        return Err("RET-010: برگشت بدون قلم قابل ثبت نیست".into());
+        return Err("RTN-010: برگشت بدون قلم قابل ثبت نیست".into());
     }
 
     for (product, quantity, price) in &items {
@@ -403,7 +403,7 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
         // کالا قبلاً فروخته شده و برگشت به فروشنده ممکن نیست.
         if !sale && current < *quantity {
             return Err(format!(
-                "RET-009: موجودی «{product}» برای برگشت خرید کافی نیست (موجودی {current})"
+                "RTN-009: موجودی «{product}» برای برگشت خرید کافی نیست (موجودی {current})"
             ));
         }
         let updated = if sale {
@@ -472,7 +472,7 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
             user
         ],
     )
-    .map_err(|e| format!("RET-011: {e}"))?;
+    .map_err(|e| format!("RTN-011: {e}"))?;
 
     // سند برگشت از فروش: کاهنده‌ی درآمد و مالیات بدهکار، مشتری بستانکار.
     // سند برگشت از خرید: تأمین‌کننده بدهکار، کاهنده‌ی خرید و مالیات بستانکار.
@@ -496,7 +496,7 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
     let credit: i64 = journal_lines.iter().map(|(_, _, c)| *c).sum();
     if debit != credit {
         return Err(format!(
-            "RET-012: سند برگشت متوازن نیست (بدهکار {debit} در برابر بستانکار {credit})"
+            "RTN-012: سند برگشت متوازن نیست (بدهکار {debit} در برابر بستانکار {credit})"
         ));
     }
 
@@ -509,7 +509,7 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
             )
             .unwrap_or(0);
         if exists == 0 {
-            return Err(format!("RET-013: حساب «{account}» در کدینگ تعریف نشده است"));
+            return Err(format!("RTN-013: حساب «{account}» در کدینگ تعریف نشده است"));
         }
         tx.execute(
             "INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) \
@@ -523,7 +523,7 @@ fn post(state: &State<AppState>, sale: bool, return_id: &str) -> Result<(), Stri
                 description
             ],
         )
-        .map_err(|e| format!("RET-014: {e}"))?;
+        .map_err(|e| format!("RTN-014: {e}"))?;
     }
 
     tx.execute(
@@ -589,9 +589,9 @@ pub fn cancel_return(state: State<AppState>, sale: bool, id: String) -> Result<(
         .optional()
         .map_err(|e| e.to_string())?;
     match status.as_deref() {
-        None => return Err("RET-006: برگشت یافت نشد".into()),
+        None => return Err("RTN-006: برگشت یافت نشد".into()),
         Some("posted") => {
-            return Err("RET-015: برگشت ثبت‌شده باطل نمی‌شود؛ سند معکوس صادر کنید".into())
+            return Err("RTN-015: برگشت ثبت‌شده باطل نمی‌شود؛ سند معکوس صادر کنید".into())
         }
         Some("cancelled") => return Ok(()),
         _ => {}

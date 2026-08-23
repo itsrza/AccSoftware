@@ -293,8 +293,9 @@ fn t116_no_command_panics_on_user_input() {
                 continue;
             }
             // `unwrap_or` و `unwrap_or_else` و `unwrap_or_default` امن‌اند.
-            let has_bare_unwrap = trimmed.contains(".unwrap()")
-                || (trimmed.contains(".expect(") && !trimmed.contains("//"));
+            // `p.as_str()` و مانند آن `unwrap` نیستند؛ فقط فراخوانی صریح
+            // `unwrap()` و `expect(...)` مسیر کاربر را می‌شکند.
+            let has_bare_unwrap = trimmed.contains(".unwrap()") || trimmed.contains(".expect(");
             if has_bare_unwrap {
                 // استثناهای مجاز:
                 //  · زمان سیستم که شکست آن غیرممکن است
@@ -369,8 +370,9 @@ fn t119_no_command_stores_a_raw_password() {
         if !body.to_lowercase().contains("password") {
             continue;
         }
-        // هر جا رمز نوشته می‌شود، باید هش شده باشد.
-        let writes_password = body.contains("password_hash");
+        // فقط نوشتن سنجیده می‌شود؛ خواندن پرچم «رمز تنظیم شده» بی‌خطر است.
+        let writes_password = (body.contains("INSERT ") || body.contains("UPDATE "))
+            && body.contains("password_hash");
         let hashes = body.contains("hash_password") || body.contains("db_hash");
         assert!(
             !writes_password
