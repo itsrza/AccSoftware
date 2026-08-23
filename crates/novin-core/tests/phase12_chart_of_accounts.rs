@@ -79,7 +79,10 @@ fn t04_level_exhaustion_is_an_error_not_a_duplicate() {
         scheme.next_child_code("110", &taken).is_err(),
         "پر شدن سطح باید خطا بدهد"
     );
-    assert!(scheme.child_code("110", 0).is_err(), "شماره صفر نامعتبر است");
+    assert!(
+        scheme.child_code("110", 0).is_err(),
+        "شماره صفر نامعتبر است"
+    );
     assert!(scheme.child_code("110", 100).is_err(), "خارج از ظرفیت");
 }
 
@@ -143,10 +146,7 @@ fn t08_seeded_chart_has_a_sound_tree() {
     );
     assert_eq!(orphans, 0, "حساب یتیم در درخت وجود دارد");
 
-    let self_parent = count(
-        &conn,
-        "SELECT COUNT(*) FROM accounts WHERE parent_id = id",
-    );
+    let self_parent = count(&conn, "SELECT COUNT(*) FROM accounts WHERE parent_id = id");
     assert_eq!(self_parent, 0, "حساب والد خودش است");
 
     // ماهیت فرزند باید با والد بخواند (والد دوطرفه استثناست).
