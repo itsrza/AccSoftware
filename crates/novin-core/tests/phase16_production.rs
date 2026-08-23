@@ -71,11 +71,7 @@ fn t01_cost_equation_holds_exactly() {
 #[test]
 fn t02_allocation_loses_not_a_single_rial() {
     let materials = vec![material("mat-a", 1.0, 1_000_001)];
-    let outputs = vec![
-        output("p1", 1.0),
-        output("p2", 1.0),
-        output("p3", 1.0),
-    ];
+    let outputs = vec![output("p1", 1.0), output("p2", 1.0), output("p3", 1.0)];
     let costing = calculate_costing(&materials, &[], &outputs, CostAllocation::ByQuantity).unwrap();
 
     let sum: i64 = costing
