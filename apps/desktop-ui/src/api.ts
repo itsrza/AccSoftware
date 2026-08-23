@@ -696,3 +696,66 @@ export const getUpcomingOccasions = (jalali_month: number) =>
 export const deactivateParty = (id: string) => api<void>('deactivate_party', {id})
 export const findDuplicateParty = (mobile?: string, national_id?: string, exclude_id?: string) =>
   api<string | null>('find_duplicate_party', {mobile, nationalId: national_id, excludeId: exclude_id})
+
+// ---- کدینگ حساب‌ها ----
+export type AccountNodeRow = {
+  id: string
+  code: string
+  name: string
+  level: number
+  level_title: string
+  parent_id?: string
+  nature: string
+  nature_label: string
+  is_active: boolean
+  is_postable: boolean
+  child_count: number
+  debit: number
+  credit: number
+  rollup_balance: number
+  requires_subsidiary: boolean
+  subsidiary_group_id?: string
+}
+export type CodingSchemeInfo = {
+  level_widths: number[]
+  level_titles: string[]
+  code_lengths: number[]
+  capacities: number[]
+}
+export type CodingIssue = {
+  account_id: string
+  code: string
+  name: string
+  severity: 'error' | 'info'
+  message: string
+}
+
+export const getCodingScheme = () => api<CodingSchemeInfo>('get_coding_scheme')
+export const setCodingScheme = (level_widths: number[], level_titles: string[]) =>
+  api<CodingSchemeInfo>('set_coding_scheme', {levelWidths: level_widths, levelTitles: level_titles})
+export const getAccountTree = (include_inactive = false) =>
+  api<AccountNodeRow[]>('list_account_tree', {includeInactive: include_inactive})
+export const suggestAccountCode = (parent_id?: string) =>
+  api<string>('suggest_account_code', {parentId: parent_id})
+export const saveAccount = (input: {
+  id?: string
+  code: string
+  name: string
+  nature: string
+  parent_id?: string
+  requires_subsidiary?: boolean
+  subsidiary_group_id?: string
+  is_active?: boolean
+}) =>
+  api<string>('save_account', {
+    id: input.id,
+    code: input.code,
+    name: input.name,
+    nature: input.nature,
+    parentId: input.parent_id,
+    requiresSubsidiary: input.requires_subsidiary,
+    subsidiaryGroupId: input.subsidiary_group_id,
+    isActive: input.is_active,
+  })
+export const deactivateAccount = (id: string) => api<void>('deactivate_account', {id})
+export const auditCodingHealth = () => api<CodingIssue[]>('audit_coding_health')

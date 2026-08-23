@@ -232,6 +232,55 @@ function treasuryDocumentLines(header: (typeof treasuryDocuments)[number]) {
   })
 }
 
+/** درخت کدینگ نمونه با ساختار واقعی والد-فرزند و مانده‌ی تجمعی. */
+const RAW_ACCOUNTS: Array<[string, string, number, string | null, string, number, number]> = [
+  ['1000', 'دارایی ها', 0, null, 'debit', 0, 0],
+  ['1100', 'موجودی نقد و بانک', 1, '1000', 'debit', 0, 0],
+  ['1101', 'صندوق مرکزی', 2, '1100', 'debit', 1_840_000_000, 1_655_500_000],
+  ['1103', 'اسناد دریافتنی', 1, '1000', 'debit', 620_000_000, 310_000_000],
+  ['1200', 'حساب های دریافتنی', 1, '1000', 'debit', 0, 0],
+  ['1201', 'حساب مشتریان', 2, '1200', 'debit', 4_820_000_000, 3_910_000_000],
+  ['1300', 'موجودی کالا', 1, '1000', 'debit', 2_140_000_000, 1_180_000_000],
+  ['2000', 'بدهی ها', 0, null, 'credit', 0, 0],
+  ['2100', 'حساب های پرداختنی', 1, '2000', 'credit', 0, 0],
+  ['2101', 'تأمین کنندگان', 2, '2100', 'credit', 1_260_000_000, 2_310_000_000],
+  ['2401', 'مالیات بر ارزش افزوده', 1, '2000', 'credit', 90_000_000, 434_000_000],
+  ['4000', 'درآمد فروش', 0, null, 'credit', 0, 0],
+  ['4100', 'فروش کالا', 1, '4000', 'credit', 0, 4_820_000_000],
+  ['4400', 'تخفیفات نقدی اعطایی', 1, '4000', 'debit', 42_000_000, 0],
+  ['5000', 'بهای تمام شده', 0, null, 'debit', 0, 0],
+  ['5100', 'بهای تمام شده کالای فروش رفته', 1, '5000', 'debit', 3_180_000_000, 0],
+]
+const LEVEL_TITLES = ['گروه', 'کل', 'معین', 'تفصیلی']
+const NATURE_LABELS: Record<string, string> = {debit: 'بدهکار', credit: 'بستانکار', mixed: 'دوطرفه'}
+const demoAccounts = RAW_ACCOUNTS.map(([code, name, level, parent, nature, debit, credit]) => {
+  const children = RAW_ACCOUNTS.filter((row) => row[3] === code)
+  const collect = (root: string): Array<(typeof RAW_ACCOUNTS)[number]> => {
+    const self = RAW_ACCOUNTS.filter((row) => row[0] === root)
+    const kids = RAW_ACCOUNTS.filter((row) => row[3] === root).flatMap((row) => collect(row[0]))
+    return [...self, ...kids]
+  }
+  const branch = collect(code)
+  return {
+    id: `acc-${code}`,
+    code,
+    name,
+    level,
+    level_title: LEVEL_TITLES[level],
+    parent_id: parent ? `acc-${parent}` : undefined,
+    nature,
+    nature_label: NATURE_LABELS[nature],
+    is_active: true,
+    is_postable: children.length === 0,
+    child_count: children.length,
+    debit,
+    credit,
+    rollup_balance: branch.reduce((sum, row) => sum + row[5] - row[6], 0),
+    requires_subsidiary: code === '1201' || code === '2101',
+    subsidiary_group_id: code === '1201' || code === '2101' ? 'subgroup-persons' : undefined,
+  }
+})
+
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
 
 /** محاسبه‌ی تقریبی فاکتور فقط برای دیدن چیدمان — منبع حقیقت، موتور Rust است. */
@@ -644,6 +693,33 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   save_party_group: () => 'pgroup-preview',
   list_upcoming_occasions: () => [
     {contact_id: contacts[0].id, contact_name: contacts[0].name, title: 'تولد', jalali_month: 3, jalali_day: 14, remind_days_before: 3},
+  ],
+  // ---- کدینگ حساب‌ها ----
+  get_coding_scheme: () => ({
+    level_widths: [1, 2, 2, 2],
+    level_titles: ['گروه', 'کل', 'معین', 'تفصیلی'],
+    code_lengths: [1, 3, 5, 7],
+    capacities: [9, 99, 99, 99],
+  }),
+  set_coding_scheme: () => ({
+    level_widths: [1, 2, 2, 2],
+    level_titles: ['گروه', 'کل', 'معین', 'تفصیلی'],
+    code_lengths: [1, 3, 5, 7],
+    capacities: [9, 99, 99, 99],
+  }),
+  list_account_tree: () => demoAccounts,
+  suggest_account_code: () => '1400',
+  save_account: () => 'acc-preview',
+  deactivate_account: () => undefined,
+  audit_coding_health: () => [
+    {
+      account_id: 'acc-1000',
+      code: '1000',
+      name: 'دارایی ها',
+      severity: 'info',
+      message:
+        'طول این کد با طرح کدینگ فعلی نمی‌خواند؛ کدینگ مسطح است و کار می‌کند، ولی پیشنهاد کد خودکار برایش دقیق نیست.',
+    },
   ],
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>

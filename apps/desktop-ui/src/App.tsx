@@ -8,6 +8,7 @@ import {Integrations} from './pages/Integrations'
 import {Treasury} from './pages/Treasury'
 import {TreasuryDocumentForm} from './pages/TreasuryDocumentForm'
 import {TreasuryAccounts} from './pages/TreasuryAccounts'
+import {ChartOfAccounts} from './pages/ChartOfAccounts'
 import {Checks} from './pages/Checks'
 import {Icon} from './components/Icon'
 import {CommandPalette} from './components/CommandPalette'
@@ -340,16 +341,8 @@ export default function App() {
           />
         )
       case 'chart-of-accounts':
-        return (
-          <UnderConstruction
-            title="کدینگ حساب‌ها"
-            description="درخت کدینگ چندسطحی (گروه، کل، معین، تفصیلی) با شماره‌گذاری خودکار و الزامات تفصیلی شناور. موتور کدینگ در هسته پیاده و با ۱۰ تست پوشش داده شده است."
-            reference="dgNqWj"
-            phase="فاز ۶"
-          />
-        )
+        return <ChartOfAccounts />
       case 'accounting':
-      case 'chart-of-accounts':
         return <Operations mode="accounting" />
       case 'reports':
         return <Reports />
