@@ -1,0 +1,23 @@
+{
+  "name": "novin-accounting",
+  "version": "1.8.0",
+  "private": true,
+  "description": "پلتفرم حسابداری نوین پرداز — دستورهای ریشه‌ی مخزن",
+  "//": "این فایل هیچ وابستگی ندارد و فقط دستورها را به apps/desktop-ui واگذار می‌کند. دلیلش ساده است: هر کسی که مخزن را کلون می‌کند، اولین کاری که می‌کند تایپ npm run dev در ریشه است — و باید کار کند، نه اینکه خطای ENOENT بدهد. ابزار Tauri با node و مسیر نسبی صدا زده می‌شود تا روی ویندوز و لینوکس یکسان کار کند (اسلش رو به جلو را node در هر دو می‌فهمد).",
+  "scripts": {
+    "setup": "npm --prefix apps/desktop-ui ci",
+    "dev": "npm --prefix apps/desktop-ui run dev",
+    "build": "npm --prefix apps/desktop-ui run build",
+    "test": "npm --prefix apps/desktop-ui test",
+    "typecheck": "npm --prefix apps/desktop-ui run typecheck",
+    "check": "npm run typecheck && npm test",
+    "desktop": "npm run build && node apps/desktop-ui/node_modules/@tauri-apps/cli/tauri.js dev",
+    "installer": "npm run build && node apps/desktop-ui/node_modules/@tauri-apps/cli/tauri.js build",
+    "tauri:info": "node apps/desktop-ui/node_modules/@tauri-apps/cli/tauri.js info",
+    "core:test": "cargo test -p novin-core --all-targets",
+    "core:lint": "cargo clippy -p novin-core --all-targets -- -D warnings"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

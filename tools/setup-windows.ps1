@@ -36,7 +36,6 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoUrl = 'https://github.com/itsrza/AccSoftware.git'
 $ProjectPath = Join-Path $Root 'AccSoftware'
-$UiPath = Join-Path $ProjectPath 'apps\desktop-ui'
 
 # --------------------------------------------------------------------------- کمکی
 function Write-Step { param([string]$Text) Write-Host "`n=== $Text" -ForegroundColor Cyan }
@@ -138,17 +137,17 @@ Write-Ok "آخرین تغییر: $commit"
 Pop-Location
 
 # ---------------------------------------------------------------- ۳. وابستگی‌های npm
-Write-Step 'نصب وابستگی‌های رابط کاربری'
-Push-Location $UiPath
-if (Test-Path 'package-lock.json') { npm ci } else { npm install }
+Write-Step 'نصب وابستگی‌ها'
+Push-Location $ProjectPath
+npm run setup
 if ($LASTEXITCODE -ne 0) { Write-Bad 'نصب وابستگی‌ها ناموفق بود.'; Pop-Location; exit 1 }
 Write-Ok 'وابستگی‌ها نصب شدند.'
 
 # ------------------------------------------------------------------ ۴. بررسی سلامت
 Write-Step 'بررسی سلامت پروژه'
-npx tsc --noEmit
+npm run typecheck
 if ($LASTEXITCODE -eq 0) { Write-Ok 'بررسی نوع‌ها بدون خطا' } else { Write-Bad 'بررسی نوع‌ها خطا داشت' }
-npm test --silent
+npm test
 if ($LASTEXITCODE -eq 0) { Write-Ok 'همه‌ی تست‌ها سبز' } else { Write-Bad 'بعضی تست‌ها قرمزند' }
 Pop-Location
 
@@ -160,28 +159,31 @@ Write-Host '===============================================================' -Fo
 Write-Host ''
 Write-Host "  مسیر پروژه:  $ProjectPath" -ForegroundColor Gray
 Write-Host ''
-Write-Host '  دستورهای npm  (داخل apps\desktop-ui اجرا شوند):' -ForegroundColor White
+Write-Host "  همه‌ی دستورها از همین پوشه اجرا می‌شوند: $ProjectPath" -ForegroundColor White
 Write-Host ''
 Write-Host '    npm run dev         ' -NoNewline -ForegroundColor Green
 Write-Host '  اجرای پیش‌نمایش در مرورگر با داده‌ی نمونه'
 Write-Host '    npm test            ' -NoNewline -ForegroundColor Green
 Write-Host '  اجرای تست‌ها'
-Write-Host '    npx tsc --noEmit    ' -NoNewline -ForegroundColor Green
+Write-Host '    npm run typecheck   ' -NoNewline -ForegroundColor Green
 Write-Host '  بررسی نوع‌ها'
+Write-Host '    npm run check       ' -NoNewline -ForegroundColor Green
+Write-Host '  بررسی نوع‌ها + تست‌ها با هم'
 Write-Host '    npm run build       ' -NoNewline -ForegroundColor Green
 Write-Host '  ساخت نسخه‌ی تولیدی رابط کاربری'
-Write-Host '    npm run tauri dev   ' -NoNewline -ForegroundColor Green
+Write-Host '    npm run desktop     ' -NoNewline -ForegroundColor Green
 Write-Host '  اجرای برنامه‌ی دسکتاپ (نیازمند Rust)'
+Write-Host '    npm run installer   ' -NoNewline -ForegroundColor Green
+Write-Host '  ساخت فایل نصبی ویندوز (exe و msi)'
+Write-Host '    npm run setup       ' -NoNewline -ForegroundColor Green
+Write-Host '  نصب دوباره‌ی وابستگی‌ها'
 Write-Host ''
-Write-Host '  ساخت فایل نصبی ویندوز:' -ForegroundColor White
-Write-Host "    $ProjectPath\BUILD_WINDOWS_INSTALLER.cmd" -ForegroundColor Green
-Write-Host ''
-Write-Host '  میان‌بر:' -ForegroundColor White
-Write-Host "    cd $UiPath ; npm run dev" -ForegroundColor Gray
+Write-Host '  میان‌بر شروع:' -ForegroundColor White
+Write-Host "    cd $ProjectPath ; npm run dev" -ForegroundColor Gray
 Write-Host ''
 
 if ($Run) {
     Write-Step 'اجرای پیش‌نمایش'
-    Set-Location $UiPath
+    Set-Location $ProjectPath
     npm run dev
 }

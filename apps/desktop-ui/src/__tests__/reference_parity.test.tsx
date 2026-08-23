@@ -402,3 +402,68 @@ describe('نبود رابط کاربری ساختگی', () => {
     expect(offenders).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+// دستورهای ریشه‌ی مخزن
+// ---------------------------------------------------------------------------
+describe('دستورهای ریشه‌ی مخزن', () => {
+  /**
+   * چرا این تست وجود دارد: اولین کاری که هر کسی پس از کلون می‌کند تایپ
+   * `npm run dev` در ریشه است. اگر آنجا package.json نباشد، با خطای
+   * ENOENT روبه‌رو می‌شود — و این بدترین اولین برخورد ممکن است.
+   */
+  const rootPkg = JSON.parse(
+    readFileSync(resolve(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8'),
+  ) as { scripts: Record<string, string>; private: boolean }
+
+  const uiPkg = JSON.parse(
+    readFileSync(resolve(__dirname, '..', '..', 'package.json'), 'utf8'),
+  ) as { scripts: Record<string, string> }
+
+  it('ر۱ — ریشه‌ی مخزن package.json دارد', () => {
+    expect(rootPkg.private).toBe(true)
+    expect(Object.keys(rootPkg.scripts).length).toBeGreaterThan(6)
+  })
+
+  it('ر۲ — دستورهای پرکاربرد از ریشه در دسترس‌اند', () => {
+    for (const script of ['setup', 'dev', 'build', 'test', 'typecheck', 'check', 'installer']) {
+      expect(rootPkg.scripts[script], `دستور ${script}`).toBeTruthy()
+    }
+  })
+
+  it('ر۳ — هر دستور واگذارشده، در بسته‌ی مقصد واقعاً وجود دارد', () => {
+    const delegated = Object.values(rootPkg.scripts)
+      .map((command) => /npm --prefix apps\/desktop-ui run ([a-z:]+)/.exec(command)?.[1])
+      .filter((name): name is string => Boolean(name))
+    expect(delegated.length).toBeGreaterThan(2)
+    for (const name of delegated) {
+      expect(uiPkg.scripts[name], `apps/desktop-ui فاقد دستور ${name}`).toBeTruthy()
+    }
+  })
+
+  it('ر۴ — ابزار Tauri با مسیر مستقل از سیستم‌عامل صدا زده می‌شود', () => {
+    // اسلش رو به جلو را node روی ویندوز هم می‌فهمد؛ cmd.exe نه.
+    for (const key of ['desktop', 'installer', 'tauri:info']) {
+      expect(rootPkg.scripts[key]).toContain(
+        'node apps/desktop-ui/node_modules/@tauri-apps/cli/tauri.js',
+      )
+    }
+  })
+
+  it('ر۵ — ریشه هیچ وابستگی ندارد تا نیازی به نصب جداگانه نباشد', () => {
+    const raw = rootPkg as unknown as Record<string, unknown>
+    expect(raw.dependencies).toBeUndefined()
+    expect(raw.devDependencies).toBeUndefined()
+  })
+
+  it('ر۶ — راهنما همان دستورهای موجود را معرفی می‌کند', () => {
+    const guide = readFileSync(resolve(__dirname, '..', '..', '..', '..', 'BUILD_WINDOWS.md'), 'utf8')
+    for (const script of ['setup', 'dev', 'build', 'installer']) {
+      expect(guide, `راهنما به npm run ${script} اشاره نکرده`).toContain(`npm run ${script}`)
+    }
+    // `npm test` اصطلاح رسمی npm است و نیازی به `run` ندارد.
+    expect(guide).toContain('npm test')
+    // راهنما نباید کاربر را به پوشه‌ی دیگری بفرستد.
+    expect(guide).not.toContain('cd apps\\desktop-ui')
+  })
+})
