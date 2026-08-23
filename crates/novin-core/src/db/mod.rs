@@ -599,6 +599,25 @@ pub fn migrate(conn: &Connection) -> Result<()> {
       jalali_day INTEGER NOT NULL CHECK(jalali_day BETWEEN 1 AND 31),
       remind_days_before INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS party_groups(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      title TEXT NOT NULL,
+      parent_id TEXT REFERENCES party_groups(id),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(company_id, code)
+    );
+    CREATE TABLE IF NOT EXISTS party_images(
+      id TEXT PRIMARY KEY,
+      contact_id TEXT NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+      title TEXT,
+      /* مسیر فایل روی دیسک کاربر؛ تصویر داخل پایگاه داده ذخیره نمی‌شود تا
+         حجم فایل و زمان پشتیبان‌گیری کنترل‌شده بماند. */
+      file_path TEXT NOT NULL,
+      is_primary INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_party_images_contact ON party_images(contact_id);
     CREATE INDEX IF NOT EXISTS idx_party_bank_contact ON party_bank_accounts(contact_id);
     CREATE INDEX IF NOT EXISTS idx_party_phones_contact ON party_phones(contact_id);
     CREATE INDEX IF NOT EXISTS idx_party_occasions_date ON party_occasions(jalali_month, jalali_day);
@@ -890,6 +909,63 @@ pub fn migrate(conn: &Connection) -> Result<()> {
             "treasury_accounts",
             "has_pos_terminal",
             "ALTER TABLE treasury_accounts ADD COLUMN has_pos_terminal INTEGER NOT NULL DEFAULT 0",
+        ),
+        // --- فرم کامل شخص ---
+        (
+            "contacts",
+            "code",
+            "ALTER TABLE contacts ADD COLUMN code TEXT",
+        ),
+        (
+            "contacts",
+            "group_id",
+            "ALTER TABLE contacts ADD COLUMN group_id TEXT REFERENCES party_groups(id)",
+        ),
+        (
+            "contacts",
+            "is_active",
+            "ALTER TABLE contacts ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1",
+        ),
+        (
+            "contacts",
+            "title_prefix",
+            "ALTER TABLE contacts ADD COLUMN title_prefix TEXT",
+        ),
+        (
+            "contacts",
+            "email",
+            "ALTER TABLE contacts ADD COLUMN email TEXT",
+        ),
+        (
+            "contacts",
+            "website",
+            "ALTER TABLE contacts ADD COLUMN website TEXT",
+        ),
+        (
+            "contacts",
+            "city",
+            "ALTER TABLE contacts ADD COLUMN city TEXT",
+        ),
+        (
+            "contacts",
+            "province",
+            "ALTER TABLE contacts ADD COLUMN province TEXT",
+        ),
+        // مشخصات کاربری فروشگاه اینترنتی؛ رمز هرگز خام ذخیره نمی‌شود.
+        (
+            "contacts",
+            "portal_username",
+            "ALTER TABLE contacts ADD COLUMN portal_username TEXT",
+        ),
+        (
+            "contacts",
+            "portal_password_hash",
+            "ALTER TABLE contacts ADD COLUMN portal_password_hash TEXT",
+        ),
+        (
+            "contacts",
+            "note",
+            "ALTER TABLE contacts ADD COLUMN note TEXT",
         ),
     ] {
         if !column_exists(conn, table, column)? {
@@ -1208,6 +1284,26 @@ pub fn seed(conn: &Connection) -> Result<()> {
         "UPDATE products SET vat_basis_points=900 WHERE company_id='company-demo' AND is_service=0",
         [],
     )?;
+    // --- گروه‌بندی اشخاص ---
+    //
+    // درخت گروه در فرم لیست اشخاص از همین جدول ساخته می‌شود. گروه‌بندی صرفاً
+    // برای فیلتر و گزارش است و اثر حسابداری ندارد؛ اثر حسابداری از نقش شخص
+    // (مشتری/تأمین‌کننده) می‌آید نه از گروهش.
+    for (id, code, title, parent) in [
+        ("pgroup-trade-debtor", "G01", "بدهکاران تجاری", None::<&str>),
+        ("pgroup-trade-creditor", "G02", "بستانکاران تجاری", None),
+        ("pgroup-site", "G03", "سایت", None),
+        ("pgroup-colleagues", "G04", "همکاران", None),
+        ("pgroup-staff", "G05", "کارکنان", None),
+        ("pgroup-vip", "G06", "مشتریان ویژه", Some("pgroup-trade-debtor")),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO party_groups(id,company_id,code,title,parent_id) \
+             VALUES(?1,'company-demo',?2,?3,?4)",
+            rusqlite::params![id, code, title, parent],
+        )?;
+    }
+
     // --- مسیرهای پخش و بازاریاب نمونه ---
     for (id, code, title) in [
         ("route-north", "R01", "مسیر شمال شهر"),
