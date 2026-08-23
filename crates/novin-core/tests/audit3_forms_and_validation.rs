@@ -20,7 +20,9 @@ use novin_core::inventory::{self, MovementKind, ValuationMethod};
 use novin_core::invoicing::{self, Coupon, CouponKind, DiscountTier, InvoiceInput, InvoiceLine};
 use novin_core::jalali::{self, JalaliDate};
 use novin_core::money::Money;
-use novin_core::parties::{check_credit_limit, remaining_credit, summarize_balances, BalanceStatus};
+use novin_core::parties::{
+    check_credit_limit, remaining_credit, summarize_balances, BalanceStatus,
+};
 use novin_core::stocktaking::{self, CountLine, StocktakeStatus};
 
 fn line(quantity: f64, unit_price: i64) -> InvoiceLine {
@@ -133,21 +135,55 @@ fn t54_rates_outside_zero_to_hundred_percent_are_rejected() {
 #[test]
 fn t55_tier_discount_picks_the_best_qualifying_tier() {
     let tiers = vec![
-        DiscountTier { min_quantity: 10.0, discount_bp: 300 },
-        DiscountTier { min_quantity: 50.0, discount_bp: 700 },
-        DiscountTier { min_quantity: 100.0, discount_bp: 1200 },
+        DiscountTier {
+            min_quantity: 10.0,
+            discount_bp: 300,
+        },
+        DiscountTier {
+            min_quantity: 50.0,
+            discount_bp: 700,
+        },
+        DiscountTier {
+            min_quantity: 100.0,
+            discount_bp: 1200,
+        },
     ];
-    assert_eq!(invoicing::resolve_tier_discount(&tiers, 5.0), 0, "زیر پله‌ی اول");
-    assert_eq!(invoicing::resolve_tier_discount(&tiers, 10.0), 300, "دقیقاً پله‌ی اول");
+    assert_eq!(
+        invoicing::resolve_tier_discount(&tiers, 5.0),
+        0,
+        "زیر پله‌ی اول"
+    );
+    assert_eq!(
+        invoicing::resolve_tier_discount(&tiers, 10.0),
+        300,
+        "دقیقاً پله‌ی اول"
+    );
     assert_eq!(invoicing::resolve_tier_discount(&tiers, 49.0), 300);
-    assert_eq!(invoicing::resolve_tier_discount(&tiers, 60.0), 700, "پله‌ی دوم");
-    assert_eq!(invoicing::resolve_tier_discount(&tiers, 1000.0), 1200, "بالاترین پله");
+    assert_eq!(
+        invoicing::resolve_tier_discount(&tiers, 60.0),
+        700,
+        "پله‌ی دوم"
+    );
+    assert_eq!(
+        invoicing::resolve_tier_discount(&tiers, 1000.0),
+        1200,
+        "بالاترین پله"
+    );
 
     // ترتیب ورودی نباید نتیجه را عوض کند.
     let shuffled = vec![
-        DiscountTier { min_quantity: 100.0, discount_bp: 1200 },
-        DiscountTier { min_quantity: 10.0, discount_bp: 300 },
-        DiscountTier { min_quantity: 50.0, discount_bp: 700 },
+        DiscountTier {
+            min_quantity: 100.0,
+            discount_bp: 1200,
+        },
+        DiscountTier {
+            min_quantity: 10.0,
+            discount_bp: 300,
+        },
+        DiscountTier {
+            min_quantity: 50.0,
+            discount_bp: 700,
+        },
     ];
     assert_eq!(invoicing::resolve_tier_discount(&shuffled, 60.0), 700);
 }
@@ -233,7 +269,10 @@ fn t58_serial_tracked_lines_need_matching_unique_serials() {
 fn t59_installments_plus_down_payment_equal_the_invoice() {
     let total = Money::from_rials(10_000_001); // عمداً بخش‌ناپذیر
     let down = Money::from_rials(1_000_000);
-    let first = JalaliDate::new(1405, 6, 15).unwrap().to_gregorian().unwrap();
+    let first = JalaliDate::new(1405, 6, 15)
+        .unwrap()
+        .to_gregorian()
+        .unwrap();
     let plan = invoicing::installment_plan(total, down, 6, first).unwrap();
 
     assert_eq!(plan.len(), 6);
@@ -252,14 +291,12 @@ fn t59_installments_plus_down_payment_equal_the_invoice() {
 /// ۳۰ روز ثابت باعث می‌شود سررسیدها به‌مرور از روز ماه منحرف شوند.
 #[test]
 fn t60_installment_due_dates_advance_by_jalali_months() {
-    let first = JalaliDate::new(1405, 1, 31).unwrap().to_gregorian().unwrap();
-    let plan = invoicing::installment_plan(
-        Money::from_rials(3_000_000),
-        Money::ZERO,
-        3,
-        first,
-    )
-    .unwrap();
+    let first = JalaliDate::new(1405, 1, 31)
+        .unwrap()
+        .to_gregorian()
+        .unwrap();
+    let plan =
+        invoicing::installment_plan(Money::from_rials(3_000_000), Money::ZERO, 3, first).unwrap();
 
     let dates: Vec<JalaliDate> = plan
         .iter()
@@ -342,8 +379,14 @@ fn t64_party_balance_summary_classifies_correctly() {
     // خالص = بدهکار منهای بستانکار
     assert_eq!(summary.net_total.rials(), 6_000_000);
 
-    assert_eq!(BalanceStatus::of(Money::from_rials(1)), BalanceStatus::Debtor);
-    assert_eq!(BalanceStatus::of(Money::from_rials(-1)), BalanceStatus::Creditor);
+    assert_eq!(
+        BalanceStatus::of(Money::from_rials(1)),
+        BalanceStatus::Debtor
+    );
+    assert_eq!(
+        BalanceStatus::of(Money::from_rials(-1)),
+        BalanceStatus::Creditor
+    );
     assert_eq!(BalanceStatus::of(Money::ZERO), BalanceStatus::Settled);
     // نشانگر «بد/بس» تصویر مرجع
     assert_eq!(BalanceStatus::Debtor.indicator(), "بد");
@@ -367,7 +410,11 @@ fn t65_uncounted_line_is_not_the_same_as_zero() {
     let mut counted_zero = CountLine::new("p2", 10.0, Money::from_rials(100_000));
     counted_zero.first_count = Some(0.0);
     assert!(counted_zero.is_counted());
-    assert_eq!(counted_zero.variance(), Some(-10.0), "کسری کامل باید دیده شود");
+    assert_eq!(
+        counted_zero.variance(),
+        Some(-10.0),
+        "کسری کامل باید دیده شود"
+    );
 }
 
 /// ت۶۶ — شمارش مجدد بر شمارش اول اولویت دارد.
@@ -379,7 +426,11 @@ fn t66_recount_overrides_the_first_count() {
     assert_eq!(item.variance(), Some(-10.0));
 
     item.recount = Some(98.0);
-    assert_eq!(item.final_quantity(), Some(98.0), "شمارش مجدد باید حاکم باشد");
+    assert_eq!(
+        item.final_quantity(),
+        Some(98.0),
+        "شمارش مجدد باید حاکم باشد"
+    );
     assert_eq!(item.variance(), Some(-2.0));
     // ارزش اختلاف = مقدار اختلاف × بهای واحد
     assert_eq!(item.variance_value().unwrap().rials(), -100_000);
@@ -388,7 +439,10 @@ fn t66_recount_overrides_the_first_count() {
 /// ت۶۷ — جلسه‌ی قفل‌شده دیگر شمارش نمی‌پذیرد.
 #[test]
 fn t67_locked_stocktake_session_accepts_no_more_counts() {
-    assert!(StocktakeStatus::Posted.is_locked(), "جلسه‌ی ثبت‌شده باید قفل باشد");
+    assert!(
+        StocktakeStatus::Posted.is_locked(),
+        "جلسه‌ی ثبت‌شده باید قفل باشد"
+    );
     assert!(StocktakeStatus::Cancelled.is_locked());
     assert!(!StocktakeStatus::Counting.is_locked());
     // و از وضعیت پایانی هیچ گذاری نیست.
@@ -506,9 +560,9 @@ fn t72_gold_vat_applies_only_to_making_charge_and_profit() {
     let pricing = GoldPricing {
         weight_grams: 10.0,
         rate_per_gram: Money::from_rials(30_000_000),
-        making_charge_bp: 700,  // ۷٪
-        profit_bp: 500,         // ۵٪
-        vat_bp: 900,            // ۹٪
+        making_charge_bp: 700, // ۷٪
+        profit_bp: 500,        // ۵٪
+        vat_bp: 900,           // ۹٪
     };
     let breakdown = novin_core::catalog::gold_price(pricing).unwrap();
 
@@ -543,14 +597,21 @@ fn t73_tax_exempt_products_pay_nothing() {
     let exempt = TaxProfile::exempt();
     assert!(exempt.validate().is_ok());
     assert_eq!(
-        exempt.tax_on(Money::from_rials(10_000_000)).unwrap().rials(),
+        exempt
+            .tax_on(Money::from_rials(10_000_000))
+            .unwrap()
+            .rials(),
         0,
         "کالای معاف نباید مالیات بگیرد"
     );
 
     let standard = TaxProfile::standard();
     assert!(
-        standard.tax_on(Money::from_rials(10_000_000)).unwrap().rials() > 0,
+        standard
+            .tax_on(Money::from_rials(10_000_000))
+            .unwrap()
+            .rials()
+            > 0,
         "کالای مشمول باید مالیات بگیرد"
     );
 }
