@@ -285,7 +285,7 @@ fn t09_four_product_kinds_of_the_reference_dialog() {
     ];
     for (kind, label) in expected {
         assert_eq!(kind.label(), label);
-        assert_eq!(ProductKind::parse(kind.as_str()).ok(), Some(kind));
+        assert_eq!(ProductKind::parse(kind.as_str()), Some(kind));
     }
 }
 

@@ -250,6 +250,8 @@ fn t33_invoice_engine_applies_the_correct_calculation_order() {
         duty_bp: 0,
         commission_bp: 0,
         unit_cost: Money::ZERO,
+        serial_tracked: false,
+        serials: Vec::new(),
     };
     let input = InvoiceInput {
         lines: vec![line],
@@ -293,6 +295,8 @@ fn t34_two_freight_modes_affect_cost_differently() {
         duty_bp: 0,
         commission_bp: 0,
         unit_cost: Money::from_rials(600_000),
+        serial_tracked: false,
+        serials: Vec::new(),
     };
     let added = invoicing::calculate(&InvoiceInput {
         lines: vec![make_line()],
