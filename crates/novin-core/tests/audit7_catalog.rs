@@ -212,6 +212,10 @@ fn k11_duty_and_vat_are_both_applied() {
 // ---------------------------------------------------------------------------
 
 /// ک۱۲ — قیمت طلا: فلز + اجرت + سود + ارزش افزوده.
+///
+/// **قاعده‌ی مهم ایران:** ارزش افزوده بر ارزش خودِ طلا تعلق **نمی‌گیرد** و
+/// فقط روی اجرت ساخت و سود فروشنده محاسبه می‌شود. اگر روی کل مبلغ بسته
+/// شود، مشتری چند برابر مالیات قانونی می‌پردازد.
 #[test]
 fn k12_gold_price_breakdown_is_correct() {
     let breakdown = gold_price(GoldPricing {
@@ -224,12 +228,22 @@ fn k12_gold_price_breakdown_is_correct() {
     .expect("قیمت طلا");
 
     assert_eq!(breakdown.metal_value, rials(300_000_000));
+    // اجرت روی ارزش فلز
     assert_eq!(breakdown.making_charge, rials(30_000_000));
     // سود روی فلز + اجرت
     assert_eq!(breakdown.profit, rials(23_100_000));
-    let base = 300_000_000 + 30_000_000 + 23_100_000;
-    assert_eq!(breakdown.vat, rials(base * 9 / 100));
-    assert_eq!(breakdown.total, rials(base + base * 9 / 100));
+    // ارزش افزوده فقط روی اجرت + سود، نه روی ارزش طلا
+    assert_eq!(breakdown.vat, rials((30_000_000 + 23_100_000) * 9 / 100));
+    assert_eq!(
+        breakdown.total,
+        rials(300_000_000 + 30_000_000 + 23_100_000 + 4_779_000)
+    );
+
+    // اگر مالیات روی کل مبلغ بسته می‌شد، این عدد بزرگ‌تر بود.
+    assert!(
+        breakdown.vat < rials(353_100_000 * 9 / 100),
+        "ارزش افزوده نباید روی ارزش طلا محاسبه شود"
+    );
 }
 
 /// ک۱۳ — وزن صفر یا منفی برای کالای طلا رد می‌شود.
