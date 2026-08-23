@@ -10,92 +10,15 @@
    - هیچ اندازه‌ی ثابتی که با تغییر محتوا جابه‌جا شود وجود ندارد.
    ========================================================================== */
 
-:root {
-  /* --- برند --- */
-  --brand-900: #14173a;
-  --brand-800: #1a1d44;
-  --brand: #21254e;
-  --brand-600: #2e3468;
-  --brand-500: #3d4483;
-  --brand-300: #6a71ad;
-
-  --gold-600: #b8823a;
-  --gold: #d79d4b;
-  --gold-300: #e6bd82;
-  --gold-100: #f7ecd9;
-
-  /* --- سطوح --- */
-  --bg: #f6f9ff;
-  --surface: #ffffff;
-  --surface-2: #fbfcff;
-  --surface-3: #eef2fc;
-  --border: #e2e7f4;
-  --border-strong: #cdd5ea;
-
-  /* --- متن --- */
-  --text: #1e2233;
-  --text-2: #575757;
-  --text-3: #7c86a0;
-  --text-invert: #ffffff;
-
-  /* --- وضعیت --- */
-  --success: #00875f;
-  --success-bg: #e6f7f1;
-  --danger: #d63b57;
-  --danger-bg: #fdecef;
-  --warning: #b57d00;
-  --warning-bg: #fff6e0;
-  --info: #5560d8;
-  --info-bg: #eef0fe;
-
-  /* --- نمودار --- */
-  --chart-1: #21254e;
-  --chart-2: #d79d4b;
-  --chart-3: #00d492;
-  --chart-4: #7c86ff;
-  --chart-5: #ffb900;
-  --chart-6: #ff637e;
-  --chart-7: #62748e;
-
-  /* --- ابعاد --- */
-  --sidebar-w: 264px;
-  --sidebar-w-collapsed: 68px;
-  --topbar-h: 60px;
-  --radius: 10px;
-  --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(20, 23, 58, 0.06);
-  --shadow: 0 4px 16px rgba(20, 23, 58, 0.08);
-  --shadow-lg: 0 16px 48px rgba(20, 23, 58, 0.18);
-  --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* --- تم تیره: فقط متغیرها عوض می‌شوند --- */
-.app.dark {
-  --bg: #12142b;
-  --surface: #1a1d3a;
-  --surface-2: #1f2342;
-  --surface-3: #262b4e;
-  --border: #2f3559;
-  --border-strong: #3d4470;
-
-  --text: #eef1fb;
-  --text-2: #b9c0d8;
-  --text-3: #8а93b4;
-  --text-3: #8a93b4;
-
-  --success: #34d399;
-  --success-bg: #10321f;
-  --danger: #ff7a90;
-  --danger-bg: #3a1620;
-  --warning: #ffc857;
-  --warning-bg: #3a2c0d;
-  --info: #96a0ff;
-  --info-bg: #1e2350;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
-}
+/* توکن‌های رنگ و ابعاد به `design-system.css` منتقل شدند.
+ *
+ * چرا: با پذیرش سیستم طراحی مرجع، داشتن دو مجموعه‌ی توکن یعنی دو حقیقت
+ * موازی و تم تیره‌ی نیمه‌کاره. این فایل حالا فقط قواعد چیدمان و اجزای
+ * قدیمی را نگه می‌دارد و رنگ‌هایش از توکن‌های تازه می‌آید.
+ *
+ * تم تیره هم دیگر با `.dark` کار نمی‌کند بلکه با کلاس `.dark` روی
+ * ریشه‌ی سند — همان قراردادی که سیستم طراحی مرجع دارد.
+ */
 
 /* ==========================================================================
    پایه
@@ -104,7 +27,6 @@
 * {
   box-sizing: border-box;
 }
-
 body {
   margin: 0;
   background: var(--bg);
@@ -114,7 +36,6 @@ body {
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
 }
-
 /* --- اسکرول‌بار هماهنگ با تم --- */
 * {
   scrollbar-width: thin;
@@ -138,7 +59,6 @@ body {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
-
 /* ==========================================================================
    چیدمان اصلی — عرض ثابت، بدون پرش
    ========================================================================== */
@@ -152,10 +72,6 @@ body {
   color: var(--text);
   transition: grid-template-columns var(--transition);
 }
-.app.sidebar-collapsed {
-  grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
-}
-
 /* ==========================================================================
    نوار کناری
    ========================================================================== */
@@ -170,52 +86,6 @@ body {
   position: relative;
   overflow: hidden;
 }
-
-.sidebar-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 14px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  flex-shrink: 0;
-}
-.sidebar-logo {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-600) 100%);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 15px;
-  flex-shrink: 0;
-  box-shadow: 0 2px 10px rgba(215, 157, 75, 0.35);
-}
-.sidebar-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 5px;
-}
-.sidebar-title {
-  min-width: 0;
-  overflow: hidden;
-}
-.sidebar-title strong {
-  display: block;
-  font-size: 13.5px;
-  color: #fff;
-  white-space: nowrap;
-}
-.sidebar-title span {
-  display: block;
-  font-size: 10.5px;
-  color: var(--gold-300);
-  letter-spacing: 0.4px;
-  white-space: nowrap;
-}
-
 /* --- انتخاب شرکت --- */
 .company-btn {
   margin: 10px;
@@ -233,26 +103,6 @@ body {
   flex-shrink: 0;
   transition: background var(--transition);
 }
-.company-btn:hover {
-  background: rgba(215, 157, 75, 0.16);
-}
-.company-btn > div {
-  flex: 1;
-  min-width: 0;
-}
-.company-btn span {
-  display: block;
-  font-size: 10px;
-  color: var(--gold-300);
-}
-.company-btn b {
-  display: block;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* --- ناوبری با اسکرول مستقل --- */
 .sidebar-nav {
   flex: 1 1 auto;
@@ -262,140 +112,6 @@ body {
   padding: 4px 8px 12px;
   overscroll-behavior: contain;
 }
-.sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(215, 157, 75, 0.35);
-  border-color: transparent;
-}
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background: var(--gold);
-}
-
-.nav-group-title {
-  font-size: 10px;
-  color: rgba(215, 157, 75, 0.75);
-  letter-spacing: 1px;
-  padding: 12px 10px 6px;
-  font-weight: 700;
-}
-
-.nav-row {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  margin-bottom: 2px;
-}
-.nav-item {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  background: transparent;
-  border: 0;
-  border-radius: 9px;
-  color: #cfd5ec;
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  text-align: right;
-  position: relative;
-  transition: background var(--transition), color var(--transition);
-}
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-}
-.nav-item.active {
-  background: rgba(215, 157, 75, 0.18);
-  color: #fff;
-  font-weight: 600;
-}
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  right: -8px;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--gold);
-}
-.nav-icon {
-  width: 22px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  color: var(--gold-300);
-}
-.nav-item.active .nav-icon {
-  color: var(--gold);
-}
-.nav-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.nav-expand {
-  width: 26px;
-  border: 0;
-  background: transparent;
-  color: #9aa3c4;
-  border-radius: 8px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: transform var(--transition), background var(--transition);
-  flex-shrink: 0;
-}
-.nav-expand:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--gold);
-}
-.nav-expand.open {
-  transform: rotate(-90deg);
-  color: var(--gold);
-}
-
-.subnav {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 2px 8px 6px 0;
-  padding-right: 14px;
-  border-right: 1px solid rgba(215, 157, 75, 0.25);
-}
-.subnav button {
-  background: transparent;
-  border: 0;
-  color: #aeb6d4;
-  font-family: inherit;
-  font-size: 12px;
-  text-align: right;
-  padding: 6px 9px;
-  border-radius: 7px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background var(--transition), color var(--transition);
-}
-.subnav button:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-}
-.subnav button.selected {
-  color: var(--gold);
-  font-weight: 600;
-}
-
-.sidebar-foot {
-  flex-shrink: 0;
-  padding: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
 /* --- حالت جمع‌شده: فقط آیکن + تولتیپ --- */
 .sidebar-collapsed .sidebar-title,
 .sidebar-collapsed .company-btn > div,
@@ -406,27 +122,9 @@ body {
 .sidebar-collapsed .subnav {
   display: none;
 }
-.sidebar-collapsed .sidebar-head {
-  justify-content: center;
-  padding: 14px 8px 12px;
-}
-.sidebar-collapsed .company-btn {
-  justify-content: center;
-  padding: 9px 0;
-}
-.sidebar-collapsed .nav-item {
-  justify-content: center;
-  padding: 10px 0;
-}
-.sidebar-collapsed .nav-item.active::before {
-  right: -4px;
-}
 /* دکمه‌ی جمع‌کردن منو — در جریان عادی، بدون تداخل با آیکن‌های دیگر */
 .sidebar-toggle-item {
   color: var(--gold-300) !important;
-}
-.sidebar-toggle-item:hover {
-  background: rgba(215, 157, 75, 0.18) !important;
 }
 .toggle-icon {
   transition: transform var(--transition);
@@ -434,7 +132,6 @@ body {
 .toggle-icon.flipped {
   transform: rotate(180deg);
 }
-
 /* ==========================================================================
    ناحیه‌ی اصلی
    ========================================================================== */
@@ -446,20 +143,6 @@ body {
   min-height: 0;
   overflow: hidden;
 }
-
-.topbar {
-  height: var(--topbar-h);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: relative;
-  z-index: 30;
-}
-
 .breadcrumbs {
   display: flex;
   align-items: center;
@@ -473,7 +156,6 @@ body {
   color: var(--text);
   font-size: 13.5px;
 }
-
 .top-actions {
   margin-right: auto;
   display: flex;
@@ -481,7 +163,6 @@ body {
   gap: 8px;
   min-width: 0;
 }
-
 /* --- جستجوی سراسری: متن هرگز بیرون نمی‌زند --- */
 .global-search {
   display: flex;
@@ -520,7 +201,6 @@ body {
   color: var(--text-3);
   font-family: inherit;
 }
-
 .icon-btn {
   width: 34px;
   height: 34px;
@@ -550,7 +230,6 @@ body {
   background: var(--danger);
   border: 1.5px solid var(--surface);
 }
-
 /* --- منوهای بازشو --- */
 .dropdown-wrap {
   position: relative;
@@ -615,49 +294,6 @@ body {
   color: var(--text-3);
   font-size: 12px;
 }
-
-.profile-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 999px;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--text);
-  flex-shrink: 0;
-  transition: border-color var(--transition);
-}
-.profile-btn:hover {
-  border-color: var(--gold);
-}
-.profile-btn .avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--brand-500), var(--brand));
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-}
-.profile-btn > div {
-  text-align: right;
-  line-height: 1.25;
-}
-.profile-btn b {
-  display: block;
-  font-size: 12px;
-}
-.profile-btn span {
-  display: block;
-  font-size: 10px;
-  color: var(--text-3);
-}
-
 /* --- ناحیه‌ی محتوا: تنها جای اسکرول عمودی --- */
 .workspace {
   flex: 1;
@@ -666,7 +302,6 @@ body {
   overflow-x: hidden; /* اسکرول افقی صفحه ممنوع */
   padding: 18px 20px 90px;
 }
-
 /* ==========================================================================
    دکمه‌های شناور
    ========================================================================== */
@@ -681,85 +316,6 @@ body {
   gap: 10px;
   z-index: 70;
 }
-.fab {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  border: 0;
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-600) 100%);
-  color: #fff;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(215, 157, 75, 0.45);
-  display: grid;
-  place-items: center;
-  transition: transform var(--transition), box-shadow var(--transition);
-}
-.fab:hover {
-  transform: translateY(-2px) scale(1.04);
-}
-.fab.open {
-  transform: rotate(45deg);
-}
-.fab-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 6px;
-  min-width: 220px;
-  animation: dropdown-in 140ms ease-out;
-}
-.fab-menu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
-  border: 0;
-  background: transparent;
-  border-radius: 9px;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-  text-align: right;
-}
-.fab-menu button:hover {
-  background: var(--surface-3);
-  color: var(--brand);
-}
-.fab-menu .fab-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: var(--surface-3);
-  color: var(--brand);
-  flex-shrink: 0;
-}
-
-.demo-fab {
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--danger);
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-family: inherit;
-  font-size: 11.5px;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  white-space: nowrap;
-}
-.demo-fab:hover {
-  background: var(--danger);
-  color: #fff;
-}
-
 /* ==========================================================================
    اجزای عمومی
    ========================================================================== */
@@ -791,7 +347,6 @@ body {
   color: var(--gold-600);
   font-weight: 700;
 }
-
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -800,7 +355,6 @@ body {
   box-shadow: var(--shadow-sm);
   margin-bottom: 14px;
 }
-
 .toolbar {
   display: flex;
   align-items: center;
@@ -811,7 +365,6 @@ body {
 .toolbar .spacer {
   margin-right: auto;
 }
-
 button,
 input,
 select,
@@ -820,7 +373,6 @@ textarea {
   font-size: 13px;
   color: var(--text);
 }
-
 input,
 select,
 textarea {
@@ -847,11 +399,10 @@ select {
   background-repeat: no-repeat;
   padding-left: 30px;
 }
-.app.dark select option {
+.dark select option {
   background: var(--surface);
   color: var(--text);
 }
-
 .btn {
   display: inline-flex;
   align-items: center;
@@ -897,7 +448,6 @@ select {
   padding: 5px 11px;
   font-size: 11.5px;
 }
-
 .table-wrap {
   overflow-x: auto;
   border-radius: var(--radius);
@@ -937,7 +487,6 @@ table.large-table tbody tr:last-child td {
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
 }
-
 .status {
   display: inline-block;
   padding: 2px 9px;
@@ -961,7 +510,6 @@ table.large-table tbody tr:last-child td {
   background: var(--info-bg);
   color: var(--info);
 }
-
 .red-text {
   color: var(--danger);
 }
@@ -971,7 +519,6 @@ table.large-table tbody tr:last-child td {
 .amber {
   color: var(--warning);
 }
-
 .metric-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1013,7 +560,6 @@ table.large-table tbody tr:last-child td {
   color: var(--text-3);
   font-size: 11px;
 }
-
 .error-box {
   background: var(--danger-bg);
   border: 1px solid var(--danger);
@@ -1038,7 +584,6 @@ table.large-table tbody tr:last-child td {
   color: var(--text-3);
   font-size: 13px;
 }
-
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1067,7 +612,6 @@ table.large-table tbody tr:last-child td {
   font-size: 16px;
   color: var(--text);
 }
-
 .preview-banner {
   background: var(--warning-bg);
   border: 1px solid var(--warning);
@@ -1081,7 +625,6 @@ table.large-table tbody tr:last-child td {
   text-overflow: ellipsis;
   max-width: 40vw;
 }
-
 /* ==========================================================================
    واکنش‌گرایی
    ========================================================================== */
@@ -1101,11 +644,7 @@ table.large-table tbody tr:last-child td {
   .global-search {
     width: 160px;
   }
-  .profile-btn > div {
-    display: none;
-  }
 }
-
 /* ==========================================================================
    اصلاحات پس از بازخورد کارفرما
    ========================================================================== */
@@ -1122,7 +661,6 @@ body,
   height: 100vh;
   overflow: hidden;
 }
-
 /* --- فیلترها فشرده‌تر (تصویر ۵ و ۶) --- */
 .date-filter,
 .report-tabs,
@@ -1148,13 +686,11 @@ body,
 .filter-panel {
   padding: 10px 12px !important;
 }
-
 /* --- ابزارهای جستجو و بروزرسانی چپ‌چین (تصویر ۳-۴) --- */
 .toolbar > .icon-btn:last-child,
 .toolbar > .spacer + * {
   margin-right: auto;
 }
-
 /* --- جدول‌ها: مرتب‌سازی با کلیک روی سربرگ --- */
 th.sortable {
   cursor: pointer;
@@ -1183,7 +719,6 @@ th.sortable.desc::after {
   opacity: 1;
   color: var(--gold-600);
 }
-
 /* --- ردیف قابل کلیک برای باز کردن جزئیات --- */
 tr.clickable {
   cursor: pointer;
@@ -1191,7 +726,6 @@ tr.clickable {
 tr.clickable:hover td {
   background: var(--surface-3);
 }
-
 /* --- مبلغ بدهکار/بستانکار --- */
 .amount-debit {
   color: var(--danger);
@@ -1206,7 +740,6 @@ tr.clickable:hover td {
 .amount-zero {
   color: var(--text-3);
 }
-
 /* --- صفحه‌ی در دست ساخت: صادقانه به‌جای صفحه‌ی خالی --- */
 .under-construction {
   display: grid;
@@ -1245,7 +778,6 @@ tr.clickable:hover td {
   padding: 4px 10px;
   border-radius: 999px;
 }
-
 /* --- تنظیمات و پالت دستور با تم هماهنگ --- */
 .settings-overlay {
   background: var(--bg) !important;
@@ -1284,7 +816,6 @@ tr.clickable:hover td {
   text-align: center;
   box-shadow: var(--shadow);
 }
-
 /* --- انبارگردانی --- */
 .count-input {
   width: 92px;
@@ -1297,4 +828,299 @@ tr.needs-recount td {
 }
 tr.needs-recount .count-input {
   border-color: var(--warning);
+}
+
+/* ---------------------------------------------------------------------------
+   پوسته‌ی برنامه حالا با اجزای Tailwind ساخته می‌شود
+   (`components/Sidebar.tsx` و `components/Topbar.tsx`). قواعد چیدمان قدیمیِ
+   منو و نوار بالا حذف شدند تا دو سیستم موازی وجود نداشته باشد.
+
+   آنچه باقی مانده، استایل اجزای درون صفحه است (جدول، پنل، فرم) که
+   صفحه‌به‌صفحه به Tailwind مهاجرت می‌کند.
+--------------------------------------------------------------------------- */
+
+/* ==========================================================================
+   هم‌ترازی اجزای درون‌صفحه با سیستم طراحی مرجع
+   --------------------------------------------------------------------------
+   صفحه‌ها هنوز از کلاس‌های معنایی (`panel`، `page-head`، `large-table`)
+   استفاده می‌کنند. به‌جای بازنویسی یک‌باره‌ی همه، خود این کلاس‌ها با زبان
+   بصری تازه بازتعریف می‌شوند: شعاع بزرگ‌تر، سایه‌ی نرم‌تر، نوار طلایی کنار
+   عنوان و جدول‌های سبک‌تر.
+   ========================================================================== */
+
+.page {
+  animation: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.page-head {
+  margin-bottom: 20px;
+}
+.page-head h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.page-head p {
+  font-size: 12px;
+  line-height: 1.9;
+  max-width: 68ch;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+.eyebrow::before {
+  content: '';
+  width: 4px;
+  height: 14px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
+.panel {
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+
+/* سرآیند پنل با همان نشانگر طلایی سیستم طراحی */
+.panel-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.panel-head h3::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+.panel-head p {
+  font-size: 11.5px;
+  line-height: 1.8;
+}
+
+/* کارت‌های شاخص: نشانگر طلایی به نوار بالایی ظریف تبدیل شد */
+.metric-strip > div {
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.metric-strip > div::after {
+  inset: 0 0 auto 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), transparent 70%);
+  opacity: 1;
+}
+.metric-strip b {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+/* جدول‌ها: سبک‌تر، با سرآیند چسبان و ردیف‌های خواناتر */
+.large-table {
+  font-size: 12.5px;
+}
+.large-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.large-table tbody td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.large-table tbody tr:hover td {
+  background: var(--card-soft);
+}
+.table-wrap {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  overflow: auto;
+  max-height: 70vh;
+}
+
+/* دکمه‌ها با زبان بصری تازه */
+button.primary {
+  background: var(--primary);
+  color: #f4f5fd;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: transform 0.15s ease;
+}
+button.primary:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+button.primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+button.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dark button.primary {
+  background: var(--accent);
+  color: #1d1836;
+}
+button.ghost,
+button.secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+button.ghost:hover:not(:disabled),
+button.secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.icon-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* فیلدها با شعاع و فوکوس سیستم طراحی */
+input,
+select,
+textarea {
+  border-radius: 12px;
+  padding: 9px 12px;
+  background: var(--card);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+select {
+  background-image: none;
+  padding-left: 12px;
+}
+
+/* نشان‌های وضعیت با پالت تازه */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 99px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: currentColor;
+}
+.status.done {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.status.pending {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.status.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.status.neutral {
+  background: var(--bg-soft);
+  color: var(--muted);
+}
+
+/* پیام‌ها */
+.error-box,
+.success-box,
+.warn-box {
+  border-radius: 14px;
+  padding: 12px 15px;
+  font-size: 12.5px;
+  line-height: 1.9;
+}
+.error-box {
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--danger);
+}
+.success-box {
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+  color: var(--success);
+}
+.warn-box {
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  color: var(--warning);
+}
+
+/* پاپ‌آپ‌ها */
+.modal-backdrop {
+  background: color-mix(in srgb, #12142e 55%, transparent);
+  backdrop-filter: blur(3px);
+}
+.modal {
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow-lg);
+  padding: 22px;
+  animation: fade-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* حالت خالی */
+.empty-state,
+.empty-row {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: center;
+  padding: 32px 16px;
 }

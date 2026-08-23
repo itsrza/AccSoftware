@@ -115,3 +115,14 @@ export function formatJalali(input: string | Date): string {
 export function todayJalali(): string {
   return formatJalali(new Date())
 }
+
+/**
+ * نمایش درصد با علامت — برای نشانگرهای رشد و افت.
+ *
+ * علامت مثبت عمداً نمایش داده می‌شود: «۱۲٪+» و «۱۲٪−» در یک نگاه از هم
+ * تفکیک می‌شوند، ولی «۱۲٪» و «۱۲٪−» نه.
+ */
+export function formatPercent(value: number): string {
+  const sign = value > 0 ? '+' : value < 0 ? '−' : ''
+  return `${sign}${decimalFormatter.format(Math.abs(value))}٪`
+}

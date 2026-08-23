@@ -26,7 +26,11 @@ import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {Stocktaking} from './pages/Stocktaking'
-import {getDemoStatus, deleteDemo, login} from './api'
+import {getDemoStatus, deleteDemo, login, getParties, getProducts, getCheckDashboard, getChecks} from './api'
+import {Plus} from 'lucide-react'
+import {cn} from './lib/cn'
+import {Sidebar, ICONS, type NavGroup, type NavItem} from './components/Sidebar'
+import {Topbar, type NotificationItem, type SearchHit} from './components/Topbar'
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
 import './styles.css'
@@ -199,6 +203,17 @@ export default function App() {
   const [expanded, setExpanded] = useState<string[]>([])
   const [dark, setDark] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileNav, setMobileNav] = useState(false)
+  // داده‌ی سبک برای جستجوی سراسری و اعلان‌ها؛ یک بار خوانده می‌شود.
+  const [directory, setDirectory] = useState<{
+    parties: {id: string; name: string}[]
+    products: {id: string; name: string}[]
+    checks: {number: string; party: string; due: string}[]
+    lowStock: number
+    overdueChecks: number
+    dueSoonChecks: number
+    unpaidInvoices: number
+  }>({parties: [], products: [], checks: [], lowStock: 0, overdueChecks: 0, dueSoonChecks: 0, unpaidInvoices: 0})
   const [settings, setSettings] = useState(false)
   const [palette, setPalette] = useState(false)
   const [openMenu, setOpenMenu] = useState<'' | 'bell' | 'profile' | 'company' | 'fab'>('')
@@ -229,6 +244,41 @@ export default function App() {
       alive = false
     }
   }, [DEMO_BUILD])
+
+  // جستجوی سراسری و اعلان‌ها روی داده‌ی واقعی کار می‌کنند، نه فهرست ثابت.
+  useEffect(() => {
+    if (booting || bootError) return
+    let alive = true
+    ;(async () => {
+      try {
+        const [parties, products, checkDashboard, checks] = await Promise.all([
+          getParties().catch(() => ({rows: [] as {id: string; display_name: string}[]})),
+          getProducts().catch(() => [] as {id: string; name: string}[]),
+          getCheckDashboard().catch(() => null),
+          getChecks().catch(() => [] as {check_number: string; bank_name?: string; due_date: string}[]),
+        ])
+        if (!alive) return
+        setDirectory({
+          parties: (parties.rows ?? []).map((row) => ({id: row.id, name: row.display_name})),
+          products: (products ?? []).map((row) => ({id: row.id, name: row.name})),
+          checks: (checks ?? []).map((row) => ({
+            number: row.check_number,
+            party: row.bank_name ?? '',
+            due: row.due_date,
+          })),
+          lowStock: 0,
+          overdueChecks: checkDashboard?.overdue_count ?? 0,
+          dueSoonChecks: checkDashboard?.due_soon_count ?? 0,
+          unpaidInvoices: 0,
+        })
+      } catch {
+        /* اعلان‌ها اختیاری‌اند؛ نبودشان نباید برنامه را از کار بیندازد */
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [booting, bootError])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -341,282 +391,160 @@ export default function App() {
     }
   }
 
+  /** جستجوی سراسری روی اشخاص، کالاها و شماره چک‌های واقعی. */
+  const globalSearch = (query: string): SearchHit[] => {
+    const hits: SearchHit[] = []
+    for (const party of directory.parties) {
+      if (hits.length >= 12) break
+      if (party.name.includes(query)) hits.push({title: party.name, meta: 'شخص', page: 'parties'})
+    }
+    for (const product of directory.products) {
+      if (hits.length >= 12) break
+      if (product.name.includes(query)) hits.push({title: product.name, meta: 'کالا', page: 'products'})
+    }
+    for (const check of directory.checks) {
+      if (hits.length >= 12) break
+      if (check.number.includes(query))
+        hits.push({title: `چک ${check.number}`, meta: `سررسید ${check.due}`, page: 'checks'})
+    }
+    return hits
+  }
+
+  const checkAlerts = directory.overdueChecks + directory.dueSoonChecks
+
+  /** اعلان‌ها فقط از وضعیت واقعی داده ساخته می‌شوند. */
+  const notifications: NotificationItem[] = []
+  if (directory.overdueChecks > 0) {
+    notifications.push({
+      id: 'overdue-checks',
+      title: `${directory.overdueChecks.toLocaleString('fa-IR')} چک سررسید گذشته`,
+      meta: 'هنوز تعیین تکلیف نشده‌اند — وصول یا برگشت را ثبت کنید.',
+      tone: 'danger',
+      page: 'checks',
+    })
+  }
+  if (directory.dueSoonChecks > 0) {
+    notifications.push({
+      id: 'due-soon-checks',
+      title: `${directory.dueSoonChecks.toLocaleString('fa-IR')} چک نزدیک سررسید`,
+      meta: 'بازه‌ی هشدار در مرکز تنظیمات قابل تغییر است.',
+      tone: 'warning',
+      page: 'checks',
+    })
+  }
+
+  // ---- گروه‌بندی منو برای اجزای تازه ----
+  const navGroups: NavGroup[] = MENU.filter((group) => group.title !== 'گزارش و ابزار').map(
+    (group) => ({
+      title: group.title,
+      items: group.items.map((item) => ({
+        id: item.id,
+        label: item.label,
+        icon: ICONS[item.icon] ?? ICONS.file,
+        page: item.page,
+        children: item.children,
+        badge: item.id === 'checks' ? checkAlerts : undefined,
+      })),
+    }),
+  )
+  const bottomNav: NavItem[] = (MENU.find((group) => group.title === 'گزارش و ابزار')?.items ?? []).map(
+    (item) => ({
+      id: item.id,
+      label: item.label,
+      icon: ICONS[item.icon] ?? ICONS.file,
+      page: item.page,
+      children: item.children,
+    }),
+  )
+
+  const breadcrumb =
+    MENU.find((group) => group.items.some((item) => item.page === page || item.children?.some((child) => child.page === page)))
+      ?.title ?? 'نوین پرداز'
+
   return (
-    <div className={`app${dark ? ' dark' : ''}${collapsed ? ' sidebar-collapsed' : ''}`} dir="rtl">
-      <aside className="sidebar">
-        <div className="sidebar-head">
-          <div className="sidebar-logo">
-            <img
-              src="https://novinacc.ir/wp-content/uploads/2023/07/cropped-%D9%84%D9%88%DA%AF%D9%88-300x83.png"
-              alt="نوین پرداز"
-              onError={(event) => {
-                event.currentTarget.style.display = 'none'
-                event.currentTarget.parentElement!.textContent = 'NP'
-              }}
-            />
-          </div>
-          <div className="sidebar-title">
-            <strong>حسابداری نوین پرداز</strong>
-            <span>NEXT GENERATION</span>
-          </div>
-        </div>
+    <div className={cn('min-h-screen', dark && 'dark')} dir="rtl">
+      <Sidebar
+        groups={navGroups}
+        bottom={bottomNav}
+        page={page}
+        navigate={go}
+        collapsed={collapsed}
+        toggleCollapsed={() => setCollapsed((value) => !value)}
+        mobileOpen={mobileNav}
+        setMobileOpen={setMobileNav}
+        companyName="شرکت نوین پرداز"
+        fiscalYear="۱۴۰۵"
+        userName="مدیر سیستم"
+        userRole="دسترسی کامل"
+      />
 
-        <div className="dropdown-wrap" ref={companyRef}>
-          <button
-            className="company-btn"
-            onClick={() => setOpenMenu(openMenu === 'company' ? '' : 'company')}
-          >
-            <div>
-              <span>شرکت فعال</span>
-              <b>نوین پرداز — شعبه مرکزی</b>
-            </div>
-            <Icon name="chevron" size={14} />
-          </button>
-          {openMenu === 'company' && (
-            <div className="dropdown" style={{right: 10, left: 10, minWidth: 0}}>
-              <div className="dropdown-title">انتخاب شرکت و سال مالی</div>
-              <button className="dropdown-item">
-                <Icon name="grid" size={15} />
-                <div>
-                  نوین پرداز — شعبه مرکزی
-                  <small>سال مالی ۱۴۰۵ · فعال</small>
-                </div>
-              </button>
-              <div className="dropdown-sep" />
-              <button className="dropdown-item" onClick={() => setSettings(true)}>
-                <Icon name="settings" size={15} />
-                مدیریت شرکت‌ها و سال مالی
-              </button>
-            </div>
-          )}
-        </div>
+      <div
+        className={cn(
+          'min-h-screen transition-[padding] duration-300',
+          collapsed ? 'lg:ps-[84px]' : 'lg:ps-[272px]',
+        )}
+      >
+        <Topbar
+          title={PAGE_TITLES[page] ?? 'نوین پرداز'}
+          breadcrumb={breadcrumb}
+          dark={dark}
+          setDark={setDark}
+          onOpenMobileNav={() => setMobileNav(true)}
+          onOpenSettings={() => setSettings(true)}
+          onLogout={() => setPalette(true)}
+          search={globalSearch}
+          navigate={go}
+          notifications={notifications}
+          quickActions={QUICK_ACTIONS.map((action) => ({label: action.label, page: action.page}))}
+          userName="مدیر سیستم"
+          userRole="دسترسی کامل"
+        />
 
-        <nav className="sidebar-nav">
-          {MENU.map((group) => (
-            <div key={group.title}>
-              <div className="nav-group-title">{group.title}</div>
-              {group.items.map((item) => {
-                const isActive =
-                  page === item.page || item.children?.some((child) => child.page === page)
-                return (
-                  <div key={item.id}>
-                    <div className="nav-row">
-                      <button
-                        className={`nav-item${isActive ? ' active' : ''}`}
-                        title={item.label}
-                        onClick={() => go(item.page)}
-                      >
-                        <span className="nav-icon">
-                          <Icon name={item.icon as never} size={19} />
-                        </span>
-                        <span className="nav-label">{item.label}</span>
-                      </button>
-                      {item.children && (
-                        <button
-                          className={`nav-expand${expanded.includes(item.id) ? ' open' : ''}`}
-                          onClick={() => toggleExpand(item.id)}
-                          title="باز کردن زیرمنو"
-                        >
-                          <Icon name="chevron" size={13} />
-                        </button>
-                      )}
-                    </div>
-                    {item.children && expanded.includes(item.id) && (
-                      <div className="subnav">
-                        {item.children.map((child) => (
-                          <button
-                            key={child.page}
-                            className={page === child.page ? 'selected' : ''}
-                            onClick={() => go(child.page)}
-                          >
-                            {child.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </nav>
+        <main className="px-4 pt-5 pb-24 sm:px-6">{renderPage()}</main>
+      </div>
 
-        <div className="sidebar-foot">
-          <div className="nav-row">
-            <button
-              className="nav-item"
-              title="تنظیمات برنامه"
-              onClick={() => setSettings(true)}
-            >
-              <span className="nav-icon">
-                <Icon name="settings" size={19} />
-              </span>
-              <span className="nav-label">تنظیمات برنامه</span>
-            </button>
-          </div>
-          <div className="nav-row">
-            <button
-              className="nav-item sidebar-toggle-item"
-              onClick={() => setCollapsed(!collapsed)}
-              title={collapsed ? 'باز کردن منو' : 'جمع کردن منو'}
-            >
-              <span className={`nav-icon toggle-icon${collapsed ? ' flipped' : ''}`}>
-                <Icon name="chevron" size={18} />
-              </span>
-              <span className="nav-label">جمع کردن منو</span>
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <main className="main">
-        <header className="topbar">
-          <div className="breadcrumbs">
-            <span>نوین پرداز</span>
-            <b>/</b>
-            <strong>{PAGE_TITLES[page] ?? 'صفحه'}</strong>
-          </div>
-
-          <div className="top-actions">
-            {isDesignPreview() && (
-              <div className="preview-banner" title="داده‌ها شبیه‌سازی‌شده‌اند">
-                ⚠ پیش‌نمایش طراحی
-              </div>
-            )}
-
-            <button className="global-search" onClick={() => setPalette(true)}>
-              <Icon name="search" size={16} />
-              <span>جستجو یا اجرای دستور…</span>
-              <kbd>Ctrl K</kbd>
-            </button>
-
-            <button className="icon-btn" onClick={() => setDark(!dark)} title="تغییر تم">
-              <Icon name={dark ? 'sun' : 'moon'} size={17} />
-            </button>
-
-            <div className="dropdown-wrap" ref={bellRef}>
-              <button
-                className="icon-btn"
-                onClick={() => setOpenMenu(openMenu === 'bell' ? '' : 'bell')}
-                title="اعلان‌ها"
-              >
-                <Icon name="bell" size={17} />
-                <i className="badge-dot" />
-              </button>
-              {openMenu === 'bell' && (
-                <div className="dropdown">
-                  <div className="dropdown-title">اعلان‌ها</div>
-                  <button className="dropdown-item" onClick={() => go('checks')}>
-                    <Icon name="check" size={15} />
-                    <div>
-                      چک نزدیک سررسید
-                      <small>۱ فقره چک در ۷ روز آینده سررسید می‌شود</small>
-                    </div>
-                  </button>
-                  <button className="dropdown-item" onClick={() => go('inventory')}>
-                    <Icon name="package" size={15} />
-                    <div>
-                      کالای کم‌موجودی
-                      <small>موجودی چند کالا زیر حد سفارش است</small>
-                    </div>
-                  </button>
-                  <div className="dropdown-sep" />
-                  <button className="dropdown-item" onClick={() => setSettings(true)}>
-                    <Icon name="settings" size={15} />
-                    تنظیمات اعلان‌ها
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="dropdown-wrap" ref={profileRef}>
-              <button
-                className="profile-btn"
-                onClick={() => setOpenMenu(openMenu === 'profile' ? '' : 'profile')}
-              >
-                <div className="avatar">م</div>
-                <div>
-                  <b>مدیر سیستم</b>
-                  <span>Administrator</span>
-                </div>
-                <Icon name="chevron" size={13} />
-              </button>
-              {openMenu === 'profile' && (
-                <div className="dropdown">
-                  <div className="dropdown-title">حساب کاربری</div>
-                  <button className="dropdown-item" onClick={() => setSettings(true)}>
-                    <Icon name="users" size={15} />
-                    <div>
-                      مدیر سیستم
-                      <small>نقش: Administrator — دسترسی کامل</small>
-                    </div>
-                  </button>
-                  <div className="dropdown-sep" />
-                  <button className="dropdown-item" onClick={() => setSettings(true)}>
-                    <Icon name="settings" size={15} />
-                    تنظیمات کاربر و تغییر رمز
-                  </button>
-                  <button className="dropdown-item" onClick={() => window.location.reload()}>
-                    <Icon name="refresh" size={15} />
-                    خروج از حساب
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <div className="workspace">{renderPage()}</div>
-      </main>
-
-      {/* --- دکمه‌های شناور پایین سمت چپ --- */}
-      <div className="fab-stack" ref={fabRef}>
+      {/* دکمه‌ی شناور ایجاد سریع — پایین سمت چپ، دور از منو */}
+      <div className="fixed bottom-6 start-6 z-40" ref={fabRef}>
         {openMenu === 'fab' && (
-          <div className="fab-menu">
-            <div className="dropdown-title">عملیات سریع</div>
+          <div className="fade-up mb-3 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
+            <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">افزودن سریع</p>
             {QUICK_ACTIONS.map((action) => (
-              <button key={action.page} onClick={() => go(action.page)}>
-                <span className="fab-icon">
-                  <Icon name={action.icon as never} size={16} />
-                </span>
+              <button
+                key={action.page}
+                onClick={() => go(action.page)}
+                className="block w-full rounded-lg px-2.5 py-2 text-start text-xs text-muted transition-colors hover:bg-bg-soft hover:text-text"
+              >
                 {action.label}
               </button>
             ))}
-            <div className="dropdown-sep" />
-            <button onClick={() => setSettings(true)}>
-              <span className="fab-icon">
-                <Icon name="settings" size={16} />
-              </span>
-              شخصی‌سازی این فهرست
-            </button>
           </div>
         )}
         <button
-          className={`fab${openMenu === 'fab' ? ' open' : ''}`}
+          aria-label="افزودن سریع"
           onClick={() => setOpenMenu(openMenu === 'fab' ? '' : 'fab')}
-          title="عملیات سریع"
+          className={cn(
+            'grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] text-[#21254E] shadow-[0_12px_28px_-8px_rgba(220,167,87,.6)] transition-transform hover:scale-105 active:scale-95',
+            openMenu === 'fab' && 'rotate-45',
+          )}
         >
-          +
+          <Plus className="size-6" aria-hidden />
         </button>
         {DEMO_BUILD && demo && (
           <button
-            className="demo-fab"
+            className="mt-3 block w-full rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-[11px] font-semibold text-danger transition-colors hover:bg-card"
             disabled={demoBusy}
             onClick={async () => {
-              if (!confirm('تمام محتوای نمونه حذف می‌شود. ادامه می‌دهید؟')) return
+              if (!confirm('تمام داده‌های نمونه حذف می‌شوند. ادامه می‌دهید؟')) return
               setDemoBusy(true)
               try {
                 await deleteDemo()
                 setDemo(false)
-                window.location.reload()
-              } catch (e) {
-                alert(errorText(e))
               } finally {
                 setDemoBusy(false)
               }
             }}
           >
-            {demoBusy ? 'در حال حذف…' : 'حذف محتوای دمو'}
+            {demoBusy ? 'در حال حذف…' : 'حذف داده‌ی نمونه'}
           </button>
         )}
       </div>
