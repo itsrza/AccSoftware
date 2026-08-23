@@ -81,6 +81,15 @@ impl ProductKind {
         }
     }
 
+    /// آیا این نوع کالا موجودی انبار دارد؟
+    ///
+    /// خدمت موجودی ندارد: فروش خدمت نباید گردش انبار بسازد و نباید در
+    /// انبارگردانی شمرده شود. اگر این تفکیک نباشد، انبارگردانی همیشه
+    /// اختلاف می‌دهد و ارزش موجودی اشتباه گزارش می‌شود.
+    pub fn tracks_inventory(self) -> bool {
+        !matches!(self, ProductKind::Service)
+    }
+
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value {
             "simple" => ProductKind::Simple,

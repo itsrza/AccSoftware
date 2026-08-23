@@ -278,7 +278,7 @@ fn t08_seven_price_levels_of_the_reference() {
 fn t09_four_product_kinds_of_the_reference_dialog() {
     use novin_core::catalog::ProductKind;
     let expected = [
-        (ProductKind::Simple, "کالای عمومی"),
+        (ProductKind::Simple, "کالای عمومی (ساده)"),
         (ProductKind::Composite, "کالای مرکب"),
         (ProductKind::Variant, "کالای تنوع‌دار"),
         (ProductKind::GoldJewelry, "طلا و جواهر"),
@@ -287,6 +287,14 @@ fn t09_four_product_kinds_of_the_reference_dialog() {
         assert_eq!(kind.label(), label);
         assert_eq!(ProductKind::parse(kind.as_str()), Some(kind));
     }
+    // «خدمت» افزوده‌ی ماست، نه در تصویر مرجع: خدمت موجودی انبار ندارد و
+    // نباید در گردش انبار بیاید. وجودش درست است ولی باید صریحاً متمایز بماند.
+    assert_eq!(ProductKind::Service.label(), "خدمت");
+    assert!(
+        !ProductKind::Service.tracks_inventory(),
+        "خدمت نباید موجودی انبار داشته باشد"
+    );
+    assert!(ProductKind::Simple.tracks_inventory());
 }
 
 /// ت۱۰ — کالای نمونه واقعاً چند سطح قیمت دارد، نه فقط یک قیمت.
@@ -317,7 +325,7 @@ fn t11_six_settlement_methods_of_the_receipt_document() {
     let expected = [
         (PaymentMethod::Cash, "نقد", true),
         (PaymentMethod::Check, "چک", false),
-        (PaymentMethod::BankTransfer, "حواله بانکی", true),
+        (PaymentMethod::BankTransfer, "حواله", true),
         (PaymentMethod::CardTerminal, "کارتخوان", true),
         (PaymentMethod::Discount, "تخفیف", false),
         (PaymentMethod::Offset, "تهاتر", false),
