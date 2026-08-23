@@ -41,7 +41,8 @@ fn host_sources() -> Vec<(String, String)> {
         .expect("ریشه‌ی مخزن")
         .join("apps/desktop-host/src-tauri/src");
     let mut files = Vec::new();
-    for entry in std::fs::read_dir(&root).expect("پوشه‌ی میزبان باید وجود داشته باشد") {
+    for entry in std::fs::read_dir(&root).expect("پوشه‌ی میزبان باید وجود داشته باشد")
+    {
         let path = entry.expect("ورودی پوشه").path();
         if path.extension().and_then(|value| value.to_str()) == Some("rs") {
             let name = path
@@ -65,7 +66,9 @@ fn commands() -> Vec<(String, String, String)> {
             let start = cursor + offset;
             // نام تابع
             let after = &code[start..];
-            let Some(fn_offset) = after.find("fn ") else { break };
+            let Some(fn_offset) = after.find("fn ") else {
+                break;
+            };
             let name_start = start + fn_offset + 3;
             let name_end = code[name_start..]
                 .find('(')
@@ -137,7 +140,11 @@ fn t111_every_declared_command_is_registered() {
 #[test]
 fn t112_no_command_is_registered_twice() {
     let sources = host_sources();
-    let main = &sources.iter().find(|(name, _)| name == "main.rs").unwrap().1;
+    let main = &sources
+        .iter()
+        .find(|(name, _)| name == "main.rs")
+        .unwrap()
+        .1;
     let start = main.find("generate_handler![").unwrap();
     let end = start + main[start..].find(']').unwrap();
     let mut seen = HashSet::new();
@@ -200,7 +207,10 @@ fn t113_every_error_code_is_unique() {
             format!("{code} در {unique:?}")
         })
         .collect();
-    assert!(cross_file.is_empty(), "کد خطای مشترک بین فایل‌ها: {cross_file:?}");
+    assert!(
+        cross_file.is_empty(),
+        "کد خطای مشترک بین فایل‌ها: {cross_file:?}"
+    );
 }
 
 /// ت۱۱۴ — هر پیام خطا کد دارد.
@@ -219,7 +229,10 @@ fn t114_every_error_message_carries_a_code() {
             if !(trimmed.contains("return Err(") || trimmed.contains("ok_or_else")) {
                 continue;
             }
-            if !trimmed.chars().any(|character| ('\u{0600}'..='\u{06FF}').contains(&character)) {
+            if !trimmed
+                .chars()
+                .any(|character| ('\u{0600}'..='\u{06FF}').contains(&character))
+            {
                 continue;
             }
             let has_code = trimmed.contains('-')
@@ -228,7 +241,10 @@ fn t114_every_error_message_carries_a_code() {
                     .zip(trimmed.chars().skip(1))
                     .any(|(a, b)| a.is_ascii_uppercase() && (b.is_ascii_uppercase() || b == '-'));
             if !has_code {
-                naked.push(format!("{file}: {}", trimmed.chars().take(80).collect::<String>()));
+                naked.push(format!(
+                    "{file}: {}",
+                    trimmed.chars().take(80).collect::<String>()
+                ));
             }
         }
     }
@@ -284,7 +300,10 @@ fn t116_no_command_panics_on_user_input() {
                 if trimmed.contains("timestamp_nanos_opt") {
                     continue;
                 }
-                risky.push(format!("{file}::{name} → {}", trimmed.chars().take(70).collect::<String>()));
+                risky.push(format!(
+                    "{file}::{name} → {}",
+                    trimmed.chars().take(70).collect::<String>()
+                ));
             }
         }
     }
@@ -343,7 +362,10 @@ fn t119_no_command_stores_a_raw_password() {
         let writes_password = body.contains("password_hash");
         let hashes = body.contains("hash_password") || body.contains("db_hash");
         assert!(
-            !writes_password || hashes || body.contains("PasswordVerifier") || body.contains("verify"),
+            !writes_password
+                || hashes
+                || body.contains("PasswordVerifier")
+                || body.contains("verify"),
             "{file}::{name} رمز را بدون هش ذخیره می‌کند"
         );
     }
@@ -381,7 +403,10 @@ fn t121_financial_operations_leave_an_audit_trail() {
             untracked.push(format!("{file}::{name}"));
         }
     }
-    assert!(untracked.is_empty(), "سند بدون ردپای حسابرسی: {untracked:?}");
+    assert!(
+        untracked.is_empty(),
+        "سند بدون ردپای حسابرسی: {untracked:?}"
+    );
 }
 
 /// ت۱۲۲ — هیچ پرس‌وجویی رشته‌ی ورودی کاربر را مستقیم به SQL نمی‌چسباند.
@@ -410,7 +435,10 @@ fn t122_no_user_input_is_concatenated_into_sql() {
                 || trimmed.contains("{name}")
                 || trimmed.contains("{id}");
             if interpolates_value {
-                risky.push(format!("{file}: {}", trimmed.chars().take(90).collect::<String>()));
+                risky.push(format!(
+                    "{file}: {}",
+                    trimmed.chars().take(90).collect::<String>()
+                ));
             }
         }
     }
@@ -463,7 +491,10 @@ fn t125_every_host_module_documents_itself() {
             undocumented.push(file);
         }
     }
-    assert!(undocumented.is_empty(), "ماژول بدون توضیح: {undocumented:?}");
+    assert!(
+        undocumented.is_empty(),
+        "ماژول بدون توضیح: {undocumented:?}"
+    );
 }
 
 // ===========================================================================
