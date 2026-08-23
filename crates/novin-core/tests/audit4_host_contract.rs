@@ -76,11 +76,34 @@ fn commands() -> Vec<(String, String, String)> {
                 .unwrap_or(name_start);
             let name = code[name_start..name_end].trim().to_string();
 
-            // بدنه: از نخستین `{` پس از امضا تا `{`ِ متوازن
-            let body_start = code[name_end..]
+            // بدنه: از `{`ِ آغاز بدنه تا `}`ِ متوازن.
+            //
+            // نکته‌ی ظریف: امضای تابع خودش `{` دارد (در نوع بازگشتی یا
+            // آرگومان‌های جنریک نه، ولی در `-> Result<Vec<T>, String>` پرانتز
+            // و کروشه هست). پس باید از پرانتزِ بسته‌ی آرگومان‌ها جلو رفت و
+            // نخستین `{`ِ بعد از آن را گرفت.
+            let args_end = {
+                let mut depth = 0i32;
+                let mut position = name_end;
+                for (index, character) in code[name_end..].char_indices() {
+                    match character {
+                        '(' => depth += 1,
+                        ')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                position = name_end + index;
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                position
+            };
+            let body_start = code[args_end..]
                 .find('{')
-                .map(|index| name_end + index)
-                .unwrap_or(name_end);
+                .map(|index| args_end + index)
+                .unwrap_or(args_end);
             let mut depth = 0i32;
             let mut body_end = body_start;
             for (index, character) in code[body_start..].char_indices() {
@@ -128,8 +151,13 @@ fn t111_every_declared_command_is_registered() {
 
     let mut missing = Vec::new();
     for (file, name, _) in commands() {
-        // نام ممکن است با پیشوند ماژول ثبت شده باشد.
-        if !handler.contains(&format!("{name},")) && !handler.contains(&format!("::{name},")) {
+        // نام ممکن است با پیشوند ماژول ثبت شده باشد، و آخرین ورودی فهرست
+        // ممکن است کامای انتهایی نداشته باشد.
+        let registered = handler
+            .split(',')
+            .map(|entry| entry.trim().rsplit("::").next().unwrap_or("").trim())
+            .any(|entry| entry == name);
+        if !registered {
             missing.push(format!("{file}::{name}"));
         }
     }

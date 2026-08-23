@@ -7563,7 +7563,7 @@ fn main() {
             list_api_profiles,
             create_api_profile,
             execute_api_request,
-            set_api_profile_enabled
+            set_api_profile_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running application");
