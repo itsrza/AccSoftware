@@ -119,6 +119,12 @@ fn commands() -> Vec<(String, String, String)> {
                     _ => {}
                 }
             }
+            // مرز سخت: بدنه هرگز نباید از فرمان بعدی رد شود.
+            let next_command = code[body_start..]
+                .find("#[tauri::command]")
+                .map(|index| body_start + index)
+                .unwrap_or(code.len());
+            let body_end = body_end.min(next_command);
             result.push((file.clone(), name, code[body_start..body_end].to_string()));
             cursor = body_end.max(start + 1);
         }
@@ -142,12 +148,15 @@ fn t111_every_declared_command_is_registered() {
         .iter()
         .find(|(name, _)| name == "main.rs")
         .expect("main.rs");
+    // فهرست از پس از `[` شروع می‌شود، وگرنه نخستین فرمان به
+    // `generate_handler![` می‌چسبد و «ثبت‌نشده» شمرده می‌شود.
     let handler_start = main.1.find("generate_handler![").expect("فهرست ثبت فرمان");
-    let handler_end = main.1[handler_start..]
+    let list_start = handler_start + main.1[handler_start..].find('[').expect("آغاز فهرست") + 1;
+    let handler_end = main.1[list_start..]
         .find(']')
-        .map(|index| handler_start + index)
+        .map(|index| list_start + index)
         .expect("پایان فهرست");
-    let handler = &main.1[handler_start..handler_end];
+    let handler = &main.1[list_start..handler_end];
 
     let mut missing = Vec::new();
     for (file, name, _) in commands() {
