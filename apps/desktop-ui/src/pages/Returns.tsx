@@ -389,7 +389,7 @@ export function Returns({ sale }: { sale: boolean }) {
                   {detail.header.return_date} — {detail.header.contact_name ?? 'بدون طرف حساب'}
                 </p>
               </div>
-              <button className="icon-btn" onClick={() => setDetail(undefined)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setDetail(undefined)}>
                 <Icon name="close" />
               </button>
             </div>

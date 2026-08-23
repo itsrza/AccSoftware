@@ -125,7 +125,7 @@ export function SingleLineJournal() {
             onChange={(event) => setSide({...side, costCenterId: event.target.value})}
             required={account?.requires_cost_center}
           >
-            <option value="">—</option>
+            <option value="">بدون مرکز هزینه</option>
             {costCenters.map((item) => (
               <option key={item.id} value={item.code}>
                 {item.code} — {item.title}
@@ -141,7 +141,7 @@ export function SingleLineJournal() {
             onChange={(event) => setSide({...side, projectId: event.target.value})}
             required={account?.requires_project}
           >
-            <option value="">—</option>
+            <option value="">بدون پروژه</option>
             {projects.map((item) => (
               <option key={item.id} value={item.code}>
                 {item.code} — {item.title}

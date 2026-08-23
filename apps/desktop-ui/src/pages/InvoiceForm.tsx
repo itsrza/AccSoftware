@@ -270,6 +270,7 @@ export function InvoiceForm() {
           <label>
             <span>انبار</span>
             <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>
+              <option value="">انتخاب کنید…</option>
               {warehouses.map((warehouse) => (
                 <option key={warehouse.id} value={warehouse.id}>
                   {warehouse.name}
@@ -303,7 +304,7 @@ export function InvoiceForm() {
           >
             حذف (Delete)
           </button>
-          <button className="icon-btn" onClick={refreshPreview} title="محاسبه مجدد">
+          <button className="icon-btn" aria-label="محاسبه مجدد" onClick={refreshPreview} title="محاسبه مجدد">
             <Icon name="refresh" />
           </button>
         </div>

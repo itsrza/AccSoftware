@@ -317,11 +317,11 @@ export function TreasuryDocumentForm() {
                     onChange={(e) => updateLine(line.key, { description: e.target.value })}
                   />
                 </label>
-                <button
+                <button aria-label="حذف سطر"
                   className="icon-btn danger-icon"
                   onClick={() => removeLine(line.key)}
                   disabled={lines.length === 1}
-                  aria-label="حذف سطر"
+                 
                 >
                   <Icon name="trash" />
                 </button>
@@ -464,7 +464,7 @@ export function TreasuryDocumentForm() {
                   {detail.header.document_date} — {detail.header.party_name ?? 'بدون طرف حساب'}
                 </p>
               </div>
-              <button className="icon-btn" onClick={() => setDetail(undefined)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setDetail(undefined)}>
                 <Icon name="close" />
               </button>
             </div>

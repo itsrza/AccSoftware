@@ -387,11 +387,11 @@ export function Production() {
                     }
                   />
                 </label>
-                <button
+                <button aria-label="حذف"
                   className="icon-btn danger-icon"
                   disabled={inputs.length === 1}
                   onClick={() => setInputs((c) => c.filter((l) => l.key !== line.key))}
-                  aria-label="حذف"
+                 
                 >
                   <Icon name="trash" />
                 </button>
@@ -468,11 +468,11 @@ export function Production() {
                     />
                   </label>
                 )}
-                <button
+                <button aria-label="حذف"
                   className="icon-btn danger-icon"
                   disabled={outputs.length === 1}
                   onClick={() => setOutputs((c) => c.filter((l) => l.key !== line.key))}
-                  aria-label="حذف"
+                 
                 >
                   <Icon name="trash" />
                 </button>
@@ -536,10 +536,10 @@ export function Production() {
                     }
                   />
                 </label>
-                <button
+                <button aria-label="حذف"
                   className="icon-btn danger-icon"
                   onClick={() => setExpenses((c) => c.filter((l) => l.key !== line.key))}
-                  aria-label="حذف"
+                 
                 >
                   <Icon name="trash" />
                 </button>
@@ -769,7 +769,7 @@ export function Production() {
                 <h2>فرمول تولید</h2>
                 <p>ضایعات بخشی از بهای تمام‌شده است، نه هزینه‌ی جداگانه.</p>
               </div>
-              <button className="icon-btn" onClick={() => setFormulaForm(null)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setFormulaForm(null)}>
                 <Icon name="close" />
               </button>
             </div>
@@ -893,7 +893,7 @@ export function Production() {
                       }
                     />
                   </label>
-                  <button
+                  <button aria-label="حذف"
                     className="icon-btn danger-icon"
                     disabled={formulaForm.components.length === 1}
                     onClick={() =>
@@ -902,7 +902,7 @@ export function Production() {
                         components: formulaForm.components.filter((_, i) => i !== index),
                       })
                     }
-                    aria-label="حذف"
+                   
                   >
                     <Icon name="trash" />
                   </button>
@@ -940,10 +940,10 @@ export function Production() {
                   {money(formulaDetail.header.estimated_unit_cost)} ریال
                 </p>
               </div>
-              <button
+              <button aria-label="بستن"
                 className="icon-btn"
                 onClick={() => setFormulaDetail(undefined)}
-                aria-label="بستن"
+               
               >
                 <Icon name="close" />
               </button>

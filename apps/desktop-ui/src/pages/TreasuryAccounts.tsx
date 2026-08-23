@@ -263,7 +263,7 @@ export function TreasuryAccounts({ mode }: { mode: Mode }) {
                 <h2>{form.id ? 'ویرایش حساب' : 'حساب جدید'}</h2>
                 <p>فیلدهای ستاره‌دار الزامی‌اند.</p>
               </div>
-              <button className="icon-btn" onClick={() => setForm(null)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setForm(null)}>
                 <Icon name="close" />
               </button>
             </div>

@@ -262,7 +262,7 @@ export function Checks() {
                 <h2>چک شماره {selected.check_number}</h2>
                 <p>{selected.check_type === 'received' ? 'چک دریافتی' : 'چک پرداختی'}</p>
               </div>
-              <button className="icon-btn" onClick={() => setSelected(null)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setSelected(null)}>
                 <Icon name="close" />
               </button>
             </div>

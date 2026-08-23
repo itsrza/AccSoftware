@@ -116,7 +116,7 @@ export function ProductPricing() {
               </option>
             ))}
           </select>
-          <button className="icon-btn" onClick={load} title="بارگذاری مجدد">
+          <button aria-label="بروزرسانی" className="icon-btn" onClick={load} title="بارگذاری مجدد">
             <Icon name="refresh" />
           </button>
         </div>

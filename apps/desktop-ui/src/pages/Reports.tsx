@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react'
 import {Icon} from '../components/Icon'
 import {getAccountLedgerSummary,getInventoryValuation,getPurchaseReport,getSalesReport,getProfitLoss,getTrialBalance,getReceivables,getPayables,getCashPosition,getJournalBook,getFinancialStatement,getPartyAging,SalesReportRow,PurchaseReportRow,InventoryValuation,AccountLedgerSummary,ProfitLoss,TrialBalance,PartyBalance,CashPosition,JournalBookLine,FinancialStatement,PartyAging} from '../api'
 import {errorText} from '../lib/errors'
-import {formatRials as money, formatNumber as n} from '../lib/format'
+import {formatRials as money, formatNumber as n, todayJalali} from '../lib/format'
 const today=()=>new Date().toISOString().slice(0,10)
 type Kind='sales'|'purchase'|'inventory'|'ledger'|'trial'|'profit'|'receivable'|'payable'|'cash'|'journal'|'balance'|'income'|'agingReceivable'|'agingPayable'
 export function Reports(){
@@ -11,7 +11,7 @@ export function Reports(){
  useEffect(()=>{load()},[kind])
  const tabs:[Kind,string][]=[['sales','فروش'],['purchase','خرید'],['inventory','موجودی'],['ledger','گردش حساب'],['trial','تراز آزمایشی'],['profit','سود و زیان'],['receivable','مطالبات'],['payable','بدهی‌ها'],['cash','نقدینگی'],['journal','دفتر روزنامه'],['balance','ترازنامه'],['income','سود و زیان تفصیلی'],['agingReceivable','سن مطالبات'],['agingPayable','سن بدهی‌ها']]
  return <section className="page"><div className="page-head"><div><div className="eyebrow">گزارش‌های واقعی</div><h1>مرکز گزارشات</h1><p>تمام ارقام از داده‌های ثبت‌شده و اسناد Posted خوانده می‌شوند.</p></div><button className="primary" onClick={load}><Icon name="refresh"/> بروزرسانی</button></div>
-  <div className="panel list-panel"><div className="toolbar"><div className="report-tabs">{tabs.map(([id,label])=><button key={id} className={kind===id?'active':''} onClick={()=>setKind(id)}>{label}</button>)}</div><label className="date-filter">از <input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label className="date-filter">تا <input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><button className="filter-btn" onClick={load}><Icon name="filter"/> اعمال</button></div>
+  <div className="panel list-panel"><div className="toolbar"><div className="report-tabs">{tabs.map(([id,label])=><button key={id} className={kind===id?'active':''} onClick={()=>setKind(id)}>{label}</button>)}</div><label className="date-filter">از <input value={from} onChange={e=>setFrom(e.target.value)} placeholder="1405/01/01"/></label><label className="date-filter">تا <input value={to} onChange={e=>setTo(e.target.value)} placeholder={todayJalali()}/></label><button className="filter-btn" onClick={load}><Icon name="filter"/> اعمال</button></div>
   {error&&<div className="error-box">{error}</div>}{loading?<div className="empty-state"><p>در حال محاسبه گزارش...</p></div>:<>
   {kind==='sales'&&<Table headers={['تاریخ','شماره','مشتری','خالص','مالیات','مبلغ','تسویه']} rows={sales.map(x=>[x.date,x.invoice_number,x.contact_name||'بدون شخص',money(x.subtotal-x.discount),money(x.tax),money(x.total),status(x.payment_status)])}/>}
   {kind==='purchase'&&<Table headers={['تاریخ','شماره','تأمین‌کننده','خالص','مالیات','مبلغ','تسویه']} rows={purchase.map(x=>[x.date,x.invoice_number,x.contact_name||'بدون شخص',money(x.subtotal-x.discount),money(x.tax),money(x.total),status(x.payment_status)])}/>}

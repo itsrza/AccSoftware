@@ -18,6 +18,7 @@ import {
   RouteRow,
 } from '../api'
 import { errorText } from '../lib/errors'
+import { formatRials, formatTomans } from '../lib/format'
 
 /** هفت زبانه، دقیقاً مطابق فرم مرجع. */
 const TABS = [
@@ -491,10 +492,10 @@ export function PartyForm({
                     />
                     <span>پیش‌فرض</span>
                   </label>
-                  <button
+                  <button aria-label="حذف"
                     className="icon-btn danger-icon"
                     onClick={() => removePhone(index)}
-                    aria-label="حذف"
+                   
                   >
                     <Icon name="trash" />
                   </button>
@@ -577,10 +578,10 @@ export function PartyForm({
                     />
                     <span>پیش‌فرض</span>
                   </label>
-                  <button
+                  <button aria-label="حذف"
                     className="icon-btn danger-icon"
                     onClick={() => removeBank(index)}
-                    aria-label="حذف"
+                   
                   >
                     <Icon name="trash" />
                   </button>
@@ -633,10 +634,10 @@ export function PartyForm({
                     />
                     <span>اصلی</span>
                   </label>
-                  <button
+                  <button aria-label="حذف"
                     className="icon-btn danger-icon"
                     onClick={() => removeImage(index)}
-                    aria-label="حذف"
+                   
                   >
                     <Icon name="trash" />
                   </button>
@@ -697,6 +698,11 @@ export function PartyForm({
                   onChange={(e) => set({ credit_limit: Number(e.target.value) || 0 })}
                   placeholder="صفر یعنی بدون محدودیت"
                 />
+                {form.credit_limit > 0 && (
+                  <small className="field-hint">
+                    {formatRials(form.credit_limit)} ریال ({formatTomans(form.credit_limit)})
+                  </small>
+                )}
               </label>
               <label className="grow">
                 <span>یادداشت</span>
@@ -777,10 +783,10 @@ export function PartyForm({
                       }
                     />
                   </label>
-                  <button
+                  <button aria-label="حذف"
                     className="icon-btn danger-icon"
                     onClick={() => removeOccasion(index)}
-                    aria-label="حذف"
+                   
                   >
                     <Icon name="trash" />
                   </button>

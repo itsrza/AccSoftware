@@ -170,7 +170,7 @@ export function Stocktaking() {
         <div className="toolbar">
           <strong>دوره‌های انبارگردانی</strong>
           <span className="spacer" />
-          <button className="icon-btn" onClick={loadSessions} title="بارگذاری مجدد">
+          <button className="icon-btn" aria-label="بارگذاری مجدد" onClick={loadSessions} title="بارگذاری مجدد">
             <Icon name="refresh" />
           </button>
         </div>
@@ -408,6 +408,7 @@ export function Stocktaking() {
                   value={form.warehouse_id}
                   onChange={(event) => setForm({...form, warehouse_id: event.target.value})}
                 >
+                  <option value="">انتخاب کنید…</option>
                   {warehouses.map((warehouse) => (
                     <option key={warehouse.id} value={warehouse.id}>
                       {warehouse.name}

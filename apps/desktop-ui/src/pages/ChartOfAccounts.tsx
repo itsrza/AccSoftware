@@ -362,7 +362,7 @@ export function ChartOfAccounts() {
                     : 'حساب سطح گروه (بدون والد)'}
                 </p>
               </div>
-              <button className="icon-btn" onClick={() => setDraft(null)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setDraft(null)}>
                 <Icon name="close" />
               </button>
             </div>

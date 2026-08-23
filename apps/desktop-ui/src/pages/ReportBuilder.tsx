@@ -10,6 +10,7 @@ import {
   saveCustomReport,
 } from '../api'
 import { errorText } from '../lib/errors'
+import { REPORT_PRINT_STYLE } from '../lib/printStyle'
 import { formatNumber, formatRials as money, todayJalali } from '../lib/format'
 import {
   aggregate,
@@ -316,11 +317,7 @@ export function ReportBuilder() {
       .join('')}</tr>`
     printWindow.document.write(
       `<html dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title>` +
-        `<style>body{font-family:Tahoma,Arial;padding:28px;color:#21254E}h1{font-size:20px;margin:0 0 4px}` +
-        `p{color:#62748E;margin:0 0 18px;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px}` +
-        `th,td{border:1px solid #d9dfe9;padding:7px;text-align:right}th{background:#F6F9FF}` +
-        `tr.group td{background:#F6F9FF;font-weight:bold}tr.subtotal td{background:#faf6ef;font-weight:bold}` +
-        `tr.grand td{background:#21254E;color:#fff;font-weight:bold}</style></head><body>` +
+        `<style>${REPORT_PRINT_STYLE}</style></head><body>` +
         `<h1>${escapeHtml(name)}</h1><p>${SOURCE_LABELS[source]} — از ${config.from || 'ابتدای دوره'} تا ${config.to || 'امروز'} — ${report.rowCount} ردیف</p>` +
         `<table><thead><tr>${head}</tr></thead><tbody>${bodyRows}${grand}</tbody></table>` +
         `<script>window.onload=()=>window.print()</script></body></html>`,

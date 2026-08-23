@@ -351,7 +351,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                 <h2>{sales ? 'پیش‌فاکتور جدید' : 'سفارش خرید جدید'}</h2>
                 <p>مالیات روی مبلغ پس از تخفیف محاسبه می‌شود.</p>
               </div>
-              <button className="icon-btn" onClick={() => setFormOpen(false)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setFormOpen(false)}>
                 <Icon name="close" />
               </button>
             </div>
@@ -464,13 +464,13 @@ export function Quotes({ kind }: { kind: Kind }) {
                       onChange={(e) => setLine(line.key, { discount: Number(e.target.value) || 0 })}
                     />
                   </label>
-                  <button
+                  <button aria-label="حذف قلم"
                     className="icon-btn danger-icon"
                     disabled={lines.length === 1}
                     onClick={() =>
                       setLines((current) => current.filter((item) => item.key !== line.key))
                     }
-                    aria-label="حذف قلم"
+                   
                   >
                     <Icon name="trash" />
                   </button>
@@ -523,7 +523,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                   {detail.header.is_expired && ' — تاریخ اعتبار گذشته است'}
                 </p>
               </div>
-              <button className="icon-btn" onClick={() => setDetail(undefined)} aria-label="بستن">
+              <button aria-label="بستن" className="icon-btn" onClick={() => setDetail(undefined)}>
                 <Icon name="close" />
               </button>
             </div>
