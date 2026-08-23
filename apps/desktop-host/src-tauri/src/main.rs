@@ -6936,7 +6936,7 @@ fn register_plugin(
         // نرم‌افزار حسابداری بسته شود.
         let permission = p
             .as_str()
-            .ok_or_else(|| "PLUGIN-014: فهرست مجوزهای افزونه باید متنی باشد".to_string())?;
+            .ok_or_else(|| "PLUGIN-015: فهرست مجوزهای افزونه باید متنی باشد".to_string())?;
         tx.execute(
             "INSERT INTO plugin_permissions(plugin_id,permission) VALUES(?1,?2)",
             params![id, permission],
