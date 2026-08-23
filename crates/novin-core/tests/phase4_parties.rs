@@ -399,10 +399,25 @@ fn t09_credit_limit_protects_against_over_selling() {
         Some(Money::from_rials(50_000_000))
     );
     assert_eq!(remaining_credit(balance, 0), None);
+    // پس از ممیزی: «اعتبار باقیمانده» هرگز منفی نمی‌شود.
+    //
+    // نمایش «اعتبار باقیمانده: منفی صد میلیون» برای کاربر بی‌معناست؛ آنچه
+    // باید بفهمد این است که اعتبارش تمام شده. مبلغ تجاوز از سقف اطلاعات
+    // جداگانه‌ای است و از خطای `check_credit_limit` می‌آید.
     assert_eq!(
         remaining_credit(Money::from_rials(600_000_000), limit),
-        Some(Money::from_rials(-100_000_000)),
-        "عبور از سقف باید با عدد منفی نشان داده شود"
+        Some(Money::ZERO),
+        "پس از عبور از سقف، باقیمانده صفر است نه منفی"
+    );
+    // و تلاش برای فروش نسیه‌ی بیشتر باید صریحاً رد شود.
+    assert!(
+        check_credit_limit(
+            Money::from_rials(600_000_000),
+            limit,
+            Money::from_rials(1)
+        )
+        .is_err(),
+        "فروش نسیه پس از عبور از سقف باید رد شود"
     );
 }
 
