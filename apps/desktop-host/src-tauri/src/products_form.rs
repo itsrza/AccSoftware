@@ -58,7 +58,7 @@ pub struct TierInput {
     pub discount_bp: i64,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GoldInput {
     pub weight_grams: f64,
     pub carat: i64,
@@ -253,7 +253,7 @@ pub fn get_product_profile(state: State<AppState>, id: String) -> Result<Product
                 })
             },
         )
-        .map_err(|_| "PRD-001: کالا یافت نشد".to_string())?;
+        .map_err(|_| "ITM-001: کالا یافت نشد".to_string())?;
 
     // --- سطوح قیمت: همیشه هر هفت سطح برگردانده می‌شود، حتی خالی ---
     let mut statement = c
@@ -347,19 +347,19 @@ pub fn get_product_profile(state: State<AppState>, id: String) -> Result<Product
 
 /// اعتبارسنجی ورودی با همان قواعدی که موتور فاکتور دارد.
 fn validate(input: &ProductInput) -> Result<ProductKind, String> {
-    let kind = ProductKind::parse(&input.kind).ok_or("PRD-002: نوع کالا نامعتبر است")?;
+    let kind = ProductKind::parse(&input.kind).ok_or("ITM-002: نوع کالا نامعتبر است")?;
 
     if input.sku.trim().is_empty() {
-        return Err("PRD-003: کد کالا نمی‌تواند خالی باشد".into());
+        return Err("ITM-003: کد کالا نمی‌تواند خالی باشد".into());
     }
     if input.name.trim().is_empty() {
-        return Err("PRD-004: نام کالا نمی‌تواند خالی باشد".into());
+        return Err("ITM-004: نام کالا نمی‌تواند خالی باشد".into());
     }
     if input.unit.trim().is_empty() {
-        return Err("PRD-005: واحد اصلی کالا نمی‌تواند خالی باشد".into());
+        return Err("ITM-005: واحد اصلی کالا نمی‌تواند خالی باشد".into());
     }
     if input.purchase_price < 0 {
-        return Err("PRD-006: قیمت خرید نمی‌تواند منفی باشد".into());
+        return Err("ITM-006: قیمت خرید نمی‌تواند منفی باشد".into());
     }
 
     // مالیات با همان پروفایلی سنجیده می‌شود که فاکتور استفاده می‌کند.
@@ -372,13 +372,13 @@ fn validate(input: &ProductInput) -> Result<ProductKind, String> {
     };
     profile
         .validate()
-        .map_err(|error| format!("PRD-007: {error}"))?;
+        .map_err(|error| format!("ITM-007: {error}"))?;
 
     for level in &input.prices {
-        PriceLevel::parse(&level.level).map_err(|error| format!("PRD-008: {error}"))?;
+        PriceLevel::parse(&level.level).map_err(|error| format!("ITM-008: {error}"))?;
         if let Some(price) = level.price {
             if price < 0 {
-                return Err("PRD-009: قیمت سطح نمی‌تواند منفی باشد".into());
+                return Err("ITM-009: قیمت سطح نمی‌تواند منفی باشد".into());
             }
         }
     }
@@ -388,14 +388,14 @@ fn validate(input: &ProductInput) -> Result<ProductKind, String> {
     let mut units = UnitSet::new(input.unit.trim());
     for unit in &input.units {
         if unit.unit_name.trim().is_empty() {
-            return Err("PRD-010: نام واحد فرعی نمی‌تواند خالی باشد".into());
+            return Err("ITM-010: نام واحد فرعی نمی‌تواند خالی باشد".into());
         }
         if unit.unit_name.trim() == input.unit.trim() {
-            return Err("PRD-011: واحد فرعی نمی‌تواند هم‌نام واحد اصلی باشد".into());
+            return Err("ITM-011: واحد فرعی نمی‌تواند هم‌نام واحد اصلی باشد".into());
         }
         units = units
             .with_unit(unit.unit_name.trim(), unit.factor)
-            .map_err(|error| format!("PRD-012: {error}"))?;
+            .map_err(|error| format!("ITM-012: {error}"))?;
     }
     if input
         .units
@@ -404,15 +404,15 @@ fn validate(input: &ProductInput) -> Result<ProductKind, String> {
         .count()
         > 1
     {
-        return Err("PRD-013: فقط یک واحد می‌تواند واحد پیش‌فرض فروش باشد".into());
+        return Err("ITM-013: فقط یک واحد می‌تواند واحد پیش‌فرض فروش باشد".into());
     }
 
     for tier in &input.tiers {
         if tier.min_quantity <= 0.0 {
-            return Err("PRD-014: مقدار شروع پله‌ی تخفیف باید بیشتر از صفر باشد".into());
+            return Err("ITM-014: مقدار شروع پله‌ی تخفیف باید بیشتر از صفر باشد".into());
         }
         if !(0..=10_000).contains(&tier.discount_bp) {
-            return Err("PRD-015: درصد تخفیف پلکانی نامعتبر است".into());
+            return Err("ITM-015: درصد تخفیف پلکانی نامعتبر است".into());
         }
     }
 
@@ -420,12 +420,12 @@ fn validate(input: &ProductInput) -> Result<ProductKind, String> {
         let gold = input
             .gold
             .as_ref()
-            .ok_or("PRD-016: برای کالای طلا، وزن و عیار الزامی است")?;
+            .ok_or("ITM-016: برای کالای طلا، وزن و عیار الزامی است")?;
         if gold.weight_grams <= 0.0 {
-            return Err("PRD-017: وزن کالای طلا باید بیشتر از صفر باشد".into());
+            return Err("ITM-017: وزن کالای طلا باید بیشتر از صفر باشد".into());
         }
         if !(1..=24).contains(&gold.carat) {
-            return Err("PRD-018: عیار طلا باید بین ۱ تا ۲۴ باشد".into());
+            return Err("ITM-018: عیار طلا باید بین ۱ تا ۲۴ باشد".into());
         }
     }
 
@@ -487,7 +487,7 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
                     company
                 ],
             )
-            .map_err(|e| format!("PRD-019: ذخیره‌ی کالا انجام نشد: {e}"))?;
+            .map_err(|e| format!("ITM-019: ذخیره‌ی کالا انجام نشد: {e}"))?;
             existing.clone()
         }
         None => {
@@ -523,7 +523,7 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
                     i64::from(!kind.tracks_inventory())
                 ],
             )
-            .map_err(|e| format!("PRD-020: کد کالا تکراری است یا ثبت انجام نشد: {e}"))?;
+            .map_err(|e| format!("ITM-020: کد کالا تکراری است یا ثبت انجام نشد: {e}"))?;
             new_id
         }
     };
@@ -540,7 +540,7 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
                 "INSERT INTO product_prices(product_id, level, price) VALUES(?1,?2,?3)",
                 params![id, level.level, price],
             )
-            .map_err(|e| format!("PRD-021: ذخیره‌ی سطح قیمت انجام نشد: {e}"))?;
+            .map_err(|e| format!("ITM-021: ذخیره‌ی سطح قیمت انجام نشد: {e}"))?;
         }
     }
 
@@ -558,7 +558,7 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
                 i64::from(unit.is_default_sale)
             ],
         )
-        .map_err(|e| format!("PRD-022: ذخیره‌ی واحد فرعی انجام نشد: {e}"))?;
+        .map_err(|e| format!("ITM-022: ذخیره‌ی واحد فرعی انجام نشد: {e}"))?;
     }
 
     tx.execute(
@@ -577,7 +577,7 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
                 tier.discount_bp
             ],
         )
-        .map_err(|e| format!("PRD-023: ذخیره‌ی پله‌ی تخفیف انجام نشد: {e}"))?;
+        .map_err(|e| format!("ITM-023: ذخیره‌ی پله‌ی تخفیف انجام نشد: {e}"))?;
     }
 
     tx.execute(
@@ -592,7 +592,7 @@ pub fn save_product_profile(state: State<AppState>, input: ProductInput) -> Resu
                  VALUES(?1,?2,?3,?4,?5)",
                 params![id, gold.weight_grams, gold.carat, gold.making_charge_bp, gold.profit_bp],
             )
-            .map_err(|e| format!("PRD-024: ذخیره‌ی مشخصات طلا انجام نشد: {e}"))?;
+            .map_err(|e| format!("ITM-024: ذخیره‌ی مشخصات طلا انجام نشد: {e}"))?;
         }
     }
 
@@ -706,7 +706,7 @@ pub fn preview_gold_price(
             params![id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
-        .map_err(|_| "PRD-025: مشخصات طلای این کالا ثبت نشده است".to_string())?;
+        .map_err(|_| "ITM-025: مشخصات طلای این کالا ثبت نشده است".to_string())?;
 
     let breakdown = novin_core::catalog::gold_price(novin_core::catalog::GoldPricing {
         weight_grams: weight,
@@ -715,7 +715,7 @@ pub fn preview_gold_price(
         profit_bp: profit,
         vat_bp: vat,
     })
-    .map_err(|error| format!("PRD-026: {error}"))?;
+    .map_err(|error| format!("ITM-026: {error}"))?;
 
     Ok(serde_json::json!({
         "metal_value": breakdown.metal_value.rials(),
