@@ -277,13 +277,16 @@ fn t33_invoice_engine_applies_the_correct_calculation_order() {
     );
 }
 
-/// ت۳۴ — دو حالت کرایه اثر متفاوتی بر بهای تمام‌شده دارند.
+/// ت۳۴ — دو حالت کرایه، مأخذ مالیات را متفاوت می‌کنند.
 ///
-/// «افزودن به جمع» فقط مبلغ فاکتور را بالا می‌برد؛ «سرشکن روی سطرها» کرایه
-/// را وارد بهای تمام‌شده می‌کند و سود واقعی را کم می‌کند. اگر این دو یکی
-/// شوند، سود گزارش‌شده اشتباه درمی‌آید.
+/// این تفاوت مستقیماً مبلغ اظهارنامه‌ی ارزش افزوده را عوض می‌کند:
+///
+/// - «افزودن به جمع»: کرایه **پس از** مالیات اضافه می‌شود → مالیات ندارد
+/// - «سرشکن روی سطرها»: کرایه وارد مأخذ می‌شود → مالیات دارد
+///
+/// اگر این دو یکی شوند، یا مالیات کمتر از واقع اظهار می‌شود یا بیشتر.
 #[test]
-fn t34_two_freight_modes_affect_cost_differently() {
+fn t34_freight_mode_changes_the_vat_base() {
     let make_line = || InvoiceLine {
         product_id: "p1".into(),
         quantity: 2.0,
@@ -291,18 +294,19 @@ fn t34_two_freight_modes_affect_cost_differently() {
         discount_amount: Money::ZERO,
         discount_bp: 0,
         tiers: Vec::new(),
-        vat_bp: 0,
+        vat_bp: 900,
         duty_bp: 0,
         commission_bp: 0,
         unit_cost: Money::from_rials(600_000),
         serial_tracked: false,
         serials: Vec::new(),
     };
+    let freight = Money::from_rials(200_000);
     let added = invoicing::calculate(&InvoiceInput {
         lines: vec![make_line()],
         header_discount: Money::ZERO,
         coupon: None,
-        freight: Money::from_rials(200_000),
+        freight,
         freight_mode: FreightMode::AddToTotal,
     })
     .unwrap();
@@ -310,22 +314,29 @@ fn t34_two_freight_modes_affect_cost_differently() {
         lines: vec![make_line()],
         header_discount: Money::ZERO,
         coupon: None,
-        freight: Money::from_rials(200_000),
+        freight,
         freight_mode: FreightMode::AllocateToLines,
     })
     .unwrap();
 
-    // جمع فاکتور در هر دو حالت یکسان است — مشتری همان مبلغ را می‌پردازد.
-    assert_eq!(added.total.rials(), allocated.total.rials());
-    // ولی بهای تمام‌شده و در نتیجه سود متفاوت است.
+    // مأخذ در حالت اول ۲٬۰۰۰٬۰۰۰ و مالیات ۱۸۰٬۰۰۰
+    assert_eq!(added.vat_total.rials(), 180_000, "مالیات بدون کرایه");
+    // مأخذ در حالت دوم ۲٬۲۰۰٬۰۰۰ و مالیات ۱۹۸٬۰۰۰
+    assert_eq!(allocated.vat_total.rials(), 198_000, "مالیات با احتساب کرایه");
     assert!(
-        allocated.cost_total.rials() > added.cost_total.rials(),
-        "سرشکن‌کردن کرایه باید بهای تمام‌شده را بالا ببرد"
+        allocated.vat_total.rials() > added.vat_total.rials(),
+        "سرشکن‌کردن کرایه باید مأخذ مالیات را بالا ببرد"
     );
-    assert!(
-        allocated.profit.rials() < added.profit.rials(),
-        "سود در حالت سرشکن باید کمتر باشد"
+
+    // جمع کل هم به همان اندازه‌ی مالیات کرایه تفاوت می‌کند.
+    assert_eq!(
+        allocated.total.rials() - added.total.rials(),
+        18_000,
+        "اختلاف جمع کل باید دقیقاً مالیات کرایه باشد"
     );
+
+    // در هر دو حالت، مبلغ خالص فروش یکسان است — کرایه درآمد کالا نیست.
+    assert_eq!(added.net_total.rials(), allocated.net_total.rials());
 }
 
 // ===========================================================================

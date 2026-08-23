@@ -1332,7 +1332,11 @@ pub fn seed(conn: &Connection) -> Result<()> {
     tx.execute("INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference_type,reference_id,note,created_by) VALUES('demo-mov-2','company-demo','prod-1','wh-main','issue',2,9500000,'sales','demo-sale-1','خروج بابت فروش نمونه','user-demo')",[])?;
     tx.execute("UPDATE inventory_balances SET quantity=22 WHERE product_id='prod-1' AND warehouse_id='wh-main'",[])?;
     tx.execute("INSERT OR IGNORE INTO sales_invoices(id,company_id,fiscal_year_id,number,invoice_date,contact_id,warehouse_id,status,payment_status,subtotal,discount,tax,total,created_by) VALUES('demo-sale-1','company-demo','fy-demo',1001,'1405/05/10','contact-1','wh-main','posted','paid',25000000,1000000,2400000,26400000,'user-demo')",[])?;
-    tx.execute("INSERT OR IGNORE INTO sales_invoice_lines(id,invoice_id,product_id,quantity,unit_price,discount,tax,line_total) VALUES('demo-sale-line-1','demo-sale-1','prod-1',2,12500000,1000000,2400000,26400000)",[])?;
+    // قاعده‌ی ثابت فاکتور: `line_total` مبلغ ناخالص همان سطر است
+    // (مقدار × فی)، نه جمع کل فاکتور. و `subtotal` سربرگ برابر جمع
+    // `line_total` سطرهاست. پیش از این، مبلغ سطر اشتباهاً جمع کل فاکتور
+    // (۲۶٬۴۰۰٬۰۰۰) گذاشته شده بود و سربرگ با اقلامش نمی‌خواند.
+    tx.execute("INSERT OR IGNORE INTO sales_invoice_lines(id,invoice_id,product_id,quantity,unit_price,discount,tax,line_total) VALUES('demo-sale-line-1','demo-sale-1','prod-1',2,12500000,1000000,2400000,25000000)",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES('demo-journal-1','company-demo','fy-demo',1001,'1405/05/10','فروش نمونه','posted','sales','demo-sale-1','user-demo')",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-1','demo-journal-1','acc-1201','حساب مشتری',26400000,0)",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-2','demo-journal-1','acc-4100','فروش کالا',0,26400000)",[])?;
