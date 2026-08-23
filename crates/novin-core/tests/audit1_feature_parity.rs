@@ -21,6 +21,11 @@ use novin_core::production::CostAllocation;
 use novin_core::treasury::{DocumentKind, NegativeBalancePolicy, PaymentMethod};
 use rusqlite::Connection;
 
+/// پایگاه داده‌ی تازه.
+///
+/// نکته: `open_in_memory` هم مهاجرت و هم داده‌ی پایه و نمونه را اجرا می‌کند.
+/// پس هر درج آزمایشی باید شماره‌ی خارج از محدوده‌ی داده‌ی نمونه بگیرد،
+/// وگرنه با قید یکتایی برخورد می‌کند.
 fn fresh() -> Connection {
     db::open_in_memory().expect("پایگاه داده باید ساخته شود")
 }
@@ -409,13 +414,13 @@ fn t15_receipt_and_payment_documents_number_separately() {
     // قید یکتایی باید شامل `kind` باشد، وگرنه دریافت و پرداخت شماره‌ی هم را می‌گیرند.
     conn.execute(
         "INSERT INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,document_date,created_by) \
-         VALUES('a15-r','company-demo','fy-demo','receipt',5,'1405/05/01','user-demo')",
+         VALUES('a15-r','company-demo','fy-demo','receipt',900005,'1405/05/01','user-demo')",
         [],
     )
     .unwrap();
     conn.execute(
         "INSERT INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,document_date,created_by) \
-         VALUES('a15-p','company-demo','fy-demo','payment',5,'1405/05/01','user-demo')",
+         VALUES('a15-p','company-demo','fy-demo','payment',900005,'1405/05/01','user-demo')",
         [],
     )
     .expect("شماره‌ی یکسان در دو دفتر متفاوت باید مجاز باشد");
@@ -423,7 +428,7 @@ fn t15_receipt_and_payment_documents_number_separately() {
         rejected(
             &conn,
             "INSERT INTO treasury_documents(id,company_id,fiscal_year_id,kind,number,document_date,created_by) \
-             VALUES('a15-r2','company-demo','fy-demo','receipt',5,'1405/05/01','user-demo')"
+             VALUES('a15-r2','company-demo','fy-demo','receipt',900005,'1405/05/01','user-demo')"
         ),
         "شماره‌ی تکراری در یک دفتر باید رد شود"
     );
