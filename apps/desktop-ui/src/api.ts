@@ -609,3 +609,90 @@ export const saveTreasuryAccount = (input: TreasuryAccountInput) =>
 export const deactivateTreasuryAccount = (id: string) =>
   api<void>('deactivate_treasury_account', {id})
 export const getNegativePolicies = () => api<PolicyInfo[]>('list_negative_policies')
+
+// ---- فرم کامل شخص (هفت زبانه) ----
+export type PartyGroupRow = {id: string; code: string; title: string; parent_id?: string; member_count: number}
+export type PhoneInput = {title?: string; number: string; is_primary: boolean}
+export type BankAccountInput = {
+  bank_name: string
+  branch_name?: string
+  account_number?: string
+  iban?: string
+  card_number?: string
+  holder_name?: string
+  is_default: boolean
+}
+export type ImageInput = {title?: string; file_path: string; is_primary: boolean}
+export type OccasionInput = {title: string; jalali_month: number; jalali_day: number; remind_days_before: number}
+
+export type PartyInput = {
+  id?: string
+  code?: string
+  party_type: string
+  party_function: string
+  title_prefix?: string
+  first_name?: string
+  last_name?: string
+  company_name?: string
+  national_id?: string
+  economic_code?: string
+  group_id?: string
+  route_id?: string
+  marketer_id?: string
+  opening_date?: string
+  is_customer: boolean
+  is_supplier: boolean
+  is_active: boolean
+  mobile?: string
+  email?: string
+  website?: string
+  province?: string
+  city?: string
+  address?: string
+  postal_code?: string
+  phones: PhoneInput[]
+  bank_accounts: BankAccountInput[]
+  images: ImageInput[]
+  portal_username?: string
+  portal_password?: string
+  job_title?: string
+  introduction?: string
+  credit_limit: number
+  note?: string
+  occasions: OccasionInput[]
+}
+
+export type PartyDetail = Omit<PartyInput, 'phones' | 'bank_accounts' | 'images' | 'occasions' | 'portal_password'> & {
+  id: string
+  display_name: string
+  party_type_label: string
+  party_function_label: string
+  has_portal_password: boolean
+  phones: (PhoneInput & {id: string})[]
+  bank_accounts: (BankAccountInput & {id: string})[]
+  images: (ImageInput & {id: string})[]
+  occasions: (OccasionInput & {id: string})[]
+}
+
+export type LabelledOption = {value: string; label: string}
+export type PartyOptions = {party_types: LabelledOption[]; party_functions: LabelledOption[]}
+export type UpcomingOccasion = {
+  contact_id: string
+  contact_name: string
+  title: string
+  jalali_month: number
+  jalali_day: number
+  remind_days_before: number
+}
+
+export const getPartyGroups = () => api<PartyGroupRow[]>('list_party_groups')
+export const savePartyGroup = (id: string | undefined, code: string, title: string, parent_id?: string) =>
+  api<string>('save_party_group', {id, code, title, parentId: parent_id})
+export const getPartyDetail = (id: string) => api<PartyDetail>('get_party', {id})
+export const savePartyFull = (input: PartyInput) => api<string>('save_party', {input})
+export const getPartyOptions = () => api<PartyOptions>('list_party_options')
+export const getUpcomingOccasions = (jalali_month: number) =>
+  api<UpcomingOccasion[]>('list_upcoming_occasions', {jalaliMonth: jalali_month})
+export const deactivateParty = (id: string) => api<void>('deactivate_party', {id})
+export const findDuplicateParty = (mobile?: string, national_id?: string, exclude_id?: string) =>
+  api<string | null>('find_duplicate_party', {mobile, nationalId: national_id, excludeId: exclude_id})

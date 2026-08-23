@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useState} from 'react'
+import {PartyForm} from './PartyForm'
 import {
   getParties,
   getPartyRoutes,
@@ -40,19 +41,8 @@ export function Parties() {
   const [balanceFilter, setBalanceFilter] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<PartyRow | null>(null)
-  const [form, setForm] = useState({
-    party_type: 'natural',
-    party_function: 'person',
-    national_id: '',
-    economic_code: '',
-    postal_code: '',
-    credit_limit: '0',
-    route_id: '',
-    marketer_id: '',
-  })
-  const [problems, setProblems] = useState<string[]>([])
-  const [saving, setSaving] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | undefined>()
 
   const load = async () => {
     setLoading(true)
@@ -90,63 +80,13 @@ export function Parties() {
   const {sorted, toggle, headerClass} = useSort(visible, 'display_name')
 
   const openEditor = (row: PartyRow) => {
-    setEditing(row)
-    setProblems([])
-    setForm({
-      party_type: row.party_type,
-      party_function: row.party_function,
-      national_id: '',
-      economic_code: '',
-      postal_code: '',
-      credit_limit: String(row.credit_limit),
-      route_id: '',
-      marketer_id: '',
-    })
+    setEditingId(row.id)
+    setEditorOpen(true)
   }
 
-  const checkIdentity = async () => {
-    try {
-      const found = await validatePartyIdentity({
-        partyType: form.party_type,
-        nationalId: form.national_id || null,
-        economicCode: form.economic_code || null,
-        postalCode: form.postal_code || null,
-        mobile: editing?.mobile ?? null,
-        iban: null,
-        cardNumber: null,
-      })
-      setProblems(found)
-      return found.length === 0
-    } catch (e) {
-      setError(errorText(e))
-      return false
-    }
-  }
-
-  const save = async () => {
-    if (!editing) return
-    setSaving(true)
-    setError('')
-    try {
-      if (!(await checkIdentity())) return
-      await updatePartyProfile({
-        contactId: editing.id,
-        partyType: form.party_type,
-        partyFunction: form.party_function,
-        nationalId: form.national_id || null,
-        economicCode: form.economic_code || null,
-        postalCode: form.postal_code || null,
-        creditLimit: Number(form.credit_limit) || 0,
-        routeId: form.route_id || null,
-        marketerId: form.marketer_id || null,
-      })
-      setEditing(null)
-      await load()
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setSaving(false)
-    }
+  const openNew = () => {
+    setEditingId(undefined)
+    setEditorOpen(true)
   }
 
   const summary = data?.summary
@@ -159,6 +99,9 @@ export function Parties() {
           <h1>مدیریت اشخاص</h1>
           <p>مشتریان، تأمین‌کنندگان، بازاریاب‌ها و سوپروایزرها با مانده‌ی واقعی حساب.</p>
         </div>
+        <button className="primary" onClick={openNew}>
+          <Icon name="plus" /> افزودن شخص
+        </button>
       </div>
 
       {error && <div className="error-box">{error}</div>}
@@ -286,127 +229,15 @@ export function Parties() {
         )}
       </div>
 
-      {editing && (
-        <div className="modal-backdrop" onClick={() => setEditing(null)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <h2>مشخصات تکمیلی: {editing.display_name}</h2>
-
-            {problems.length > 0 && (
-              <div className="error-box">
-                {problems.map((problem) => (
-                  <div key={problem}>{problem}</div>
-                ))}
-              </div>
-            )}
-
-            <div className="form-row">
-              <label>
-                <span>نوع شخصیت</span>
-                <select
-                  value={form.party_type}
-                  onChange={(event) => setForm({...form, party_type: event.target.value})}
-                >
-                  {PARTY_TYPES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>نقش</span>
-                <select
-                  value={form.party_function}
-                  onChange={(event) => setForm({...form, party_function: event.target.value})}
-                >
-                  {PARTY_FUNCTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="form-row">
-              <label>
-                <span>{form.party_type === 'natural' ? 'کد ملی' : 'شناسه ملی'}</span>
-                <input
-                  value={form.national_id}
-                  onChange={(event) => setForm({...form, national_id: event.target.value})}
-                  onBlur={checkIdentity}
-                  inputMode="numeric"
-                />
-              </label>
-              <label>
-                <span>کد اقتصادی</span>
-                <input
-                  value={form.economic_code}
-                  onChange={(event) => setForm({...form, economic_code: event.target.value})}
-                  onBlur={checkIdentity}
-                  inputMode="numeric"
-                />
-              </label>
-              <label>
-                <span>کد پستی</span>
-                <input
-                  value={form.postal_code}
-                  onChange={(event) => setForm({...form, postal_code: event.target.value})}
-                  onBlur={checkIdentity}
-                  inputMode="numeric"
-                />
-              </label>
-            </div>
-
-            <div className="form-row">
-              <label>
-                <span>سقف اعتبار (ریال)</span>
-                <input
-                  value={form.credit_limit}
-                  onChange={(event) => setForm({...form, credit_limit: event.target.value})}
-                  inputMode="numeric"
-                />
-              </label>
-              <label>
-                <span>مسیر پخش</span>
-                <select
-                  value={form.route_id}
-                  onChange={(event) => setForm({...form, route_id: event.target.value})}
-                >
-                  <option value="">—</option>
-                  {routes.map((route) => (
-                    <option key={route.id} value={route.id}>
-                      {route.code} — {route.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>بازاریاب</span>
-                <select
-                  value={form.marketer_id}
-                  onChange={(event) => setForm({...form, marketer_id: event.target.value})}
-                >
-                  <option value="">—</option>
-                  {(data?.rows ?? [])
-                    .filter((row) => row.party_function !== 'person')
-                    .map((row) => (
-                      <option key={row.id} value={row.id}>
-                        {row.display_name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="form-actions">
-              <button className="primary" onClick={save} disabled={saving}>
-                {saving ? 'در حال ذخیره…' : 'ذخیره'}
-              </button>
-              <button onClick={() => setEditing(null)}>انصراف</button>
-            </div>
-          </div>
-        </div>
+      {editorOpen && (
+        <PartyForm
+          partyId={editingId}
+          onClose={() => setEditorOpen(false)}
+          onSaved={async () => {
+            setEditorOpen(false)
+            await load()
+          }}
+        />
       )}
     </section>
   )

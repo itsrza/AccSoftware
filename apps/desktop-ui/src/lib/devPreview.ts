@@ -561,6 +561,90 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
   create_single_line_journal: () => 'journal-preview-1',
 
   // --- خزانه و چک ---
+  // ---- فرم کامل شخص ----
+  list_party_groups: () => [
+    {id: 'pgroup-trade-debtor', code: 'G01', title: 'بدهکاران تجاری', parent_id: undefined, member_count: 18},
+    {id: 'pgroup-trade-creditor', code: 'G02', title: 'بستانکاران تجاری', parent_id: undefined, member_count: 9},
+    {id: 'pgroup-site', code: 'G03', title: 'سایت', parent_id: undefined, member_count: 6},
+    {id: 'pgroup-colleagues', code: 'G04', title: 'همکاران', parent_id: undefined, member_count: 11},
+    {id: 'pgroup-staff', code: 'G05', title: 'کارکنان', parent_id: undefined, member_count: 4},
+    {id: 'pgroup-vip', code: 'G06', title: 'مشتریان ویژه', parent_id: 'pgroup-trade-debtor', member_count: 3},
+  ],
+  list_party_options: () => ({
+    party_types: [
+      {value: 'natural', label: 'حقیقی'},
+      {value: 'private_legal', label: 'حقوقی غیردولتی'},
+      {value: 'government_legal', label: 'حقوقی دولتی'},
+      {value: 'civil_partnership', label: 'مشارکت مدنی'},
+    ],
+    party_functions: [
+      {value: 'person', label: 'شخص'},
+      {value: 'marketer', label: 'بازاریاب'},
+      {value: 'supervisor', label: 'سوپروایزر'},
+    ],
+  }),
+  get_party: (args: Record<string, unknown>) => {
+    const index = contacts.findIndex((c) => c.id === args.id)
+    const contact = contacts[index < 0 ? 0 : index]
+    const legal = index % 4 === 0
+    return {
+      id: contact.id,
+      code: String(1001 + (index < 0 ? 0 : index)),
+      party_type: legal ? 'private_legal' : 'natural',
+      party_type_label: legal ? 'حقوقی غیردولتی' : 'حقیقی',
+      party_function: 'person',
+      party_function_label: 'شخص',
+      title_prefix: legal ? undefined : 'آقای',
+      first_name: legal ? undefined : contact.name.split(' ')[0],
+      last_name: legal ? undefined : contact.name.split(' ').slice(1).join(' '),
+      company_name: legal ? contact.name : undefined,
+      display_name: contact.name,
+      national_id: legal ? '10293847568' : '0499370899',
+      economic_code: undefined,
+      group_id: 'pgroup-trade-debtor',
+      route_id: 'route-center',
+      marketer_id: undefined,
+      opening_date: '1405/01/01',
+      is_customer: true,
+      is_supplier: false,
+      is_active: true,
+      mobile: '09121234567',
+      email: 'info@example.com',
+      website: undefined,
+      province: 'تهران',
+      city: 'تهران',
+      address: 'خیابان نمونه، پلاک ۱۲',
+      postal_code: undefined,
+      job_title: 'بازرگان',
+      introduction: 'معرفی همکار',
+      credit_limit: 500_000_000,
+      note: undefined,
+      portal_username: undefined,
+      has_portal_password: false,
+      phones: [{id: 'p1', title: 'دفتر', number: '02122334455', is_primary: true}],
+      bank_accounts: [
+        {
+          id: 'b1',
+          bank_name: 'بانک ملت',
+          branch_name: 'شعبه مرکزی',
+          account_number: '1234567',
+          iban: 'IR280620000000001234567891',
+          card_number: '6037991234567893',
+          holder_name: contact.name,
+          is_default: true,
+        },
+      ],
+      images: [],
+      occasions: [{id: 'o1', title: 'تولد', jalali_month: 3, jalali_day: 14, remind_days_before: 3}],
+    }
+  },
+  save_party: () => 'contact-preview',
+  find_duplicate_party: () => null,
+  deactivate_party: () => undefined,
+  save_party_group: () => 'pgroup-preview',
+  list_upcoming_occasions: () => [
+    {contact_id: contacts[0].id, contact_name: contacts[0].name, title: 'تولد', jalali_month: 3, jalali_day: 14, remind_days_before: 3},
+  ],
   list_treasury_accounts: () => treasuryAccounts,
   list_treasury_account_details: (args: Record<string, unknown>) =>
     treasuryAccounts

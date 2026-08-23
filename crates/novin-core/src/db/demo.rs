@@ -453,6 +453,62 @@ fn seed_contacts(tx: &Connection) -> Result<()> {
                 (index as i64 % 5 + 1) * 200_000_000
             ],
         )?;
+        // گروه‌بندی معنادار: تأمین‌کننده‌ها بستانکار تجاری، بقیه بدهکار تجاری.
+        let group = match index % 7 {
+            5 => "pgroup-trade-creditor",
+            6 => "pgroup-colleagues",
+            _ if index % 11 == 0 => "pgroup-vip",
+            _ => "pgroup-trade-debtor",
+        };
+        tx.execute(
+            "UPDATE contacts SET code=?1, group_id=?2, is_active=1, city=?3, province=?4, \
+             email=?5 WHERE id=?6",
+            params![
+                format!("{}", 1001 + index),
+                group,
+                CITIES[index % CITIES.len()],
+                CITIES[index % CITIES.len()],
+                format!("contact{index}@example.com"),
+                id
+            ],
+        )?;
+        // تلفن ثابت به‌عنوان شماره‌ی پیش‌فرض
+        tx.execute(
+            "INSERT OR IGNORE INTO party_phones(id,contact_id,title,number,is_primary) \
+             VALUES(?1,?2,'دفتر',?3,1)",
+            params![
+                format!("{id}-phone-0"),
+                id,
+                format!("021{:08}", 22_000_000 + index * 371)
+            ],
+        )?;
+        // یک‌سوم اشخاص حساب بانکی ثبت‌شده دارند
+        if index % 3 == 0 {
+            tx.execute(
+                "INSERT OR IGNORE INTO party_bank_accounts(id,contact_id,bank_name,branch_name,\
+                 account_number,holder_name,is_default) VALUES(?1,?2,?3,'شعبه مرکزی',?4,?5,1)",
+                params![
+                    format!("{id}-bank-0"),
+                    id,
+                    format!("بانک {}", CITIES[(index + 2) % CITIES.len()]),
+                    format!("{}", 4_000_000 + index * 17),
+                    name
+                ],
+            )?;
+        }
+        // مناسبت تولد برای یک‌چهارم اشخاص
+        if index % 4 == 0 {
+            tx.execute(
+                "INSERT OR IGNORE INTO party_occasions(id,contact_id,title,jalali_month,\
+                 jalali_day,remind_days_before) VALUES(?1,?2,'تولد',?3,?4,3)",
+                params![
+                    format!("{id}-occasion-0"),
+                    id,
+                    (index % 12 + 1) as i64,
+                    (index % 28 + 1) as i64
+                ],
+            )?;
+        }
         tx.execute(
             "UPDATE contacts SET party_type=?1, party_function='person', company_name=?2, \
              route_id=?3, opening_date='1405/01/01' WHERE id=?4",
