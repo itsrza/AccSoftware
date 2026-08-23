@@ -157,7 +157,9 @@ fn is_expired(valid_until: Option<&str>) -> bool {
         return false;
     };
     let today = today_jalali();
-    JalaliDate::parse(raw).map(|date| date < today).unwrap_or(false)
+    JalaliDate::parse(raw)
+        .map(|date| date < today)
+        .unwrap_or(false)
 }
 
 /// جمع‌های سند — یک منبع حقیقت برای پیش‌نمایش و ذخیره.
@@ -239,11 +241,15 @@ pub fn save_quote(state: State<AppState>, input: QuoteInput) -> Result<String, S
     validate_fiscal_date(&tx, &fy, &input.issue_date)?;
 
     // تاریخ اعتبار نباید قبل از تاریخ صدور باشد.
-    if let Some(valid) = input.valid_until.as_deref().filter(|v| !v.trim().is_empty()) {
+    if let Some(valid) = input
+        .valid_until
+        .as_deref()
+        .filter(|v| !v.trim().is_empty())
+    {
         let issued = JalaliDate::parse(&input.issue_date)
             .map_err(|_| "QT-007: تاریخ صدور شمسی معتبر نیست".to_string())?;
-        let until =
-            JalaliDate::parse(valid).map_err(|_| "QT-008: تاریخ اعتبار شمسی معتبر نیست".to_string())?;
+        let until = JalaliDate::parse(valid)
+            .map_err(|_| "QT-008: تاریخ اعتبار شمسی معتبر نیست".to_string())?;
         if until < issued {
             return Err("QT-009: تاریخ اعتبار نمی‌تواند قبل از تاریخ صدور باشد".into());
         }
@@ -296,8 +302,11 @@ pub fn save_quote(state: State<AppState>, input: QuoteInput) -> Result<String, S
                 ],
             )
             .map_err(|e| format!("QT-014: {e}"))?;
-            tx.execute("DELETE FROM quote_lines WHERE quote_id=?1", params![existing])
-                .map_err(|e| e.to_string())?;
+            tx.execute(
+                "DELETE FROM quote_lines WHERE quote_id=?1",
+                params![existing],
+            )
+            .map_err(|e| e.to_string())?;
             existing.clone()
         }
         None => {
@@ -396,11 +405,8 @@ pub fn list_quotes(
          LEFT JOIN warehouses w ON w.id=q.warehouse_id \
          WHERE q.company_id=?1 AND q.fiscal_year_id=?2 AND q.kind=?3",
     );
-    let mut values: Vec<Box<dyn rusqlite::ToSql>> = vec![
-        Box::new(company),
-        Box::new(fy),
-        Box::new(kind.to_string()),
-    ];
+    let mut values: Vec<Box<dyn rusqlite::ToSql>> =
+        vec![Box::new(company), Box::new(fy), Box::new(kind.to_string())];
     if let Some(value) = status.filter(|v| !v.trim().is_empty()) {
         values.push(Box::new(value));
         sql.push_str(&format!(" AND q.status=?{}", values.len()));
@@ -560,11 +566,7 @@ pub fn quote_transitions(
 /// «تبدیل به فاکتور» از این مسیر انجام نمی‌شود؛ برای آن `convert_quote` هست
 /// که فاکتور واقعی می‌سازد.
 #[tauri::command]
-pub fn set_quote_status(
-    state: State<AppState>,
-    id: String,
-    status: String,
-) -> Result<(), String> {
+pub fn set_quote_status(state: State<AppState>, id: String, status: String) -> Result<(), String> {
     if status == "converted" {
         return Err("QT-017: تبدیل به فاکتور باید از دکمه‌ی تبدیل انجام شود".into());
     }

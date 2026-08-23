@@ -241,11 +241,17 @@ fn t08_numbering_is_unique_per_document_kind() {
 
     // هر دو نوع باید نمونه داشته باشند.
     assert!(
-        count(&conn, "SELECT COUNT(*) FROM quotes WHERE kind='sales_quote'") > 0,
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM quotes WHERE kind='sales_quote'"
+        ) > 0,
         "پیش‌فاکتور فروش نمونه ندارد"
     );
     assert!(
-        count(&conn, "SELECT COUNT(*) FROM quotes WHERE kind='purchase_order'") > 0,
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM quotes WHERE kind='purchase_order'"
+        ) > 0,
         "سفارش خرید نمونه ندارد"
     );
 }

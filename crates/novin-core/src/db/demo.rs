@@ -1099,7 +1099,11 @@ fn seed_quotes(tx: &Connection, warehouses: &[String]) -> Result<()> {
     let statuses = ["draft", "sent", "accepted", "rejected", "converted"];
     for index in 0..18usize {
         let sales = index % 3 != 2;
-        let kind = if sales { "sales_quote" } else { "purchase_order" };
+        let kind = if sales {
+            "sales_quote"
+        } else {
+            "purchase_order"
+        };
         let quote_id = format!("demo-quote-{index:03}");
         let contact = format!("demo-contact-{:03}", (index * 5) % CONTACT_COUNT);
         let status = statuses[index % statuses.len()];
@@ -1152,7 +1156,11 @@ fn seed_quotes(tx: &Connection, warehouses: &[String]) -> Result<()> {
                 demo_date(index + 32),
                 contact,
                 warehouses[index % warehouses.len()],
-                if sales { "پیشنهاد قیمت" } else { "سفارش تأمین موجودی" },
+                if sales {
+                    "پیشنهاد قیمت"
+                } else {
+                    "سفارش تأمین موجودی"
+                },
                 subtotal,
                 discount,
                 tax,
