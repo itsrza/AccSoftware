@@ -979,7 +979,7 @@ export const getProductionExpenseAccounts = () =>
   api<ExpenseAccountRow[]>('list_production_expense_accounts')
 
 // ---- مرکز تنظیمات ----
-export type SettingKind = 'boolean' | 'integer' | 'text' | 'choice'
+export type SettingKind = 'boolean' | 'integer' | 'text' | 'choice' | 'image'
 export type SettingChoice = {value: string; label: string}
 export type SettingWithValue = {
   key: string

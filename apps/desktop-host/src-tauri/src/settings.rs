@@ -31,6 +31,12 @@ pub enum SettingKind {
     Integer,
     Text,
     Choice,
+    /// تصویر به‌صورت Data URL — رابط کاربری انتخاب‌گر فایل نشان می‌دهد.
+    ///
+    /// چرا Data URL و نه مسیر فایل: لوگو باید داخل خروجی چاپ جاسازی شود.
+    /// اگر مسیر ذخیره شود، جابه‌جایی فایل یا نصب روی رایانه‌ی دیگر، لوگو را
+    /// از فاکتور حذف می‌کند بدون اینکه کسی متوجه شود.
+    Image,
 }
 
 /// یک گزینه در تنظیم انتخابی.
@@ -313,6 +319,184 @@ pub fn registry() -> Vec<SettingDefinition> {
             choices: Vec::new(),
             sensitive: false,
         },
+        // ---------------- هویت مجموعه (سربرگ چاپ) ----------------
+        SettingDefinition {
+            key: "company.display_name",
+            group: "company",
+            group_label: "هویت مجموعه",
+            label: "نام روی فاکتور و رسید",
+            description: "نامی که در سربرگ همه‌ی چاپ‌ها می‌آید. اگر خالی بماند نام شرکت استفاده می‌شود.",
+            effect: "سربرگ فاکتور، رسید فروشگاهی، سند حسابداری و برچسب",
+            kind: SettingKind::Text,
+            default_value: "شرکت نوین پرداز",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "company.phone",
+            group: "company",
+            group_label: "هویت مجموعه",
+            label: "شماره تماس مجموعه",
+            description: "شماره‌ای که زیر نام مجموعه در سربرگ چاپ نمایش داده می‌شود.",
+            effect: "سربرگ فاکتور و رسید فروشگاهی",
+            kind: SettingKind::Text,
+            default_value: "021-00000000",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "company.address",
+            group: "company",
+            group_label: "هویت مجموعه",
+            label: "نشانی مجموعه",
+            description: "نشانی که در پای فاکتور رسمی چاپ می‌شود.",
+            effect: "سربرگ فاکتور A4",
+            kind: SettingKind::Text,
+            default_value: "—",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "company.economic_code",
+            group: "company",
+            group_label: "هویت مجموعه",
+            label: "کد اقتصادی",
+            description: "کد اقتصادی مؤدی؛ در صورتحساب رسمی الزامی است.",
+            effect: "سربرگ فاکتور رسمی",
+            kind: SettingKind::Text,
+            default_value: "—",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "company.logo",
+            group: "company",
+            group_label: "هویت مجموعه",
+            label: "لوگوی مجموعه",
+            description: "تصویر لوگو که در سربرگ چاپ می‌آید. خالی گذاشتن یعنی بدون لوگو.",
+            effect: "سربرگ فاکتور، رسید فروشگاهی و برچسب",
+            kind: SettingKind::Image,
+            default_value: "",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        // ---------------- بارکدخوان ----------------
+        SettingDefinition {
+            key: "hardware.barcode_enabled",
+            group: "hardware",
+            group_label: "سخت‌افزار",
+            label: "بارکدخوان فعال باشد",
+            description: "با فعال بودن، اسکن بارکد در فرم فاکتور کالا را خودکار به سطرها اضافه می‌کند.",
+            effect: "فرم صدور فاکتور — افزودن خودکار کالا با اسکن",
+            kind: SettingKind::Boolean,
+            default_value: "true",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "hardware.barcode_min_length",
+            group: "hardware",
+            group_label: "سخت‌افزار",
+            label: "حداقل طول بارکد",
+            description: "رشته‌ی کوتاه‌تر از این، تایپ دستی فرض می‌شود نه اسکن.",
+            effect: "تشخیص اسکن از تایپ در فرم فاکتور",
+            kind: SettingKind::Integer,
+            default_value: "6",
+            min: Some(3),
+            max: Some(40),
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "hardware.barcode_max_gap_ms",
+            group: "hardware",
+            group_label: "سخت‌افزار",
+            label: "بیشترین فاصله‌ی دو کاراکتر (میلی‌ثانیه)",
+            description: "بارکدخوان کاراکترها را بسیار سریع می‌فرستد. فاصله‌ی بیشتر از این یعنی انسان تایپ می‌کند.",
+            effect: "تشخیص اسکن از تایپ در فرم فاکتور",
+            kind: SettingKind::Integer,
+            default_value: "60",
+            min: Some(15),
+            max: Some(300),
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "hardware.barcode_suffix",
+            group: "hardware",
+            group_label: "سخت‌افزار",
+            label: "کاراکتر پایان اسکن",
+            description: "اغلب بارکدخوان‌ها بعد از بارکد یک Enter می‌فرستند. اگر دستگاه شما Tab می‌فرستد اینجا عوض کنید.",
+            effect: "تشخیص پایان اسکن در فرم فاکتور",
+            kind: SettingKind::Choice,
+            default_value: "enter",
+            min: None,
+            max: None,
+            choices: vec![
+                choice("enter", "Enter (پیش‌فرض اغلب دستگاه‌ها)"),
+                choice("tab", "Tab"),
+                choice("none", "بدون کاراکتر پایان — تشخیص با زمان"),
+            ],
+            sensitive: false,
+        },
+        // ---------------- چاپ ----------------
+        SettingDefinition {
+            key: "printing.receipt_paper",
+            group: "printing",
+            group_label: "چاپ",
+            label: "عرض کاغذ رسید فروشگاهی",
+            description: "پرینترهای حرارتی معمولاً ۸۰ یا ۵۸ میلی‌متری‌اند.",
+            effect: "اندازه‌ی صفحه در چاپ رسید فروشگاهی",
+            kind: SettingKind::Choice,
+            default_value: "80mm",
+            min: None,
+            max: None,
+            choices: vec![
+                choice("80mm", "۸۰ میلی‌متر (رایج‌ترین)"),
+                choice("58mm", "۵۸ میلی‌متر"),
+            ],
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "printing.footer_note",
+            group: "printing",
+            group_label: "چاپ",
+            label: "پیام پایین رسید",
+            description: "جمله‌ای که انتهای هر رسید فروشگاهی چاپ می‌شود.",
+            effect: "پاورقی رسید فروشگاهی",
+            kind: SettingKind::Text,
+            default_value: "از خرید شما سپاسگزاریم",
+            min: None,
+            max: None,
+            choices: Vec::new(),
+            sensitive: false,
+        },
+        SettingDefinition {
+            key: "printing.copies",
+            group: "printing",
+            group_label: "چاپ",
+            label: "تعداد نسخه‌ی پیش‌فرض",
+            description: "چند نسخه از هر فاکتور یک‌جا چاپ شود (مثلاً نسخه‌ی مشتری و نسخه‌ی حسابداری).",
+            effect: "چاپ فاکتور و رسید",
+            kind: SettingKind::Integer,
+            default_value: "1",
+            min: Some(1),
+            max: Some(5),
+            choices: Vec::new(),
+            sensitive: false,
+        },
     ]
 }
 
@@ -451,6 +635,27 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
                     definition.label
                 ))
             }
+        }
+        SettingKind::Image => {
+            if trimmed.is_empty() {
+                // خالی یعنی «بدون لوگو» و کاملاً مجاز است.
+                return Ok(String::new());
+            }
+            if !trimmed.starts_with("data:image/") || !trimmed.contains(";base64,") {
+                return Err(format!(
+                    "CFG-009: «{}» باید یک تصویر معتبر باشد",
+                    definition.label
+                ));
+            }
+            // سقف تقریبی ۱ مگابایت پس از base64؛ لوگوی بزرگ‌تر چاپ را کند
+            // می‌کند و هیچ سودی هم ندارد.
+            if trimmed.len() > 1_400_000 {
+                return Err(format!(
+                    "CFG-010: حجم «{}» بیش از حد است؛ تصویر کوچک‌تری انتخاب کنید",
+                    definition.label
+                ));
+            }
+            Ok(trimmed.to_string())
         }
         SettingKind::Text => {
             if trimmed.is_empty() {

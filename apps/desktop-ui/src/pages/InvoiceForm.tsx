@@ -13,10 +13,15 @@ import {
   type Product,
   type Warehouse,
 } from '../api'
+import {getSettings, getPrintTemplates, type PrintTemplate, type SettingWithValue} from '../api'
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatNumber, formatRials, parseAmount, todayJalali} from '../lib/format'
 import {Select} from '../components/Select'
+import {DEFAULT_SCANNER, scannerOptionsFrom, useBarcodeScanner} from '../lib/barcode'
+import {companyFrom, printWithTemplate} from '../lib/printing'
+import {defaultDesign, type PrintDocument, type TemplateKind} from '../lib/printTemplate'
+import {ScanIndicator} from '../components/ScanIndicator'
 
 /** یک سطر فاکتور در حال ویرایش */
 type Line = {
@@ -81,6 +86,10 @@ export function InvoiceForm() {
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [settings, setSettings] = useState<SettingWithValue[]>([])
+  const [templates, setTemplates] = useState<PrintTemplate[]>([])
+  const [lastScan, setLastScan] = useState<{code: string; name: string; ok: boolean} | null>(null)
+
   const previewToken = useRef(0)
 
   useEffect(() => {
@@ -91,6 +100,9 @@ export function InvoiceForm() {
         setContacts(c)
         setWarehouses(w)
         if (w.length > 0) setWarehouseId(w[0].id)
+        // تنظیمات بارکدخوان و هویت مجموعه برای اسکن و چاپ.
+        setSettings(await getSettings().catch(() => []))
+        setTemplates(await getPrintTemplates().catch(() => []))
       } catch (e) {
         setError(errorText(e))
       }
@@ -189,6 +201,98 @@ export function InvoiceForm() {
     return () => window.removeEventListener('keydown', onKey)
   }, [editing, selectedKey, lines])
 
+  // ---------------------------------------------------------------- بارکدخوان
+  const scanner = useMemo(
+    () => (settings.length ? scannerOptionsFrom(settings) : {...DEFAULT_SCANNER, enabled: false}),
+    [settings],
+  )
+
+  /**
+   * افزودن کالا با اسکن بارکد.
+   *
+   * اگر کالا از قبل در فاکتور باشد، به‌جای سطر تکراری، مقدارش یکی زیاد
+   * می‌شود — رفتاری که صندوق‌دار انتظار دارد وقتی دو عدد از یک کالا را
+   * پشت سر هم اسکن می‌کند.
+   */
+  const addByBarcode = useCallback(
+    (code: string) => {
+      const normalized = code.trim()
+      const product = products.find(
+        (item) => item.barcode === normalized || item.sku === normalized,
+      )
+      if (!product) {
+        setLastScan({code: normalized, name: '', ok: false})
+        return
+      }
+      setLines((current) => {
+        const existing = current.find((line) => line.product_id === product.id)
+        if (existing) {
+          return current.map((line) =>
+            line.key === existing.key ? {...line, quantity: line.quantity + 1} : line,
+          )
+        }
+        return [
+          ...current,
+          {
+            ...emptyLine(),
+            product_id: product.id,
+            unit_price: product.sale_price,
+            unit_cost: product.purchase_price,
+          },
+        ]
+      })
+      setLastScan({code: normalized, name: product.name, ok: true})
+    },
+    [products],
+  )
+
+  useBarcodeScanner(scanner, addByBarcode)
+
+  // ------------------------------------------------------------------- چاپ
+  const printInvoice = async (kind: TemplateKind) => {
+    if (!preview) return
+    const company = companyFrom(settings, 'شرکت نوین پرداز')
+    const template =
+      templates.find((item) => item.template_type === kind && item.is_default) ??
+      templates.find((item) => item.template_type === kind)
+    const copies = Number(settings.find((item) => item.key === 'printing.copies')?.value ?? '1') || 1
+
+    const document_: PrintDocument = {
+      title: kind === 'receipt' ? 'رسید فروش' : 'فاکتور فروش',
+      number: String(preview.lines.length ? Date.now() % 100000 : 0),
+      date,
+      partyName: contacts.find((item) => item.id === contactId)?.name ?? 'مشتری نقدی',
+      partyPhone: contacts.find((item) => item.id === contactId)?.mobile,
+      lines: lines.map((line, index) => {
+        const computed = preview.lines[index]
+        const product = productOf(line.product_id)
+        return {
+          code: product?.sku ?? '',
+          name: product?.name ?? '',
+          quantity: line.quantity,
+          unit: product?.unit ?? '',
+          unit_price: line.unit_price,
+          discount: computed?.total_discount ?? 0,
+          vat: computed?.vat ?? 0,
+          line_total: computed?.total ?? 0,
+        }
+      }),
+      subtotal: preview.subtotal,
+      discount: preview.discount_total,
+      vat: preview.vat_total + preview.duty_total,
+      total: preview.total,
+    }
+
+    await printWithTemplate(
+      template?.content_html ?? '',
+      kind,
+      defaultDesign(kind),
+      company,
+      document_,
+      copies,
+    )
+  }
+
   const save = async () => {
     if (!preview || lines.length === 0) {
       setError('فاکتور بدون سطر قابل ثبت نیست.')
@@ -280,6 +384,10 @@ export function InvoiceForm() {
             </Select>
           </label>
         </div>
+      </div>
+
+      <div className="mb-3">
+        <ScanIndicator enabled={scanner.enabled} last={lastScan} />
       </div>
 
       <div className="panel list-panel">
@@ -461,6 +569,20 @@ export function InvoiceForm() {
           )}
 
           <div className="form-actions">
+            <button
+              className="ghost"
+              onClick={() => void printInvoice('receipt')}
+              disabled={!preview || lines.length === 0}
+            >
+              <Icon name="print" /> رسید فروشگاهی
+            </button>
+            <button
+              className="ghost"
+              onClick={() => void printInvoice('invoice')}
+              disabled={!preview || lines.length === 0}
+            >
+              <Icon name="print" /> چاپ فاکتور
+            </button>
             <button className="primary" onClick={save} disabled={saving || !preview}>
               {saving ? 'در حال ثبت…' : 'ذخیره و صدور سند'}
             </button>

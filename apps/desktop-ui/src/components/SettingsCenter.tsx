@@ -186,6 +186,47 @@ export function SettingsCenter({
             ))}
           </Select>
         )
+      case 'image':
+        return (
+          <div className="flex items-center gap-2">
+            {item.value ? (
+              <img
+                src={item.value}
+                alt=""
+                className="h-10 w-16 rounded-lg border border-border bg-card object-contain"
+              />
+            ) : (
+              <span className="grid h-10 w-16 place-items-center rounded-lg border border-dashed border-border-strong text-[10px] text-faint">
+                بدون تصویر
+              </span>
+            )}
+            <label className="table-action cursor-pointer">
+              انتخاب تصویر
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                className="hidden"
+                disabled={disabled}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  if (file.size > 900_000) {
+                    setError('حجم تصویر باید کمتر از حدود ۹۰۰ کیلوبایت باشد.')
+                    return
+                  }
+                  const reader = new FileReader()
+                  reader.onload = () => apply(item, String(reader.result ?? ''))
+                  reader.readAsDataURL(file)
+                }}
+              />
+            </label>
+            {item.value && (
+              <button type="button" className="table-action" onClick={() => apply(item, '')}>
+                حذف
+              </button>
+            )}
+          </div>
+        )
       case 'integer':
         return (
           <input
