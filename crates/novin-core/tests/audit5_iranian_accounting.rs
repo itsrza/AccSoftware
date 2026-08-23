@@ -44,9 +44,7 @@ use novin_core::parties::{
     legal_id_is_valid, national_id_is_valid, normalize_mobile, postal_code_is_valid,
     remaining_credit, summarize_balances, PartyError,
 };
-use novin_core::stocktaking::{
-    build_adjustment_journal, summarize, CountLine, VarianceAccounts,
-};
+use novin_core::stocktaking::{build_adjustment_journal, summarize, CountLine, VarianceAccounts};
 use novin_core::treasury::{
     build_journal, calculate_totals, check_withdrawal, BalanceCheck, DocumentKind, DocumentLine,
     NegativeBalancePolicy, PaymentMethod, TreasuryAccounts,
@@ -114,7 +112,11 @@ fn h1_vat_base_is_net_of_discount() {
     assert_eq!(result.subtotal, rials(10_000_000), "ناخالص");
     assert_eq!(result.net_total, rials(9_000_000), "خالص پس از تخفیف");
     // ۹٪ روی ۹ میلیون = ۸۱۰ هزار، نه ۹۰۰ هزار.
-    assert_eq!(result.vat_total, rials(810_000), "مأخذ مالیات باید خالص باشد");
+    assert_eq!(
+        result.vat_total,
+        rials(810_000),
+        "مأخذ مالیات باید خالص باشد"
+    );
 }
 
 /// ح۲ — تخفیف سرجمع هم از مأخذ مالیات کم می‌شود.
@@ -149,7 +151,11 @@ fn h3_duty_is_inside_the_vat_base() {
     .expect("محاسبه");
     assert_eq!(result.duty_total, rials(1_000_000), "عوارض ۱٪");
     // ۹٪ روی ۱۰۱٬۰۰۰٬۰۰۰
-    assert_eq!(result.vat_total, rials(9_090_000), "ارزش افزوده روی خالص + عوارض");
+    assert_eq!(
+        result.vat_total,
+        rials(9_090_000),
+        "ارزش افزوده روی خالص + عوارض"
+    );
     assert_eq!(result.total, rials(110_090_000));
 }
 
@@ -157,7 +163,10 @@ fn h3_duty_is_inside_the_vat_base() {
 #[test]
 fn h4_exempt_goods_carry_no_tax() {
     let exempt = TaxProfile::exempt();
-    assert_eq!(exempt.tax_on(rials(50_000_000)).expect("مالیات"), Money::ZERO);
+    assert_eq!(
+        exempt.tax_on(rials(50_000_000)).expect("مالیات"),
+        Money::ZERO
+    );
 
     let standard = TaxProfile::standard();
     assert_eq!(
@@ -227,7 +236,10 @@ fn h8_freight_mode_changes_declared_vat() {
     let outside = invoicing::calculate(&make(FreightMode::AddToTotal)).expect("محاسبه");
     let inside = invoicing::calculate(&make(FreightMode::AllocateToLines)).expect("محاسبه");
     assert_eq!(
-        inside.vat_total.checked_sub(outside.vat_total).expect("تفاضل"),
+        inside
+            .vat_total
+            .checked_sub(outside.vat_total)
+            .expect("تفاضل"),
         rials(900_000),
         "۹٪ از کرایه"
     );
@@ -341,7 +353,10 @@ fn h12_installments_sum_exactly_to_the_remainder() {
     .expect("جدول اقساط");
     assert_eq!(plan.len(), 7);
     let total: i64 = plan.iter().map(|item| item.amount.rials()).sum();
-    assert_eq!(total, 9_000_000, "جمع اقساط باید دقیقاً برابر باقیمانده باشد");
+    assert_eq!(
+        total, 9_000_000,
+        "جمع اقساط باید دقیقاً برابر باقیمانده باشد"
+    );
 }
 
 /// ح۱۳ — واحد داخلی ریال است و تبدیل تومان دقیقاً ×۱۰.
@@ -377,8 +392,14 @@ fn h15_persian_digits_and_separators_are_accepted() {
 /// ح۱۶ — درصد با پایه‌نقطه محاسبه می‌شود تا ۰٫۵٪ هم دقیق باشد.
 #[test]
 fn h16_basis_points_allow_fractional_percent() {
-    assert_eq!(rials(100_000_000).percent_bp(50).expect("درصد"), rials(500_000));
-    assert_eq!(rials(100_000_000).percent_bp(900).expect("درصد"), rials(9_000_000));
+    assert_eq!(
+        rials(100_000_000).percent_bp(50).expect("درصد"),
+        rials(500_000)
+    );
+    assert_eq!(
+        rials(100_000_000).percent_bp(900).expect("درصد"),
+        rials(9_000_000)
+    );
 }
 
 /// ح۱۷ — تسویه‌ی چندروشی نمی‌تواند از مبلغ فاکتور بیشتر شود.
@@ -391,8 +412,13 @@ fn h17_settlement_cannot_exceed_invoice_total() {
         card: Money::ZERO,
     };
     assert_eq!(breakdown.total(), rials(11_000_000));
-    assert!(breakdown.validate(rials(10_000_000)).is_err(), "بیش‌تسویه باید رد شود");
-    breakdown.validate(rials(11_000_000)).expect("تسویه‌ی کامل مجاز است");
+    assert!(
+        breakdown.validate(rials(10_000_000)).is_err(),
+        "بیش‌تسویه باید رد شود"
+    );
+    breakdown
+        .validate(rials(11_000_000))
+        .expect("تسویه‌ی کامل مجاز است");
 }
 
 // ===========================================================================
@@ -409,8 +435,8 @@ fn h18_installments_advance_by_jalali_months() {
         .expect("تاریخ")
         .to_gregorian()
         .expect("میلادی");
-    let plan = invoicing::installment_plan(rials(3_000_000), Money::ZERO, 3, first)
-        .expect("جدول اقساط");
+    let plan =
+        invoicing::installment_plan(rials(3_000_000), Money::ZERO, 3, first).expect("جدول اقساط");
     assert_eq!(plan[0].due_date_jalali, "1405/01/15");
     assert_eq!(plan[1].due_date_jalali, "1405/02/15");
     assert_eq!(plan[2].due_date_jalali, "1405/03/15");
@@ -426,11 +452,7 @@ fn h19_month_end_clamps_when_target_month_is_shorter() {
         .to_gregorian()
         .expect("میلادی");
     let next = jalali::add_jalali_months(start, 1).expect("ماه بعد");
-    assert_eq!(
-        jalali::jalali_string(next),
-        "1405/07/30",
-        "مهر ۳۰ روزه است"
-    );
+    assert_eq!(jalali::jalali_string(next), "1405/07/30", "مهر ۳۰ روزه است");
 }
 
 /// ح۲۰ — کبیسه‌ی شمسی درست تشخیص داده می‌شود.
@@ -440,7 +462,10 @@ fn h20_jalali_leap_years_are_correct() {
     assert!(!is_jalali_leap(1404), "۱۴۰۴ کبیسه نیست");
     assert_eq!(days_in_jalali_month(1403, 12), 30);
     assert_eq!(days_in_jalali_month(1404, 12), 29);
-    assert!(JalaliDate::new(1404, 12, 30).is_err(), "۳۰ اسفند ۱۴۰۴ وجود ندارد");
+    assert!(
+        JalaliDate::new(1404, 12, 30).is_err(),
+        "۳۰ اسفند ۱۴۰۴ وجود ندارد"
+    );
 }
 
 /// ح۲۱ — تبدیل شمسی به میلادی با نقاط مرجع تأییدشده می‌خواند.
@@ -480,7 +505,11 @@ fn h22_fiscal_year_spans_a_full_jalali_year() {
         .expect("سال مالی");
     let start = JalaliDate::parse(&start).expect("شروع");
     let end = JalaliDate::parse(&end).expect("پایان");
-    assert_eq!((start.month, start.day), (1, 1), "سال مالی از ۱ فروردین شروع می‌شود");
+    assert_eq!(
+        (start.month, start.day),
+        (1, 1),
+        "سال مالی از ۱ فروردین شروع می‌شود"
+    );
     assert_eq!(end.month, 12, "سال مالی در اسفند تمام می‌شود");
     assert_eq!(
         end.day,
@@ -622,8 +651,7 @@ fn h28_reversal_mirrors_the_original_exactly() {
 fn h29_multi_method_receipt_voucher_is_balanced() {
     let lines = vec![
         DocumentLine::new(PaymentMethod::Cash, rials(4_000_000)).with_account("1101101"),
-        DocumentLine::new(PaymentMethod::BankTransfer, rials(6_000_000))
-            .with_account("1103101"),
+        DocumentLine::new(PaymentMethod::BankTransfer, rials(6_000_000)).with_account("1103101"),
         DocumentLine::new(PaymentMethod::Discount, rials(500_000)),
     ];
     let totals = calculate_totals(&lines).expect("جمع‌ها");
@@ -733,10 +761,13 @@ fn h32_initial_check_status_depends_on_kind() {
 /// ح۳۳ — چرخه‌ی متعارف چک دریافتی: موجود ← واگذار ← وصول.
 #[test]
 fn h33_received_check_happy_path() {
-    let next = transition(CheckKind::Received, CheckStatus::InHand, CheckStatus::Deposited)
-        .expect("واگذاری");
-    let final_status = transition(CheckKind::Received, next, CheckStatus::Collected)
-        .expect("وصول");
+    let next = transition(
+        CheckKind::Received,
+        CheckStatus::InHand,
+        CheckStatus::Deposited,
+    )
+    .expect("واگذاری");
+    let final_status = transition(CheckKind::Received, next, CheckStatus::Collected).expect("وصول");
     assert_eq!(final_status, CheckStatus::Collected);
     assert!(final_status.is_terminal());
     assert!(!final_status.is_open(), "چک وصول‌شده دیگر دارایی جاری نیست");
@@ -755,7 +786,11 @@ fn h34_a_collected_check_can_still_bounce_with_reverse_effect() {
     .expect("برگشت پس از وصول");
     assert_eq!(bounced, CheckStatus::Bounced);
     assert_eq!(
-        treasury_effect(CheckKind::Received, CheckStatus::Collected, CheckStatus::Bounced),
+        treasury_effect(
+            CheckKind::Received,
+            CheckStatus::Collected,
+            CheckStatus::Bounced
+        ),
         TreasuryEffect::Decrease,
         "برگشت باید موجودی را کم کند"
     );
@@ -822,8 +857,10 @@ fn h37_illegal_transitions_are_refused() {
 /// ح۳۸ — «خرج کردن» (ظهرنویسی) چک دریافتی مجاز است و فقط برگشت می‌پذیرد.
 #[test]
 fn h38_endorsement_is_supported() {
-    assert!(allowed_transitions(CheckKind::Received, CheckStatus::InHand)
-        .contains(&CheckStatus::Endorsed));
+    assert!(
+        allowed_transitions(CheckKind::Received, CheckStatus::InHand)
+            .contains(&CheckStatus::Endorsed)
+    );
     assert_eq!(
         allowed_transitions(CheckKind::Received, CheckStatus::Endorsed),
         &[CheckStatus::Bounced]
@@ -831,7 +868,11 @@ fn h38_endorsement_is_supported() {
     // ظهرنویسی پول نقد جابه‌جا نمی‌کند: بدهی ما به تأمین‌کننده کم می‌شود و
     // اسناد دریافتنی هم کم می‌شود. اثر «خزانه» (صندوق/بانک) صفر است.
     assert_eq!(
-        treasury_effect(CheckKind::Received, CheckStatus::InHand, CheckStatus::Endorsed),
+        treasury_effect(
+            CheckKind::Received,
+            CheckStatus::InHand,
+            CheckStatus::Endorsed
+        ),
         TreasuryEffect::None,
         "خرج کردن چک وجه نقد جابه‌جا نمی‌کند"
     );
@@ -924,8 +965,7 @@ fn h42_floating_subsidiary_is_enforced() {
             group: "اشخاص".into(),
         }),
     );
-    let lines = single_line_entry(&scheme(), rials(1_000_000), None, &bank, &correct)
-        .expect("سند");
+    let lines = single_line_entry(&scheme(), rials(1_000_000), None, &bank, &correct).expect("سند");
     assert_eq!(lines[1].subsidiary_id.as_deref(), Some("1001"));
 }
 
@@ -934,8 +974,14 @@ fn h42_floating_subsidiary_is_enforced() {
 /// روش LIFO در ایران پذیرفته نیست و عمداً پیاده نشده است.
 #[test]
 fn h43_valuation_methods_match_iranian_practice() {
-    assert!(ValuationMethod::parse("lifo").is_err(), "LIFO نباید پشتیبانی شود");
-    assert_eq!(ValuationMethod::parse("fifo").expect("روش"), ValuationMethod::Fifo);
+    assert!(
+        ValuationMethod::parse("lifo").is_err(),
+        "LIFO نباید پشتیبانی شود"
+    );
+    assert_eq!(
+        ValuationMethod::parse("fifo").expect("روش"),
+        ValuationMethod::Fifo
+    );
     assert_eq!(
         ValuationMethod::parse("weighted_average").expect("روش"),
         ValuationMethod::WeightedAverage
@@ -968,7 +1014,10 @@ fn h44_cogs_consumes_fifo_layers_in_order() {
     assert_eq!(cost, 5_500_000);
     assert_eq!(layers.len(), 1);
     assert!((layers[0].quantity - 5.0).abs() < 1e-9);
-    assert!(consume_fifo(&mut layers, 99.0).is_err(), "موجودی ناکافی باید رد شود");
+    assert!(
+        consume_fifo(&mut layers, 99.0).is_err(),
+        "موجودی ناکافی باید رد شود"
+    );
 }
 
 /// ح۴۵ — خدمت موجودی انبار ندارد؛ کالای ساده و مرکب دارند.
@@ -988,14 +1037,20 @@ fn h45_services_do_not_carry_inventory() {
 fn h46_national_id_checksum_is_enforced() {
     assert!(national_id_is_valid("0499370899"), "کد ملی معتبر");
     assert!(!national_id_is_valid("0499370898"), "رقم کنترل غلط");
-    assert!(!national_id_is_valid("1111111111"), "ارقام یکسان معتبر نیست");
+    assert!(
+        !national_id_is_valid("1111111111"),
+        "ارقام یکسان معتبر نیست"
+    );
     assert!(!national_id_is_valid("049937089"), "طول کمتر از ۱۰");
 }
 
 /// ح۴۷ — شناسه ملی شخص حقوقی و کد اقتصادی و کد پستی.
 #[test]
 fn h47_legal_identifiers_follow_their_official_rules() {
-    assert!(legal_id_is_valid("10101234565"), "شناسه ملی با رقم کنترل درست");
+    assert!(
+        legal_id_is_valid("10101234565"),
+        "شناسه ملی با رقم کنترل درست"
+    );
     assert!(!legal_id_is_valid("10101234561"), "رقم کنترل غلط");
     assert!(!legal_id_is_valid("1010123456"), "شناسه ملی ۱۱ رقمی است");
     assert!(!legal_id_is_valid("11111111111"), "ارقام یکسان معتبر نیست");
@@ -1009,23 +1064,40 @@ fn h47_legal_identifiers_follow_their_official_rules() {
 #[test]
 fn h48_iban_and_card_number_use_official_algorithms() {
     assert!(iban_is_valid("IR062960000000100324200001"), "شبای معتبر");
-    assert!(!iban_is_valid("IR062960000000100324200002"), "رقم کنترل غلط");
-    assert!(card_number_is_valid("6037997599999993"), "کارت با Luhn درست");
-    assert!(!card_number_is_valid("6037997599999999"), "رقم کنترل Luhn غلط");
+    assert!(
+        !iban_is_valid("IR062960000000100324200002"),
+        "رقم کنترل غلط"
+    );
+    assert!(
+        card_number_is_valid("6037997599999993"),
+        "کارت با Luhn درست"
+    );
+    assert!(
+        !card_number_is_valid("6037997599999999"),
+        "رقم کنترل Luhn غلط"
+    );
     assert!(!card_number_is_valid("603799759999999"), "کارت ۱۶ رقمی است");
 }
 
 /// ح۴۹ — موبایل ایرانی به قالب یکسان `09xxxxxxxxx` نرمال می‌شود.
 #[test]
 fn h49_mobile_numbers_are_normalised_to_a_single_format() {
-    for input in ["09121234567", "+989121234567", "00989121234567", "۰۹۱۲۱۲۳۴۵۶۷"] {
+    for input in [
+        "09121234567",
+        "+989121234567",
+        "00989121234567",
+        "۰۹۱۲۱۲۳۴۵۶۷",
+    ] {
         assert_eq!(
             normalize_mobile(input).as_deref(),
             Some("09121234567"),
             "نرمال‌سازی «{input}»"
         );
     }
-    assert!(normalize_mobile("02188776655").is_none(), "تلفن ثابت موبایل نیست");
+    assert!(
+        normalize_mobile("02188776655").is_none(),
+        "تلفن ثابت موبایل نیست"
+    );
 }
 
 /// ح۵۰ — سقف اعتبار، اعتبار باقیمانده و علامت مانده‌ی بدهکار/بستانکار.
@@ -1056,7 +1128,11 @@ fn h50_credit_limit_and_balance_sign_convention() {
         remaining_credit(rials(40_000_000), 100_000_000),
         Some(rials(60_000_000))
     );
-    assert_eq!(remaining_credit(rials(40_000_000), 0), None, "بدون سقف یعنی بدون نمایش");
+    assert_eq!(
+        remaining_credit(rials(40_000_000), 0),
+        None,
+        "بدون سقف یعنی بدون نمایش"
+    );
 
     // خلاصه‌ی مانده‌ها: بدهکار و بستانکار جدا شمرده می‌شوند.
     let summary = summarize_balances(&[
@@ -1068,7 +1144,11 @@ fn h50_credit_limit_and_balance_sign_convention() {
     assert_eq!(summary.debtor_count, 2);
     assert_eq!(summary.debtor_total, rials(60_000_000));
     assert_eq!(summary.creditor_count, 1);
-    assert_eq!(summary.creditor_total, rials(20_000_000), "بستانکار قدرمطلق");
+    assert_eq!(
+        summary.creditor_total,
+        rials(20_000_000),
+        "بستانکار قدرمطلق"
+    );
     assert_eq!(summary.settled_count, 1);
     assert_eq!(summary.net_total, rials(40_000_000));
 }
@@ -1084,12 +1164,20 @@ fn h50_credit_limit_and_balance_sign_convention() {
 #[test]
 fn h51_price_level_fallback_chain() {
     let mut list = PriceList::new();
-    list.set(PriceLevel::Retail, rials(1_000_000)).expect("قیمت");
-    list.set(PriceLevel::Wholesale, rials(900_000)).expect("قیمت");
+    list.set(PriceLevel::Retail, rials(1_000_000))
+        .expect("قیمت");
+    list.set(PriceLevel::Wholesale, rials(900_000))
+        .expect("قیمت");
 
-    assert_eq!(list.effective(PriceLevel::PartnerTier2).expect("قیمت"), rials(900_000));
+    assert_eq!(
+        list.effective(PriceLevel::PartnerTier2).expect("قیمت"),
+        rials(900_000)
+    );
     assert!(list.exact(PriceLevel::PartnerTier2).is_none());
-    assert_eq!(list.effective(PriceLevel::Retail).expect("قیمت"), rials(1_000_000));
+    assert_eq!(
+        list.effective(PriceLevel::Retail).expect("قیمت"),
+        rials(1_000_000)
+    );
 }
 
 /// ح۵۲ — تخفیف پلکانی بر اساس مقدار، همان «تخفیف عمده» بازار است.
@@ -1115,7 +1203,11 @@ fn h52_quantity_tiers_apply_the_highest_matching_step() {
     })
     .expect("محاسبه");
     assert_eq!(result.subtotal, rials(12_000_000));
-    assert_eq!(result.discount_total, rials(1_200_000), "پله‌ی ۱۰٪ باید اعمال شود");
+    assert_eq!(
+        result.discount_total,
+        rials(1_200_000),
+        "پله‌ی ۱۰٪ باید اعمال شود"
+    );
 }
 
 /// ح۵۳ — تبدیل واحد (کارتن ← عدد) و قیمت واحد فرعی.
@@ -1175,5 +1267,9 @@ fn h54_negative_treasury_balance_policy() {
 fn h55_live_party_balance_during_invoicing() {
     let view = invoicing::balance_view(rials(5_000_000), rials(12_000_000), rials(4_000_000));
     assert_eq!(view.after, rials(13_000_000), "مانده پس از فاکتور");
-    assert_eq!(view.invoice_remainder, rials(8_000_000), "مانده‌ی خود فاکتور");
+    assert_eq!(
+        view.invoice_remainder,
+        rials(8_000_000),
+        "مانده‌ی خود فاکتور"
+    );
 }
