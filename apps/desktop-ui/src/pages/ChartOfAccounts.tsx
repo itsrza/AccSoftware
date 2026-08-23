@@ -14,6 +14,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
+import {Select} from '../components/Select'
 
 type Draft = {
   id?: string
@@ -385,7 +386,7 @@ export function ChartOfAccounts() {
               </label>
               <label>
                 <span>ماهیت *</span>
-                <select
+                <Select
                   value={draft.nature}
                   onChange={(e) => setDraft({ ...draft, nature: e.target.value })}
                 >
@@ -394,11 +395,11 @@ export function ChartOfAccounts() {
                       {n.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="grow">
                 <span>گروه تفصیلی الزامی</span>
-                <select
+                <Select
                   value={draft.subsidiary_group_id ?? ''}
                   onChange={(e) =>
                     setDraft({
@@ -414,7 +415,7 @@ export function ChartOfAccounts() {
                       {g.title}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <div className="checkbox-row">
                 <label className="inline-check">

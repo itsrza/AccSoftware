@@ -22,6 +22,7 @@ import {
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
 import { useSort } from '../lib/useSort'
+import {Select} from '../components/Select'
 
 type Kind = 'sales_quote' | 'purchase_order'
 type EditableLine = QuoteLineInput & { key: number }
@@ -282,7 +283,7 @@ export function Quotes({ kind }: { kind: Kind }) {
             <p>{sorted.length} مورد — برای جزئیات و تغییر وضعیت روی ردیف کلیک کنید.</p>
           </div>
           <div className="filter-actions">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">همه‌ی وضعیت‌ها</option>
               <option value="draft">پیش‌نویس</option>
               <option value="sent">ارسال‌شده</option>
@@ -290,7 +291,7 @@ export function Quotes({ kind }: { kind: Kind }) {
               <option value="rejected">ردشده</option>
               <option value="converted">تبدیل‌شده</option>
               <option value="cancelled">باطل‌شده</option>
-            </select>
+            </Select>
             <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
               <Icon name="refresh" />
             </button>
@@ -376,33 +377,33 @@ export function Quotes({ kind }: { kind: Kind }) {
                 </label>
                 <label className="grow">
                   <span>{sales ? 'مشتری' : 'تأمین‌کننده'} *</span>
-                  <select value={contactId} onChange={(e) => setContactId(e.target.value)}>
+                  <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
                     <option value="">انتخاب کنید…</option>
                     {parties.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   <span>انبار</span>
-                  <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                  <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
                     <option value="">تعیین نشده</option>
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   <span>نرخ مالیات</span>
-                  <select value={vat} onChange={(e) => setVat(Number(e.target.value))}>
+                  <Select value={vat} onChange={(e) => setVat(Number(e.target.value))}>
                     <option value={0}>معاف</option>
                     <option value={900}>۹٪</option>
                     <option value={1000}>۱۰٪</option>
-                  </select>
+                  </Select>
                 </label>
                 <label className="grow">
                   <span>توضیح</span>
@@ -420,7 +421,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                 <div className="line-row" key={line.key}>
                   <label className="grow">
                     <span>کالا</span>
-                    <select
+                    <Select
                       value={line.product_id}
                       onChange={(e) => setLine(line.key, { product_id: e.target.value })}
                     >
@@ -430,7 +431,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                           {p.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label>
                     <span>مقدار</span>

@@ -10,6 +10,7 @@
 import { Icon } from '../components/Icon'
 import { formatRials as money } from '../lib/format'
 import type { FormulaComponentInput, FormulaDetail, Product } from '../api'
+import {Select} from '../components/Select'
 
 export type FormulaDraft = {
   id?: string
@@ -56,7 +57,7 @@ export function ProductionFormulaDialogs({
             <div className="filter-grid">
               <label className="grow">
                 <span>محصول تولیدی *</span>
-                <select
+                <Select
                   value={formulaForm.product_id}
                   onChange={(e) => setFormulaForm({ ...formulaForm, product_id: e.target.value })}
                 >
@@ -66,7 +67,7 @@ export function ProductionFormulaDialogs({
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="grow">
                 <span>عنوان فرمول *</span>
@@ -114,7 +115,7 @@ export function ProductionFormulaDialogs({
               <div className="line-row" key={component.key}>
                 <label className="grow">
                   <span>ماده</span>
-                  <select
+                  <Select
                     value={component.product_id}
                     onChange={(e) =>
                       setFormulaForm({
@@ -133,7 +134,7 @@ export function ProductionFormulaDialogs({
                           {p.name}
                         </option>
                       ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   <span>مصرف هر واحد</span>

@@ -16,6 +16,7 @@ import {
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatNumber, formatRials, parseAmount, todayJalali} from '../lib/format'
+import {Select} from '../components/Select'
 
 /** یک سطر فاکتور در حال ویرایش */
 type Line = {
@@ -258,25 +259,25 @@ export function InvoiceForm() {
           </label>
           <label className="grow">
             <span>طرف حساب</span>
-            <select value={contactId} onChange={(event) => setContactId(event.target.value)}>
+            <Select value={contactId} onChange={(event) => setContactId(event.target.value)}>
               <option value="">انتخاب کنید…</option>
               {contacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
                   {contact.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>انبار</span>
-            <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>
+            <Select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>
               <option value="">انتخاب کنید…</option>
               {warehouses.map((warehouse) => (
                 <option key={warehouse.id} value={warehouse.id}>
                   {warehouse.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </div>
       </div>
@@ -572,20 +573,28 @@ function LineEditor({
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal" onClick={(event) => event.stopPropagation()}>
-        <h2>افزودن کالا به فاکتور</h2>
+      <div className="modal form-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <div className="eyebrow">سطر فاکتور</div>
+            <h2>افزودن کالا به فاکتور</h2>
+          </div>
+          <button aria-label="بستن" type="button" className="icon-btn" onClick={onCancel}>
+            <Icon name="close" />
+          </button>
+        </div>
 
         <div className="form-row">
           <label className="grow">
             <span>کالا</span>
-            <select value={draft.product_id} onChange={(event) => pick(event.target.value)}>
+            <Select value={draft.product_id} onChange={(event) => pick(event.target.value)}>
               <option value="">انتخاب کنید…</option>
               {products.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.sku} — {item.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>مقدار</span>
@@ -660,11 +669,13 @@ function LineEditor({
           </label>
         )}
 
-        <div className="form-actions">
-          <button className="primary" onClick={() => onSave(draft)} disabled={!draft.product_id}>
-            تأیید
+        <div className="modal-actions">
+          <button type="button" className="secondary" onClick={onCancel}>
+            انصراف
           </button>
-          <button onClick={onCancel}>انصراف</button>
+          <button className="primary" onClick={() => onSave(draft)} disabled={!draft.product_id}>
+            تأیید و افزودن
+          </button>
         </div>
       </div>
     </div>

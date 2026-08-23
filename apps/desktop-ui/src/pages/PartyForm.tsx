@@ -19,6 +19,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials, formatTomans } from '../lib/format'
+import {Select} from '../components/Select'
 
 /** هفت زبانه، دقیقاً مطابق فرم مرجع. */
 const TABS = [
@@ -235,7 +236,7 @@ export function PartyForm({
             <div className="filter-grid">
               <label>
                 <span>نوع شخصیت *</span>
-                <select
+                <Select
                   value={form.party_type}
                   onChange={(e) => set({ party_type: e.target.value })}
                 >
@@ -244,11 +245,11 @@ export function PartyForm({
                       {o.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>نقش *</span>
-                <select
+                <Select
                   value={form.party_function}
                   onChange={(e) => set({ party_function: e.target.value })}
                 >
@@ -257,7 +258,7 @@ export function PartyForm({
                       {o.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>کد شخص</span>
@@ -327,7 +328,7 @@ export function PartyForm({
               </label>
               <label>
                 <span>گروه</span>
-                <select
+                <Select
                   value={form.group_id ?? ''}
                   onChange={(e) => set({ group_id: e.target.value })}
                 >
@@ -337,11 +338,11 @@ export function PartyForm({
                       {g.code} — {g.title}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>مسیر پخش</span>
-                <select
+                <Select
                   value={form.route_id ?? ''}
                   onChange={(e) => set({ route_id: e.target.value })}
                 >
@@ -351,11 +352,11 @@ export function PartyForm({
                       {r.code} — {r.title}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>بازاریاب</span>
-                <select
+                <Select
                   value={form.marketer_id ?? ''}
                   onChange={(e) => set({ marketer_id: e.target.value })}
                 >
@@ -365,7 +366,7 @@ export function PartyForm({
                       {m.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <div className="checkbox-row">
                 <label className="inline-check">
@@ -738,7 +739,7 @@ export function PartyForm({
                   </label>
                   <label>
                     <span>ماه</span>
-                    <select
+                    <Select
                       value={occasion.jalali_month}
                       onChange={(e) => {
                         const month = Number(e.target.value)
@@ -753,11 +754,11 @@ export function PartyForm({
                           {name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label>
                     <span>روز</span>
-                    <select
+                    <Select
                       value={occasion.jalali_day}
                       onChange={(e) => setOccasion(index, { jalali_day: Number(e.target.value) })}
                     >
@@ -769,7 +770,7 @@ export function PartyForm({
                           {day}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label>
                     <span>یادآوری (روز قبل)</span>

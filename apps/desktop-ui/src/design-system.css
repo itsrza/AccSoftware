@@ -1,4 +1,18 @@
+/* ترتیب لایه‌های آبشار — باید پیش از هر @import بیاید.
+ *
+ * چرا لازم است: Tailwind تمام کلاس‌های کمکی خود را داخل لایه‌ی `utilities`
+ * می‌گذارد. در CSS هر قاعده‌ی «بدون لایه» بر همه‌ی قواعد «داخل لایه» مقدم
+ * است، هرچقدر هم اختصاصی‌بودنش کمتر باشد. بنابراین یک قاعده‌ی ساده مثل
+ * `button { color: var(--text) }` در فایل‌های قدیمی، کلاس `text-...`
+ * تِیلویند را خنثی می‌کرد — دلیل ناخوانا شدن نام زیرمنوهای سایدبار در تم
+ * روشن. با بردن CSS قدیمی به لایه‌ی `legacy` که پیش از `utilities` قرار
+ * دارد، اولویت درست می‌شود: توکن‌ها < پایه < قدیمی < اجزا < کلاس‌های کمکی.
+ */
+@layer theme, base, legacy, components, utilities;
+
 @import "tailwindcss";
+@import "./styles.css" layer(legacy);
+@import "./theme.css" layer(legacy);
 
 @custom-variant dark (&:where(.dark, .dark *));
 

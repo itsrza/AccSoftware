@@ -9,9 +9,10 @@ import {
   useEffect, useRef, useState, type ReactNode,
 } from "react";
 import {
-  ChevronDown, Inbox, AlertTriangle, RotateCcw, TrendingUp, TrendingDown, Minus,
+  Inbox, AlertTriangle, RotateCcw, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { cn } from "../lib/cn";
+import { Select as DsSelect } from "./Select";
 import { formatPercent as fmtPct } from "../lib/format";
 
 // ------------------------------------------------------------- Card
@@ -166,8 +167,16 @@ export function Popover({
   );
 }
 
-// ------------------------------------------------------------- Select (native, styled)
-export function Select({
+// ------------------------------------------------------------- Select
+/**
+ * دراپ‌داون تک‌منبعِ حقیقت است و در `components/Select.tsx` زندگی می‌کند.
+ * اینجا فقط بازصادر می‌شود تا صفحاتی که از `ui` می‌خوانند هم همان جزء را
+ * بگیرند و دو ظاهر متفاوت در برنامه وجود نداشته باشد.
+ */
+export { Select } from "./Select";
+
+/** نسخه‌ی «فهرست گزینه‌ها به‌صورت آرایه» — برای نوارهای فیلتر فشرده. */
+export function OptionSelect({
   value, onChange, options, label, className,
 }: {
   value: string;
@@ -177,21 +186,15 @@ export function Select({
   className?: string;
 }) {
   return (
-    <label className={cn("group relative flex items-center", className)}>
+    <label className={cn("block", className)}>
       <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        aria-label={label}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full cursor-pointer appearance-none rounded-xl border border-border bg-card ps-3 pe-8 text-xs font-medium text-text shadow-none outline-none transition-colors hover:border-border-strong focus-visible:border-accent"
-      >
+      <DsSelect value={value} aria-label={label} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute end-2.5 size-3.5 text-faint transition-transform group-focus-within:rotate-180" aria-hidden />
+      </DsSelect>
     </label>
   );
 }

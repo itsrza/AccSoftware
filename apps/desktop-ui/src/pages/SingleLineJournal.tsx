@@ -9,6 +9,7 @@ import {
 } from '../api'
 import {errorText} from '../lib/errors'
 import {formatRials, parseAmount, todayJalali} from '../lib/format'
+import {Select} from '../components/Select'
 
 /** یک طرف سند: حساب + ابعاد مالی */
 type Side = {
@@ -92,7 +93,7 @@ export function SingleLineJournal() {
         <h3>{title}</h3>
         <label>
           <span>حساب</span>
-          <select
+          <Select
             value={side.accountId}
             onChange={(event) => setSide({...side, accountId: event.target.value})}
             required
@@ -103,7 +104,7 @@ export function SingleLineJournal() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         {account?.requires_subsidiary && (
@@ -120,7 +121,7 @@ export function SingleLineJournal() {
 
         <label>
           <span>مرکز هزینه{account?.requires_cost_center ? ' (الزامی)' : ''}</span>
-          <select
+          <Select
             value={side.costCenterId}
             onChange={(event) => setSide({...side, costCenterId: event.target.value})}
             required={account?.requires_cost_center}
@@ -131,12 +132,12 @@ export function SingleLineJournal() {
                 {item.code} — {item.title}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label>
           <span>پروژه{account?.requires_project ? ' (الزامی)' : ''}</span>
-          <select
+          <Select
             value={side.projectId}
             onChange={(event) => setSide({...side, projectId: event.target.value})}
             required={account?.requires_project}
@@ -147,7 +148,7 @@ export function SingleLineJournal() {
                 {item.code} — {item.title}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <div className="side-summary">

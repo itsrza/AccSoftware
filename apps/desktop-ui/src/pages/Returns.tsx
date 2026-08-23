@@ -19,6 +19,7 @@ import {
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
 import { useSort } from '../lib/useSort'
+import {Select} from '../components/Select'
 
 type Draft = Record<string, number>
 
@@ -187,7 +188,7 @@ export function Returns({ sale }: { sale: boolean }) {
         <div className="filter-grid">
           <label className="grow">
             <span>فاکتور اصلی *</span>
-            <select
+            <Select
               value={selectedInvoice}
               onChange={(e) => setSelectedInvoice(e.target.value)}
             >
@@ -197,7 +198,7 @@ export function Returns({ sale }: { sale: boolean }) {
                   شماره {invoice.number} — {invoice.invoice_date} — {money(invoice.total)} ریال
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>تاریخ برگشت *</span>
@@ -286,12 +287,12 @@ export function Returns({ sale }: { sale: boolean }) {
             <p>{sorted.length} مورد</p>
           </div>
           <div className="filter-actions">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">همه‌ی وضعیت‌ها</option>
               <option value="draft">پیش‌نویس</option>
               <option value="posted">ثبت‌شده</option>
               <option value="cancelled">باطل‌شده</option>
-            </select>
+            </Select>
             <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
               <Icon name="refresh" />
             </button>

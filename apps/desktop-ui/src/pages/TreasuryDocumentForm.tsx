@@ -18,6 +18,7 @@ import {
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
 import { useSort } from '../lib/useSort'
+import {Select} from '../components/Select'
 
 type Kind = 'receipt' | 'payment'
 
@@ -194,14 +195,14 @@ export function TreasuryDocumentForm() {
           </label>
           <label className="grow">
             <span>طرف حساب</span>
-            <select value={partyId} onChange={(e) => setPartyId(e.target.value)}>
+            <Select value={partyId} onChange={(e) => setPartyId(e.target.value)}>
               <option value="">انتخاب کنید…</option>
               {parties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="grow">
             <span>شرح سند</span>
@@ -232,7 +233,7 @@ export function TreasuryDocumentForm() {
               <div className="line-row" key={line.key}>
                 <label>
                   <span>روش</span>
-                  <select
+                  <Select
                     value={line.method}
                     onChange={(e) => updateLine(line.key, { method: e.target.value })}
                   >
@@ -241,7 +242,7 @@ export function TreasuryDocumentForm() {
                         {m.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   <span>مبلغ (ریال)</span>
@@ -255,7 +256,7 @@ export function TreasuryDocumentForm() {
                 {info?.requires_treasury_account && (
                   <label>
                     <span>صندوق / بانک</span>
-                    <select
+                    <Select
                       value={line.treasury_account_id ?? ''}
                       onChange={(e) => updateLine(line.key, { treasury_account_id: e.target.value })}
                     >
@@ -265,7 +266,7 @@ export function TreasuryDocumentForm() {
                           {a.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                 )}
                 {info?.requires_terminal && (

@@ -9,6 +9,7 @@ import {
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatRials, parseAmount} from '../lib/format'
+import {Select} from '../components/Select'
 
 /**
  * مرکز قیمت‌گذاری کالاها — معادل «قیمت کالاها» در نوار ابزار لیست کالاها.
@@ -108,14 +109,14 @@ export function ProductPricing() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+          <Select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
             <option value="">همه‌ی گروه‌ها</option>
             {groups.map((group) => (
               <option key={group.id} value={group.title}>
                 {group.code} — {group.title} ({group.product_count})
               </option>
             ))}
-          </select>
+          </Select>
           <button aria-label="بروزرسانی" className="icon-btn" onClick={load} title="بارگذاری مجدد">
             <Icon name="refresh" />
           </button>

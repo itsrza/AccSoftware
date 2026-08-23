@@ -21,6 +21,7 @@ import {
   ReportColumn,
   ReportRow,
 } from '../lib/reportEngine'
+import {Select} from '../components/Select'
 
 type Source = 'sales' | 'purchase' | 'inventory' | 'ledger'
 
@@ -357,13 +358,13 @@ export function ReportBuilder() {
           </label>
           <label>
             <span>منبع داده</span>
-            <select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
+            <Select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
               {Object.entries(SOURCE_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>از تاریخ (شمسی)</span>
@@ -391,7 +392,7 @@ export function ReportBuilder() {
           </label>
           <label>
             <span>مرتب‌سازی بر اساس</span>
-            <select
+            <Select
               value={config.sortKey}
               onChange={(e) => setConfig({ ...config, sortKey: e.target.value })}
             >
@@ -401,11 +402,11 @@ export function ReportBuilder() {
                   {column.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>جهت</span>
-            <select
+            <Select
               value={config.sortDirection}
               onChange={(e) =>
                 setConfig({ ...config, sortDirection: e.target.value as 'asc' | 'desc' })
@@ -413,11 +414,11 @@ export function ReportBuilder() {
             >
               <option value="asc">صعودی</option>
               <option value="desc">نزولی</option>
-            </select>
+            </Select>
           </label>
           <label>
             <span>گروه‌بندی</span>
-            <select
+            <Select
               value={config.groupKey}
               onChange={(e) => setConfig({ ...config, groupKey: e.target.value })}
             >
@@ -429,7 +430,7 @@ export function ReportBuilder() {
                     {column.label}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
         </div>
       </div>
@@ -464,7 +465,7 @@ export function ReportBuilder() {
                   />
                   <span>{column.label}</span>
                 </label>
-                <select
+                <Select
                   disabled={!active}
                   value={config.aggregations[column.key] ?? column.aggregation}
                   onChange={(e) =>
@@ -482,7 +483,7 @@ export function ReportBuilder() {
                       {AGGREGATION_LABELS[mode]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )
           })}

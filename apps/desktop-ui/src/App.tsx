@@ -33,8 +33,8 @@ import {Sidebar, ICONS, type NavGroup, type NavItem} from './components/Sidebar'
 import {Topbar, type NotificationItem, type SearchHit} from './components/Topbar'
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
-import './styles.css'
-import './theme.css'
+// styles.css و theme.css از داخل design-system.css و در لایه‌ی `legacy`
+// بارگذاری می‌شوند تا کلاس‌های تِیلویند بتوانند بر آن‌ها مقدم شوند.
 
 /** یک آیتم منو؛ `page` صفحه‌ای است که با کلیک روی خود آیتم باز می‌شود. */
 type MenuItem = {
@@ -137,12 +137,17 @@ const MENU: {title: string; items: MenuItem[]}[] = [
           {label: 'گزارش‌ساز', page: 'report-builder'},
         ],
       },
-      {id: 'data-tools', label: 'ورود و خروج اطلاعات', icon: 'file', page: 'data-tools'},
-      {id: 'print-templates', label: 'قالب‌های چاپ', icon: 'file', page: 'print-templates'},
-      {id: 'integrations', label: 'اتصالات و افزونه‌ها', icon: 'settings', page: 'integrations'},
+      {id: 'data-tools', label: 'ورود و خروج اطلاعات', icon: 'upload', page: 'data-tools'},
     ],
   },
 ]
+
+/* «قالب‌های چاپ» و «اتصالات و افزونه‌ها» عمداً در منوی کناری نیستند.
+ *
+ * هر دو ابزار «راه‌اندازی» هستند نه کار روزمره: یک‌بار تنظیم می‌شوند و
+ * ماه‌ها دست نمی‌خورند. جای‌شان در منوی اصلی، ردیف‌های پرکاربرد را پایین
+ * می‌راند. حالا از «مرکز تنظیمات ← ابزارهای پیشرفته» و از پالت فرمان
+ * (Ctrl+K) در دسترس‌اند. */
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: 'داشبورد',
@@ -280,6 +285,19 @@ export default function App() {
       alive = false
     }
   }, [booting, bootError])
+
+  /* تم تیره روی ریشه‌ی سند اعمال می‌شود، نه روی یک div داخلی.
+   *
+   * چرا: `body{background:var(--bg)}` و `.dark body{...}` فقط وقتی کار
+   * می‌کنند که کلاس `dark` بالادستِ `body` باشد. با گذاشتن کلاس روی یک
+   * div داخلی، پس‌زمینه‌ی کل صفحه روشن می‌ماند و فقط کارت‌ها تیره می‌شوند —
+   * همان چیزی که کاربر دید. `color-scheme` هم تنظیم می‌شود تا اسکرول‌بار،
+   * نوار انتخاب متن و کنترل‌های بومی مرورگر با تم هماهنگ شوند. */
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('dark', dark)
+    root.style.colorScheme = dark ? 'dark' : 'light'
+  }, [dark])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -463,7 +481,7 @@ export default function App() {
       ?.title ?? 'نوین پرداز'
 
   return (
-    <div className={cn('min-h-screen', dark && 'dark')} dir="rtl">
+    <div className="min-h-screen" dir="rtl">
       <Sidebar
         groups={navGroups}
         bottom={bottomNav}
@@ -552,7 +570,15 @@ export default function App() {
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} onSelect={go} />
       {settings && (
-        <SettingsCenter onClose={() => setSettings(false)} dark={dark} setDark={setDark} />
+        <SettingsCenter
+          onClose={() => setSettings(false)}
+          dark={dark}
+          setDark={setDark}
+          navigate={(target) => {
+            setSettings(false)
+            go(target)
+          }}
+        />
       )}
     </div>
   )

@@ -27,6 +27,7 @@ import {
 import { errorText } from '../lib/errors'
 import { ProductionFormulaDialogs, type FormulaDraft } from './ProductionFormulaDialogs'
 import { formatRials as money } from '../lib/format'
+import {Select} from '../components/Select'
 
 type Tab = 'receipt' | 'formulas'
 type Line = { key: number; product_id: string; quantity: number; market_unit_price?: number }
@@ -266,24 +267,24 @@ export function Production() {
               </label>
               <label>
                 <span>انبار *</span>
-                <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
                   <option value="">انتخاب کنید…</option>
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>روش تخصیص بها</span>
-                <select value={allocation} onChange={(e) => setAllocation(e.target.value)}>
+                <Select value={allocation} onChange={(e) => setAllocation(e.target.value)}>
                   {allocations.map((a) => (
                     <option key={a.value} value={a.value}>
                       {a.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="grow">
                 <span>توضیح</span>
@@ -303,7 +304,7 @@ export function Production() {
             <div className="filter-grid">
               <label className="grow">
                 <span>فرمول</span>
-                <select value={formulaId} onChange={(e) => setFormulaId(e.target.value)}>
+                <Select value={formulaId} onChange={(e) => setFormulaId(e.target.value)}>
                   <option value="">بدون فرمول (ورود دستی)</option>
                   {formulas
                     .filter((f) => f.is_active)
@@ -312,7 +313,7 @@ export function Production() {
                         {f.product_name} — {f.title} (قابل تولید: {f.producible_now.toFixed(1)})
                       </option>
                     ))}
-                </select>
+                </Select>
               </label>
               <label>
                 <span>مقدار تولید</span>
@@ -350,7 +351,7 @@ export function Production() {
               <div className="line-row" key={line.key}>
                 <label className="grow">
                   <span>ماده</span>
-                  <select
+                  <Select
                     value={line.product_id}
                     onChange={(e) =>
                       setInputs((c) =>
@@ -364,7 +365,7 @@ export function Production() {
                         {p.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   <span>مقدار</span>
@@ -412,7 +413,7 @@ export function Production() {
               <div className="line-row" key={line.key}>
                 <label className="grow">
                   <span>محصول</span>
-                  <select
+                  <Select
                     value={line.product_id}
                     onChange={(e) =>
                       setOutputs((c) =>
@@ -426,7 +427,7 @@ export function Production() {
                         {p.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   <span>مقدار</span>
@@ -489,7 +490,7 @@ export function Production() {
               <div className="line-row" key={line.key}>
                 <label className="grow">
                   <span>حساب هزینه</span>
-                  <select
+                  <Select
                     value={line.account_id}
                     onChange={(e) =>
                       setExpenses((c) =>
@@ -503,7 +504,7 @@ export function Production() {
                         {a.code} — {a.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label className="grow">
                   <span>شرح</span>

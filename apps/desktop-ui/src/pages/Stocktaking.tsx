@@ -14,6 +14,7 @@ import {
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatNumber, formatRials, todayJalali} from '../lib/format'
+import {Select} from '../components/Select'
 
 /**
  * انبارگردانی — بازنویسی کامل بر پایه‌ی منطق حسابداری انبار.
@@ -404,7 +405,7 @@ export function Stocktaking() {
             <div className="form-row">
               <label>
                 <span>انبار</span>
-                <select
+                <Select
                   value={form.warehouse_id}
                   onChange={(event) => setForm({...form, warehouse_id: event.target.value})}
                 >
@@ -414,7 +415,7 @@ export function Stocktaking() {
                       {warehouse.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label className="grow">
                 <span>عنوان دوره</span>

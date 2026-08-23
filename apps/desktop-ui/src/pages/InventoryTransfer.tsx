@@ -15,6 +15,7 @@ import {
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
 import { useSort } from '../lib/useSort'
+import {Select} from '../components/Select'
 
 /**
  * انتقال کالا بین انبارها.
@@ -186,29 +187,29 @@ export function InventoryTransfer() {
         <div className="filter-grid">
           <label className="grow">
             <span>کالا *</span>
-            <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
               <option value="">انتخاب کنید…</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>از انبار *</span>
-            <select value={fromId} onChange={(e) => setFromId(e.target.value)}>
+            <Select value={fromId} onChange={(e) => setFromId(e.target.value)}>
               <option value="">انتخاب کنید…</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>به انبار *</span>
-            <select value={toId} onChange={(e) => setToId(e.target.value)}>
+            <Select value={toId} onChange={(e) => setToId(e.target.value)}>
               <option value="">انتخاب کنید…</option>
               {warehouses
                 .filter((w) => w.id !== fromId)
@@ -217,7 +218,7 @@ export function InventoryTransfer() {
                     {w.name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>مقدار *</span>
@@ -275,12 +276,12 @@ export function InventoryTransfer() {
             <p>{sorted.length} مورد</p>
           </div>
           <div className="filter-actions">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">همه</option>
               <option value="in_transit">در راه</option>
               <option value="received">تحویل شده</option>
               <option value="cancelled">لغو شده</option>
-            </select>
+            </Select>
             <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
               <Icon name="refresh" />
             </button>

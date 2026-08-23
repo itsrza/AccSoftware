@@ -15,6 +15,7 @@ import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
 import { checkStatusLabel, checkStatusTone, CHECK_STATUS_LABELS } from '../lib/checkStatus'
 import { useSort } from '../lib/useSort'
+import {Select} from '../components/Select'
 
 type Kind = '' | 'received' | 'issued'
 
@@ -166,22 +167,22 @@ export function Checks() {
         <div className="filter-grid">
           <label>
             <span>نوع چک</span>
-            <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
               <option value="">همه</option>
               <option value="received">دریافتی</option>
               <option value="issued">پرداختی</option>
-            </select>
+            </Select>
           </label>
           <label>
             <span>وضعیت</span>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">همه‌ی وضعیت‌ها</option>
               {Object.entries(CHECK_STATUS_LABELS).map(([value, text]) => (
                 <option key={value} value={value}>
                   {text}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             <span>سررسید از</span>

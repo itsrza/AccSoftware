@@ -13,6 +13,7 @@ import {
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
 import { useSort } from '../lib/useSort'
+import {Select} from '../components/Select'
 
 type Mode = 'bank' | 'cash'
 
@@ -279,7 +280,7 @@ export function TreasuryAccounts({ mode }: { mode: Mode }) {
               </label>
               <label>
                 <span>نوع *</span>
-                <select
+                <Select
                   value={form.account_type}
                   onChange={(e) =>
                     setForm({
@@ -296,7 +297,7 @@ export function TreasuryAccounts({ mode }: { mode: Mode }) {
                       <option value="petty_cash">تنخواه</option>
                     </>
                   )}
-                </select>
+                </Select>
               </label>
               {isBank && (
                 <>
@@ -348,7 +349,7 @@ export function TreasuryAccounts({ mode }: { mode: Mode }) {
               )}
               <label className="grow">
                 <span>حساب حسابداری متصل</span>
-                <select
+                <Select
                   value={form.linked_account_id ?? ''}
                   onChange={(e) => setForm({ ...form, linked_account_id: e.target.value })}
                 >
@@ -358,7 +359,7 @@ export function TreasuryAccounts({ mode }: { mode: Mode }) {
                       {a.code} — {a.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
 

@@ -9,6 +9,7 @@ import {
   SettingWithValue,
 } from '../api'
 import { errorText } from '../lib/errors'
+import {Select} from './Select'
 
 /**
  * مرکز تنظیمات.
@@ -26,10 +27,13 @@ export function SettingsCenter({
   onClose,
   dark,
   setDark,
+  navigate,
 }: {
   onClose: () => void
   dark: boolean
   setDark: (value: boolean) => void
+  /** رفتن به صفحه‌ی ابزارهای راه‌اندازی که از منوی کناری برداشته شده‌اند. */
+  navigate: (page: string) => void
 }) {
   const [settings, setSettings] = useState<SettingWithValue[]>([])
   const [activeGroup, setActiveGroup] = useState('')
@@ -170,7 +174,7 @@ export function SettingsCenter({
         )
       case 'choice':
         return (
-          <select
+          <Select
             disabled={disabled}
             value={item.value}
             onChange={(e) => apply(item, e.target.value)}
@@ -180,7 +184,7 @@ export function SettingsCenter({
                 {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         )
       case 'integer':
         return (
@@ -254,6 +258,20 @@ export function SettingsCenter({
         ))}
 
         <button
+          className={activeGroup === '__tools' && !search ? 'setting-nav active' : 'setting-nav'}
+          onClick={() => {
+            setSearch('')
+            setActiveGroup('__tools')
+          }}
+        >
+          <span>
+            <b>ابزارهای پیشرفته</b>
+            <small>قالب چاپ و اتصالات</small>
+          </span>
+          <Icon name="chevron" size={14} />
+        </button>
+
+        <button
           className={activeGroup === '__actions' && !search ? 'setting-nav active' : 'setting-nav'}
           onClick={() => {
             setSearch('')
@@ -277,7 +295,9 @@ export function SettingsCenter({
                 ? `نتیجه‌ی جستجو (${visible.length})`
                 : activeGroup === '__actions'
                   ? 'عملیات مدیریتی'
-                  : (groups.find((g) => g.group === activeGroup)?.label ?? '')}
+                  : activeGroup === '__tools'
+                    ? 'ابزارهای پیشرفته'
+                    : (groups.find((g) => g.group === activeGroup)?.label ?? '')}
             </h1>
             <p>هر تنظیم می‌گوید دقیقاً کجای برنامه اثر می‌گذارد.</p>
           </div>
@@ -294,7 +314,35 @@ export function SettingsCenter({
         {error && <div className="error-box">{error}</div>}
         {notice && <div className="success-box">{notice}</div>}
 
-        {activeGroup === '__actions' && !search ? (
+        {activeGroup === '__tools' && !search ? (
+          <div className="settings-stack">
+            <div className="setting-row">
+              <div className="setting-info">
+                <b>قالب‌های چاپ</b>
+                <span>
+                  قالب فاکتور، رسید، سند و برچسب. یک‌بار تنظیم می‌شود و در همه‌ی چاپ‌های برنامه
+                  استفاده می‌شود.
+                </span>
+                <small className="effect">اثر: خروجی چاپ فاکتور، رسید خزانه و سند حسابداری</small>
+              </div>
+              <button className="primary" onClick={() => navigate('print-templates')}>
+                باز کردن
+              </button>
+            </div>
+            <div className="setting-row">
+              <div className="setting-info">
+                <b>اتصالات و افزونه‌ها</b>
+                <span>
+                  تعریف اتصال‌های API و فعال/غیرفعال کردن افزونه‌ها با کنترل دسترسی دامنه.
+                </span>
+                <small className="effect">اثر: سرویس‌های بیرونی و Native Workerها</small>
+              </div>
+              <button className="primary" onClick={() => navigate('integrations')}>
+                باز کردن
+              </button>
+            </div>
+          </div>
+        ) : activeGroup === '__actions' && !search ? (
           <div className="settings-stack">
             <div className="setting-row danger-card">
               <div className="setting-info">

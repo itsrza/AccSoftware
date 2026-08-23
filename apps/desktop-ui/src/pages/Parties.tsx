@@ -13,6 +13,7 @@ import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatRials} from '../lib/format'
 import {useSort} from '../lib/useSort'
+import {Select} from '../components/Select'
 
 const PARTY_TYPES = [
   {value: 'natural', label: 'حقیقی'},
@@ -141,20 +142,20 @@ export function Parties() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+          <Select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
             <option value="">همه‌ی گروه‌ها</option>
             {groups.map((group) => (
               <option key={group} value={group}>
                 {group}
               </option>
             ))}
-          </select>
-          <select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}>
+          </Select>
+          <Select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}>
             <option value="">همه‌ی وضعیت‌ها</option>
             <option value="debtor">فقط بدهکاران</option>
             <option value="creditor">فقط بستانکاران</option>
             <option value="settled">فقط بی‌حساب</option>
-          </select>
+          </Select>
           <span className="spacer" />
           <button aria-label="بروزرسانی" className="icon-btn" onClick={load} title="بارگذاری مجدد">
             <Icon name="refresh" />
