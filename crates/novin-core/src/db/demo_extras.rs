@@ -18,6 +18,37 @@
 
 use rusqlite::{params, Connection, Result};
 
+/// یک جزء فرمول: (شناسه‌ی کالا، مصرف به‌ازای هر واحد، درصد ضایعات).
+type FormulaComponent = (&'static str, f64, f64);
+/// یک فرمول ساخت: (شناسه، محصول، عنوان، مقدار خروجی، اجزا).
+type Recipe = (
+    &'static str,
+    &'static str,
+    &'static str,
+    f64,
+    [FormulaComponent; 2],
+);
+/// یک اتصال API نمونه: (شناسه، نام، نشانی، نوع احراز، نام هدر، مهلت، فعال، دامنه).
+type ApiProfileSeed = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    i64,
+    i64,
+    &'static str,
+);
+/// یک افزونه‌ی نمونه: (شناسه، نام، نسخه، توضیح، فعال، مجوزها).
+type PluginSeed = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    i64,
+    [&'static str; 2],
+);
+
 const COMPANY: &str = "company-demo";
 const FISCAL_YEAR: &str = "fy-demo";
 const USER: &str = "user-demo";
@@ -62,7 +93,7 @@ fn unit_cost(tx: &Connection, id: &str) -> i64 {
 /// دو فرمول ساخت و دو رسید تولید با بهای تمام‌شده‌ی دقیقاً متوازن.
 fn seed_production(tx: &Connection, warehouse: &str) -> Result<()> {
     // محصول تولیدی و مواد اولیه از کاتالوگ واقعی دمو انتخاب می‌شوند.
-    let recipes: [(&str, &str, &str, f64, [(&str, f64, f64); 2]); 2] = [
+    let recipes: [Recipe; 2] = [
         (
             "demo-formula-shirt",
             "demo-prod-007",
@@ -522,7 +553,7 @@ fn seed_custom_reports(tx: &Connection) -> Result<()> {
 }
 
 fn seed_integrations(tx: &Connection) -> Result<()> {
-    let profiles: [(&str, &str, &str, &str, Option<&str>, i64, i64, &str); 3] = [
+    let profiles: [ApiProfileSeed; 3] = [
         (
             "demo-api-tax",
             "سامانه مؤدیان — کارپوشه",
@@ -563,7 +594,7 @@ fn seed_integrations(tx: &Connection) -> Result<()> {
         )?;
     }
 
-    let plugins: [(&str, &str, &str, &str, i64, [&str; 2]); 2] = [
+    let plugins: [PluginSeed; 2] = [
         (
             "demo-plugin-barcode",
             "اسکنر بارکد USB",
