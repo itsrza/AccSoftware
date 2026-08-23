@@ -1329,7 +1329,7 @@ pub fn seed(conn: &Connection) -> Result<()> {
     tx.execute("INSERT OR IGNORE INTO print_templates(id,company_id,name,template_type,content_html,is_default,created_by) VALUES('tpl-demo-invoice','company-demo','قالب استاندارد فاکتور','invoice','<section dir=\"rtl\"><h1>{{company.name}}</h1><p>فاکتور فروش شماره {{invoice.number}}</p><table>{{#lines}}<tr><td>{{product.name}}</td><td>{{quantity}}</td><td>{{line_total}}</td></tr>{{/lines}}</table><strong>{{invoice.total}}</strong></section>',1,'user-demo')",[])?;
     tx.execute("INSERT OR IGNORE INTO inventory_balances(product_id,warehouse_id,quantity,reserved_quantity) VALUES('prod-1','wh-main',24,3)",[])?;
     tx.execute("INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference_type,note,created_by) VALUES('demo-mov-1','company-demo','prod-1','wh-main','receipt',24,9500000,'demo','موجودی نمونه','user-demo')",[])?;
-    tx.execute("INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference_type,reference_id,note,created_by) VALUES('demo-mov-2','company-demo','prod-1','wh-main','issue',2,9500000,'sales','demo-sale-1','خروج بابت فروش نمونه','user-demo')",[])?;
+    tx.execute("INSERT OR IGNORE INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference_type,reference_id,note,created_by) VALUES('demo-mov-2','company-demo','prod-1','wh-main','issue',2,9500000,'sales_invoice','demo-sale-1','خروج بابت فروش نمونه','user-demo')",[])?;
     tx.execute("UPDATE inventory_balances SET quantity=22 WHERE product_id='prod-1' AND warehouse_id='wh-main'",[])?;
     tx.execute("INSERT OR IGNORE INTO sales_invoices(id,company_id,fiscal_year_id,number,invoice_date,contact_id,warehouse_id,status,payment_status,subtotal,discount,tax,total,created_by) VALUES('demo-sale-1','company-demo','fy-demo',1001,'1405/05/10','contact-1','wh-main','posted','paid',25000000,1000000,2400000,26400000,'user-demo')",[])?;
     // قاعده‌ی ثابت فاکتور: `line_total` مبلغ ناخالص همان سطر است
@@ -1339,7 +1339,11 @@ pub fn seed(conn: &Connection) -> Result<()> {
     tx.execute("INSERT OR IGNORE INTO sales_invoice_lines(id,invoice_id,product_id,quantity,unit_price,discount,tax,line_total) VALUES('demo-sale-line-1','demo-sale-1','prod-1',2,12500000,1000000,2400000,25000000)",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES('demo-journal-1','company-demo','fy-demo',1001,'1405/05/10','فروش نمونه','posted','sales','demo-sale-1','user-demo')",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-1','demo-journal-1','acc-1201','حساب مشتری',26400000,0)",[])?;
-    tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-2','demo-journal-1','acc-4100','فروش کالا',0,26400000)",[])?;
+    // درآمد فقط مبلغ خالص فروش است؛ مالیات بر ارزش افزوده بدهی به سازمان
+    // مالیاتی است نه درآمد شرکت. پیش از این کل ۲۶٬۴۰۰٬۰۰۰ به‌عنوان درآمد
+    // ثبت می‌شد که هم سود را متورم می‌کرد هم مالیات را از دفاتر پنهان.
+    tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-2','demo-journal-1','acc-4100','فروش کالا',0,24000000)",[])?;
+    tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-2b','demo-journal-1','acc-2401','مالیات بر ارزش افزوده',0,2400000)",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES('demo-journal-2','company-demo','fy-demo',1002,'1405/05/10','بهای تمام شده فروش نمونه','posted','inventory','demo-sale-1','user-demo')",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-3','demo-journal-2','acc-5100','بهای تمام شده',19000000,0)",[])?;
     tx.execute("INSERT OR IGNORE INTO journal_lines(id,journal_id,account_id,description,debit,credit) VALUES('demo-jl-4','demo-journal-2','acc-1300','کاهش موجودی',0,19000000)",[])?;
