@@ -417,9 +417,9 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
             )),
         },
         SettingKind::Integer => {
-            let parsed: i64 = trimmed.parse().map_err(|_| {
-                format!("SET-002: «{}» باید یک عدد صحیح باشد", definition.label)
-            })?;
+            let parsed: i64 = trimmed
+                .parse()
+                .map_err(|_| format!("SET-002: «{}» باید یک عدد صحیح باشد", definition.label))?;
             if let Some(min) = definition.min {
                 if parsed < min {
                     return Err(format!(
@@ -454,7 +454,10 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
         }
         SettingKind::Text => {
             if trimmed.is_empty() {
-                return Err(format!("SET-006: «{}» نمی‌تواند خالی باشد", definition.label));
+                return Err(format!(
+                    "SET-006: «{}» نمی‌تواند خالی باشد",
+                    definition.label
+                ));
             }
             // طرح کدینگ ساختار مشخصی دارد و باید همان‌جا بررسی شود.
             if definition.key == "coding.level_widths" {
@@ -462,8 +465,9 @@ fn validate(definition: &SettingDefinition, value: &str) -> Result<String, Strin
                     .split(',')
                     .map(|part| part.trim().parse::<u8>())
                     .collect();
-                let widths = widths
-                    .map_err(|_| "SET-007: طرح کدینگ باید اعداد جداشده با ویرگول باشد".to_string())?;
+                let widths = widths.map_err(|_| {
+                    "SET-007: طرح کدینگ باید اعداد جداشده با ویرگول باشد".to_string()
+                })?;
                 if widths.is_empty() || widths.iter().any(|width| *width == 0 || *width > 6) {
                     return Err("SET-008: عرض هر سطح کدینگ باید بین ۱ تا ۶ رقم باشد".into());
                 }

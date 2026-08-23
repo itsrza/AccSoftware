@@ -27,9 +27,9 @@ use tauri::{Manager, State};
 mod chart_of_accounts;
 mod parties_form;
 mod production;
-mod settings;
 mod quotes;
 mod returns;
+mod settings;
 mod treasury_accounts;
 mod treasury_docs;
 
