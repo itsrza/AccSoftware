@@ -23,7 +23,8 @@ fn accounts() -> TreasuryAccounts {
 }
 
 fn cash(amount: i64) -> DocumentLine {
-    DocumentLine::new(PaymentMethod::Cash, Money::from_rials(amount)).with_account("treasury-cash-1")
+    DocumentLine::new(PaymentMethod::Cash, Money::from_rials(amount))
+        .with_account("treasury-cash-1")
 }
 
 fn check(amount: i64) -> DocumentLine {
@@ -55,7 +56,13 @@ fn t01_multi_method_document_is_always_balanced() {
     transfer.treasury_account = Some("treasury-bank-mellat".into());
     let offset = DocumentLine::new(PaymentMethod::Offset, Money::from_rials(2_000_000));
 
-    let lines = vec![cash(10_000_000), check(25_000_000), transfer, discount, offset];
+    let lines = vec![
+        cash(10_000_000),
+        check(25_000_000),
+        transfer,
+        discount,
+        offset,
+    ];
     let journal = build_journal(DocumentKind::Receipt, &lines, &accounts()).unwrap();
 
     assert_eq!(
@@ -79,7 +86,9 @@ fn t02_received_check_lands_on_notes_receivable_not_cash() {
         "چک دریافتی باید به اسناد دریافتنی بنشیند"
     );
     assert!(
-        !journal.iter().any(|l| l.account_id.starts_with("treasury-")),
+        !journal
+            .iter()
+            .any(|l| l.account_id.starts_with("treasury-")),
         "هیچ حساب صندوقی نباید در سند چک ظاهر شود"
     );
 }
@@ -111,7 +120,11 @@ fn t04_payment_mirrors_receipt() {
         .iter()
         .find(|l| l.account_id == "treasury-cash-1")
         .unwrap();
-    assert_eq!(receipt_cash.debit.rials(), 12_000_000, "دریافت: صندوق بدهکار");
+    assert_eq!(
+        receipt_cash.debit.rials(),
+        12_000_000,
+        "دریافت: صندوق بدهکار"
+    );
     assert_eq!(
         payment_cash.credit.rials(),
         12_000_000,
@@ -127,7 +140,11 @@ fn t05_discount_and_offset_do_not_move_treasury() {
     let lines = vec![cash(5_000_000), discount, offset];
     let totals = calculate_totals(&lines).unwrap();
 
-    assert_eq!(totals.total.rials(), 12_000_000, "جمع سند باید کل مبلغ باشد");
+    assert_eq!(
+        totals.total.rials(),
+        12_000_000,
+        "جمع سند باید کل مبلغ باشد"
+    );
     assert_eq!(
         totals.treasury_movement.rials(),
         5_000_000,
@@ -219,15 +236,20 @@ fn t09_empty_or_non_positive_document_is_rejected() {
 /// اختلاف پیدا می‌کند — خطایی که فقط در حسابرسی لو می‌رود.
 #[test]
 fn t10_method_breakdown_reconciles_with_journal() {
-    let mut transfer =
-        DocumentLine::new(PaymentMethod::BankTransfer, Money::from_rials(7_000_000));
+    let mut transfer = DocumentLine::new(PaymentMethod::BankTransfer, Money::from_rials(7_000_000));
     transfer.treasury_account = Some("treasury-bank-mellat".into());
     let mut terminal = DocumentLine::new(PaymentMethod::CardTerminal, Money::from_rials(3_000_000));
     terminal.treasury_account = Some("treasury-bank-saderat".into());
     terminal.terminal_id = Some("POS-1001".into());
     let discount = DocumentLine::new(PaymentMethod::Discount, Money::from_rials(250_000));
 
-    let lines = vec![cash(2_000_000), check(9_000_000), transfer, terminal, discount];
+    let lines = vec![
+        cash(2_000_000),
+        check(9_000_000),
+        transfer,
+        terminal,
+        discount,
+    ];
     let totals = calculate_totals(&lines).unwrap();
 
     let breakdown = totals.cash.rials()
