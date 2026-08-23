@@ -295,7 +295,10 @@ fn t116_no_command_panics_on_user_input() {
             .collect::<Vec<_>>()
             .join("\n");
 
-        for occurrence in code.match_indices(".unwrap()").chain(code.match_indices(".expect(")) {
+        for occurrence in code
+            .match_indices(".unwrap()")
+            .chain(code.match_indices(".expect("))
+        {
             let (position, _) = occurrence;
             // متن اطراف برای تشخیص استثناهای مجاز
             let context_start = position.saturating_sub(120);
