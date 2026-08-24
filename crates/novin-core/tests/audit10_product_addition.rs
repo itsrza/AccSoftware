@@ -32,11 +32,9 @@ fn rials(value: i64) -> Money {
 
 /// شرکت فعال دمو — همان شرکتی که میزبان با `active_context` برمی‌گرداند.
 fn company(conn: &Connection) -> String {
-    conn.query_row(
-        "SELECT id FROM companies ORDER BY id LIMIT 1",
-        [],
-        |row| row.get(0),
-    )
+    conn.query_row("SELECT id FROM companies ORDER BY id LIMIT 1", [], |row| {
+        row.get(0)
+    })
     .expect("شرکت پایه")
 }
 
@@ -232,7 +230,10 @@ fn k21_database_does_not_trim_sku_so_host_must() {
         params![company],
         |row| row.get(0),
     );
-    assert!(found.is_err(), "بدون trim، جستجوی کدِ تریم‌شده ردیف را پیدا نمی‌کند");
+    assert!(
+        found.is_err(),
+        "بدون trim، جستجوی کدِ تریم‌شده ردیف را پیدا نمی‌کند"
+    );
     let raw: String = conn
         .query_row(
             "SELECT sku FROM products WHERE id='audit10-w1'",
@@ -251,8 +252,11 @@ fn k22_price_rewrite_semantics() {
     insert_product(&conn, &company, "audit10-pr", "PR1", ProductKind::Simple);
 
     let write_levels = |levels: &[(&str, i64)]| {
-        conn.execute("DELETE FROM product_prices WHERE product_id='audit10-pr'", [])
-            .unwrap();
+        conn.execute(
+            "DELETE FROM product_prices WHERE product_id='audit10-pr'",
+            [],
+        )
+        .unwrap();
         for (level, price) in levels {
             conn.execute(
                 "INSERT INTO product_prices(product_id, level, price) VALUES(?1,?2,?3)",
@@ -305,7 +309,10 @@ fn k22_price_rewrite_semantics() {
         "INSERT INTO product_prices(product_id, level, price) VALUES('audit10-pr','retail',5)",
         [],
     );
-    assert!(duplicate.is_err(), "PK(product_id, level) تکرار را رد می‌کند");
+    assert!(
+        duplicate.is_err(),
+        "PK(product_id, level) تکرار را رد می‌کند"
+    );
 }
 
 /// ک۲۳ — مرزهای قیمت: صفر مجاز، منفی ممنوع، مبالغ بزرگ بدون خطای گردکردن.
@@ -417,7 +424,9 @@ fn k25_unit_factor_constraints() {
 
     let factors: Vec<f64> = {
         let mut statement = conn
-            .prepare("SELECT factor FROM product_units WHERE product_id='audit10-u' ORDER BY factor")
+            .prepare(
+                "SELECT factor FROM product_units WHERE product_id='audit10-u' ORDER BY factor",
+            )
             .unwrap();
         statement
             .query_map([], |row| row.get(0))
@@ -480,14 +489,8 @@ fn k27_addition_pipeline_schema_contract() {
                 "tax_exempt",
             ],
         ),
-        (
-            "product_units",
-            &["unit_name", "factor", "is_default_sale"],
-        ),
-        (
-            "product_discount_tiers",
-            &["min_quantity", "discount_bp"],
-        ),
+        ("product_units", &["unit_name", "factor", "is_default_sale"]),
+        ("product_discount_tiers", &["min_quantity", "discount_bp"]),
         (
             "product_gold_specs",
             &["weight_grams", "carat", "making_charge_bp", "profit_bp"],
@@ -782,7 +785,10 @@ fn k33_variant_expansion_persists() {
          VALUES('audit10-v-dup','audit10-v','SHIRT-001','تکراری')",
         [],
     );
-    assert!(duplicate.is_err(), "UNIQUE(product_id, sku) تکرار را رد می‌کند");
+    assert!(
+        duplicate.is_err(),
+        "UNIQUE(product_id, sku) تکرار را رد می‌کند"
+    );
 
     let stored: i64 = count(
         &conn,
@@ -814,14 +820,20 @@ fn k34_composite_components_constraints() {
          VALUES('audit10-m','audit10-m',1)",
         [],
     );
-    assert!(self_reference.is_err(), "CHECK(parent <> component) خود‌ارجاعی را رد می‌کند");
+    assert!(
+        self_reference.is_err(),
+        "CHECK(parent <> component) خود‌ارجاعی را رد می‌کند"
+    );
 
     let zero_quantity = conn.execute(
         "INSERT INTO product_components(parent_id, component_id, quantity) \
          VALUES('audit10-m','audit10-mc',0)",
         [],
     );
-    assert!(zero_quantity.is_err(), "CHECK(quantity > 0) مقدار صفر را رد می‌کند");
+    assert!(
+        zero_quantity.is_err(),
+        "CHECK(quantity > 0) مقدار صفر را رد می‌کند"
+    );
 
     conn.execute(
         "INSERT INTO product_components(parent_id, component_id, quantity) \
@@ -863,7 +875,8 @@ fn k35_effective_price_after_reload() {
         .filter_map(Result::ok)
         .collect();
     for (level, price) in rows {
-        list.set(PriceLevel::parse(&level).unwrap(), rials(price)).unwrap();
+        list.set(PriceLevel::parse(&level).unwrap(), rials(price))
+            .unwrap();
     }
 
     // همکار درجه۳ تعریف نشده → باید تا کلی عقب بکشد و همانجا بایستد
@@ -872,8 +885,14 @@ fn k35_effective_price_after_reload() {
         rials(950_000),
         "زنجیره‌ی t3←t2←partner←wholesale باید روی wholesale بایستد"
     );
-    assert_eq!(list.effective(PriceLevel::Seasonal).unwrap(), rials(1_000_000));
-    assert_eq!(list.effective(PriceLevel::Retail).unwrap(), rials(1_000_000));
+    assert_eq!(
+        list.effective(PriceLevel::Seasonal).unwrap(),
+        rials(1_000_000)
+    );
+    assert_eq!(
+        list.effective(PriceLevel::Retail).unwrap(),
+        rials(1_000_000)
+    );
 }
 
 /// ک۳۶ — تبدیل واحد و قیمت واحد فرعی، از ضریب ذخیره‌شده ساخته می‌شود.
@@ -911,7 +930,10 @@ fn k36_unit_price_after_reload() {
         units.unit_price(rials(120_000), "کارتن").unwrap(),
         rials(1_440_000)
     );
-    assert!(units.to_base(1.0, "بسته").is_err(), "واحد تعریف‌نشده خطا می‌دهد");
+    assert!(
+        units.to_base(1.0, "بسته").is_err(),
+        "واحد تعریف‌نشده خطا می‌دهد"
+    );
 }
 
 /// ک۳۷ — درخت گروه کالا از پایگاه داده با همان ساختار میزبان ساخته می‌شود.
@@ -971,7 +993,10 @@ fn k37_group_tree_from_database() {
          VALUES('audit10-g4',?1,'950','تکراری')",
         params![firm],
     );
-    assert!(duplicate.is_err(), "UNIQUE(company_id, code) کد تکراری را رد می‌کند");
+    assert!(
+        duplicate.is_err(),
+        "UNIQUE(company_id, code) کد تکراری را رد می‌کند"
+    );
 }
 
 /// ک۳۸ — خط لوله‌ی ذخیره «یا همه یا هیچ» است: خطا در هر جدول، کل تراکنش را برمی‌گرداند.
@@ -980,9 +1005,12 @@ fn k38_all_or_nothing_transaction() {
     let mut conn = seeded();
     let firm = company(&conn);
 
-    let before_products: i64 = conn.query_row("SELECT COUNT(*) FROM products", [], |r| r.get(0)).unwrap();
-    let before_prices: i64 =
-        conn.query_row("SELECT COUNT(*) FROM product_prices", [], |r| r.get(0)).unwrap();
+    let before_products: i64 = conn
+        .query_row("SELECT COUNT(*) FROM products", [], |r| r.get(0))
+        .unwrap();
+    let before_prices: i64 = conn
+        .query_row("SELECT COUNT(*) FROM product_prices", [], |r| r.get(0))
+        .unwrap();
 
     {
         let tx = conn.transaction().unwrap();
@@ -1007,9 +1035,12 @@ fn k38_all_or_nothing_transaction() {
         // بدون commit → drop = rollback
     }
 
-    let after_products: i64 = conn.query_row("SELECT COUNT(*) FROM products", [], |r| r.get(0)).unwrap();
-    let after_prices: i64 =
-        conn.query_row("SELECT COUNT(*) FROM product_prices", [], |r| r.get(0)).unwrap();
+    let after_products: i64 = conn
+        .query_row("SELECT COUNT(*) FROM products", [], |r| r.get(0))
+        .unwrap();
+    let after_prices: i64 = conn
+        .query_row("SELECT COUNT(*) FROM product_prices", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(after_products, before_products, "کالا نباید جا بماند");
     assert_eq!(after_prices, before_prices, "قیمت نباید جا بماند");
     let leftover: i64 = count(
