@@ -11,9 +11,65 @@
 
 const RIALS_PER_TOMAN = 10
 
-const numberFormatter = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 })
-const decimalFormatter = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 3 })
+/**
+ * زبان فعال نمایش اعداد.
+ *
+ * چرا اینجا و نه در هر صفحه: بیش از هزار فراخوانی `formatRials`/`formatNumber`
+ * در برنامه هست. اگر هر کدام می‌خواستند زبان را بگیرند، افزودن زبان دوم به
+ * معنی دست‌زدن به همه‌ی آن‌ها بود. با یک «حالت ماژول» که لایه‌ی i18n هنگام
+ * تغییر زبان به‌روزش می‌کند، همه‌ی محل‌های فراخوانی دست‌نخورده می‌مانند.
+ */
+export type NumberLocale = 'fa' | 'en' | 'ar'
+
+/** ارقام هر زبان: فارسی «۱۲۳»، عربی «١٢٣»، انگلیسی «123». */
+const INTL_TAG: Record<NumberLocale, string> = {
+  fa: 'fa-IR',
+  ar: 'ar-EG',
+  en: 'en-US',
+}
+
+/** واحد پول در هر زبان — «ریال» واحد داخلی است و «تومان» واحد نمایشی. */
+const CURRENCY_WORDS: Record<NumberLocale, { rial: string; toman: string }> = {
+  fa: { rial: 'ریال', toman: 'تومان' },
+  ar: { rial: 'ريال', toman: 'تومان' },
+  en: { rial: 'IRR', toman: 'Toman' },
+}
+
+let activeLocale: NumberLocale = 'fa'
+let numberFormatter = new Intl.NumberFormat(INTL_TAG.fa, { maximumFractionDigits: 0 })
+let decimalFormatter = new Intl.NumberFormat(INTL_TAG.fa, { maximumFractionDigits: 3 })
 const latinFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
+/**
+ * تعیین زبان ارقام و واحد پول برای کل رابط کاربری.
+ *
+ * فقط لایه‌ی i18n این را صدا می‌زند؛ صفحه‌ها نباید مستقیم استفاده کنند.
+ */
+export function setNumberLocale(locale: NumberLocale): void {
+  activeLocale = locale
+  numberFormatter = new Intl.NumberFormat(INTL_TAG[locale], { maximumFractionDigits: 0 })
+  decimalFormatter = new Intl.NumberFormat(INTL_TAG[locale], { maximumFractionDigits: 3 })
+}
+
+/** زبان فعال ارقام. */
+export function numberLocale(): NumberLocale {
+  return activeLocale
+}
+
+/** واحد «ریال» به زبان فعال — برای برچسب ستون‌ها و محورها. */
+export function rialUnit(): string {
+  return CURRENCY_WORDS[activeLocale].rial
+}
+
+/** واحد «تومان» به زبان فعال. */
+export function tomanUnit(): string {
+  return CURRENCY_WORDS[activeLocale].toman
+}
+
+/** عدد صحیح به زبان فعال — جایگزین `x.toLocaleString('fa-IR')`. */
+export function formatCount(value: number): string {
+  return numberFormatter.format(Math.round(value))
+}
 
 /** مبلغ ریالی با جداکننده‌ی هزارگان فارسی (بدون واحد). */
 export function formatRials(amount: number): string {
@@ -22,12 +78,12 @@ export function formatRials(amount: number): string {
 
 /** مبلغ ریالی همراه با واحد. */
 export function formatRialsWithUnit(amount: number): string {
-  return `${formatRials(amount)} ریال`
+  return `${formatRials(amount)} ${rialUnit()}`
 }
 
 /** نمایش مبلغ به تومان (واحد آشناتر برای کاربر). */
 export function formatTomans(rials: number): string {
-  return `${numberFormatter.format(Math.round(rials / RIALS_PER_TOMAN))} تومان`
+  return `${numberFormatter.format(Math.round(rials / RIALS_PER_TOMAN))} ${tomanUnit()}`
 }
 
 /** تبدیل ورودی تومان کاربر به ریال برای ارسال به بک‌اند. */
@@ -43,6 +99,11 @@ export function formatNumber(value: number): string {
 /** عدد با ارقام لاتین — برای فیلدهای ورودی و کد. */
 export function formatLatin(value: number): string {
   return latinFormatter.format(value)
+}
+
+/** نشانه‌ی درصد به زبان فعال — «٪» در فارسی/عربی و «%» در انگلیسی. */
+export function percentSign(): string {
+  return activeLocale === 'en' ? '%' : '٪'
 }
 
 /** تبدیل ارقام فارسی/عربی ورودی کاربر به لاتین. */
@@ -124,5 +185,5 @@ export function todayJalali(): string {
  */
 export function formatPercent(value: number): string {
   const sign = value > 0 ? '+' : value < 0 ? '−' : ''
-  return `${sign}${decimalFormatter.format(Math.abs(value))}٪`
+  return `${sign}${decimalFormatter.format(Math.abs(value))}${percentSign()}`
 }

@@ -27,6 +27,8 @@ const HOST = join(REPO, 'apps', 'desktop-host', 'src-tauri', 'src')
 
 const apiSource = readFileSync(join(SRC, 'api.ts'), 'utf8')
 const appSource = readFileSync(join(SRC, 'App.tsx'), 'utf8')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import { fa as faDictionary } from '../lib/i18n'
 const previewSource = readFileSync(join(SRC, 'lib', 'devPreview.ts'), 'utf8')
 
 const hostSources = readdirSync(HOST)
@@ -76,7 +78,19 @@ const registered = (() => {
 const routedPages = [...appSource.matchAll(/case '([a-z0-9-]+)':/g)].map((m) => m[1])
 
 /** صفحاتی که در منو آمده‌اند. */
-const menuPages = [...appSource.matchAll(/page: '([a-z0-9-]+)'/g)].map((m) => m[1])
+/* منوی برنامه دو شکل ارجاع به صفحه دارد: `page: 'x'` برای عنوان هر شاخه و
+ * فهرست رشته‌ای زیرمنوها. هر دو باید شمرده شوند. */
+const menuSource = appSource.slice(
+  appSource.indexOf('const MENU'),
+  appSource.indexOf('function pageTitleKey'),
+)
+const menuChildren = [...menuSource.matchAll(/children: \[([^\]]*)\]/g)].flatMap((match) =>
+  [...match[1].matchAll(/'([a-z0-9-]+)'/g)].map((child) => child[1]),
+)
+const menuPages = [
+  ...[...appSource.matchAll(/page: '([a-z0-9-]+)'/g)].map((m) => m[1]),
+  ...menuChildren,
+]
 
 // ===========================================================================
 // قرارداد نام فرمان‌ها
@@ -154,8 +168,11 @@ describe('مسیریابی و منو', () => {
   })
 
   it('ت۱۴۲ — هر مسیر، عنوان صفحه دارد', () => {
-    // عنوان نداشتن یعنی نوار بالای برنامه خالی می‌ماند.
-    const titles = [...appSource.matchAll(/^\s{2}'?([a-z0-9-]+)'?:\s*'[^']+',$/gm)].map((m) => m[1])
+    // عنوان نداشتن یعنی نوار بالای برنامه خالی می‌ماند. عنوان‌ها از کلید
+    // `page.<id>` دیکشنری می‌آیند، پس نبود کلید یعنی نبود عنوان.
+    const titles = Object.keys(faDictionary)
+      .filter((key) => key.startsWith('page.'))
+      .map((key) => key.slice('page.'.length))
     const missing = [...new Set(routedPages)].filter(
       (page) => !titles.includes(page) && page !== 'default',
     )
@@ -177,7 +194,7 @@ describe('مسیریابی و منو', () => {
 
   it('ت۱۴۴ — عملیات سریع فقط به صفحات موجود اشاره می‌کنند', () => {
     const start = appSource.indexOf('const QUICK_ACTIONS')
-    const block = appSource.slice(start, appSource.indexOf(']', start))
+    const block = appSource.slice(start, appSource.indexOf('\n]', start))
     const quickActions = [...block.matchAll(/page:\s*'([a-z0-9-]+)'/g)].map((m) => m[1])
     expect(quickActions.length).toBeGreaterThan(3)
     // شاخه‌ی `default` مسیریاب، فهرست فاکتور را با نام همان صفحه باز می‌کند.
@@ -337,6 +354,9 @@ describe('سلامت ساختار', () => {
     for (const { name, code } of pageFiles) {
       for (const match of code.matchAll(/className="eyebrow">([^<]+)</g)) {
         const label = match[1].trim()
+        // عنوان ترجمه‌شده (`{t('...')}`) متن فارسی ندارد ولی لاتین هم نیست؛
+        // کامل بودن ترجمه‌اش را آزمون دیکشنری بررسی می‌کند.
+        if (label.startsWith('{t(')) continue
         if (!/[\u0600-\u06FF]/.test(label)) offenders.push(`${name}: ${label}`)
       }
     }

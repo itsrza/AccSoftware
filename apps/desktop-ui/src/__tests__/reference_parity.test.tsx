@@ -22,7 +22,6 @@ import {
   jalaliToDate,
   parseJalali,
   previousRange,
-  rangeLabel,
   resolveRange,
   shiftJalali,
   type JalaliRange,
@@ -30,6 +29,7 @@ import {
 import { toJalali } from '../lib/format'
 import { FilterBar } from '../components/FilterBar'
 import { toBuckets } from '../components/DashboardPanels'
+import { translate } from '../lib/i18n'
 import type { PartyAging } from '../api'
 
 const src = (path: string) => readFileSync(resolve(__dirname, '..', path), 'utf8')
@@ -118,7 +118,7 @@ describe('بازه‌ی زمانی شمسی', () => {
   it('ب۸ — پیش‌تنظیم «سال مالی» بازه‌اش را از بیرون می‌گیرد', () => {
     const range = resolveRange('fiscalYear', { from: '1405/01/01', to: '1405/12/29' })
     expect([range.from, range.to]).toEqual(['1405/01/01', '1405/12/29'])
-    expect(rangeLabel(range)).toBe('سال مالی')
+    expect(translate('fa', 'filter.preset.fiscalYear')).toBe('سال مالی')
   })
 
   it('ب۹ — تاریخ نامعتبر رد می‌شود', () => {
@@ -245,7 +245,15 @@ describe('سنی‌سازی مطالبات', () => {
 
   it('س۱ — پنج سطل مرجع ساخته می‌شود و جمعشان با کل می‌خواند', () => {
     const { buckets, total } = toBuckets(rows)
-    expect(buckets.map((bucket) => bucket.label)).toEqual([
+    expect(buckets.map((bucket) => bucket.labelKey)).toEqual([
+      'aging.bucket.current',
+      'aging.bucket.1_30',
+      'aging.bucket.31_60',
+      'aging.bucket.61_90',
+      'aging.bucket.over_90',
+    ])
+    // برچسب فارسی همان چیزی است که پیش از چندزبانی‌شدن نمایش داده می‌شد.
+    expect(buckets.map((bucket) => translate('fa', bucket.labelKey))).toEqual([
       'سررسید نشده',
       '۱ تا ۳۰ روز',
       '۳۱ تا ۶۰ روز',
@@ -279,7 +287,14 @@ describe('انطباق چیدمان داشبورد با مرجع', () => {
   const data = src('pages/dashboardData.ts')
 
   it('چ۱ — ترتیب بخش‌ها همان ترتیب مرجع است', () => {
-    const order = ['<FilterBar', 'شاخص‌های کلیدی', 'روند فروش و خرید', '<AgingPanel', '<TopParties']
+    // پس از چندزبانی‌شدن، نشانه‌ها کلید ترجمه‌اند نه متن فارسی.
+    const order = [
+      '<FilterBar',
+      "t('dashboard.kpi')",
+      "t('dashboard.trendTitle')",
+      '<AgingPanel',
+      '<TopParties',
+    ]
     let cursor = -1
     for (const marker of order) {
       const index = dashboard.indexOf(marker)
@@ -298,7 +313,8 @@ describe('انطباق چیدمان داشبورد با مرجع', () => {
     const defs = dashboard.slice(dashboard.indexOf('const KPI_DEFS'), dashboard.indexOf('const AXIS'))
     expect(defs.match(/periodic: true/g)?.length).toBe(4)
     expect(defs.match(/periodic: false/g)?.length).toBe(4)
-    expect(dashboard).toContain('مانده در لحظه — مستقل از بازه')
+    expect(dashboard).toContain("t('dashboard.liveBalance')")
+    expect(translate('fa', 'dashboard.liveBalance')).toBe('مانده در لحظه — مستقل از بازه')
   })
 
   it('چ۴ — اجزای بصری مرجع (اسپارک‌لاین، نشان روند، اسکلت) استفاده شده‌اند', () => {

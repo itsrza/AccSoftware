@@ -5,11 +5,11 @@ import { Popover, Select } from './ui'
 import {
   PRESETS,
   parseJalali,
-  rangeLabel,
   resolveRange,
   type JalaliRange,
   type PresetId,
 } from '../lib/dateRange'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 
 /**
  * نوار فیلتر سراسری — منطبق با سیستم طراحی مرجع.
@@ -42,7 +42,7 @@ export function FilterBar({
   filters = [],
   search,
   onSearch,
-  searchPlaceholder = 'جستجو…',
+  searchPlaceholder,
   onReset,
   isDefault,
   note,
@@ -62,6 +62,11 @@ export function FilterBar({
   /** توضیح کوتاه سمت چپ، مثلاً تعداد رکورد یافت‌شده. */
   note?: string
 }) {
+  const { t } = useI18n()
+  /** برچسب هر پیش‌تنظیم از همان شناسه‌اش مشتق می‌شود، پس افزودن زبان تازه
+   * فهرست پیش‌تنظیم‌ها را دست‌نخورده می‌گذارد. */
+  const presetLabel = (id: string) => t(`filter.preset.${id}` as TranslationKey)
+  const placeholder = searchPlaceholder ?? t('filter.searchDefault')
   const [customFrom, setCustomFrom] = useState(range.from)
   const [customTo, setCustomTo] = useState(range.to)
   const [customError, setCustomError] = useState('')
@@ -76,11 +81,11 @@ export function FilterBar({
     const from = parseJalali(customFrom)
     const to = parseJalali(customTo)
     if (!from || !to) {
-      setCustomError('تاریخ باید به قالب ۱۴۰۵/۰۱/۰۱ باشد.')
+      setCustomError(t('filter.errFormat'))
       return
     }
     if (customFrom > customTo) {
-      setCustomError('تاریخ شروع نمی‌تواند بعد از پایان باشد.')
+      setCustomError(t('filter.errOrder'))
       return
     }
     setCustomError('')
@@ -90,14 +95,14 @@ export function FilterBar({
 
   return (
     <section
-      aria-label="فیلترهای سراسری"
+      aria-label={t('filter.globalFilters')}
       className="fade-up rounded-[var(--radius)] border border-border bg-card p-3 shadow-[var(--shadow-sm)] sm:p-4"
     >
       {/* --- پیش‌تنظیم‌های تاریخ --- */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-bold text-muted">
           <CalendarRange className="size-4 text-accent" aria-hidden />
-          بازه زمانی:
+          {t('filter.label')}
         </span>
 
         {PRESETS.map((preset) => (
@@ -119,12 +124,12 @@ export function FilterBar({
                 : 'border-border bg-card text-muted hover:border-border-strong hover:text-text',
             )}
           >
-            {preset.label}
+            {presetLabel(preset.id)}
           </button>
         ))}
 
         <Popover
-          label="بازه سفارشی"
+          label={t('filter.custom')}
           width="w-72"
           align="end"
           trigger={() => (
@@ -136,16 +141,16 @@ export function FilterBar({
                   : 'border-border bg-card text-muted hover:border-border-strong hover:text-text',
               )}
             >
-              بازه سفارشی
+              {t('filter.custom')}
             </span>
           )}
         >
           {(close) => (
-            <div className="p-2" dir="rtl">
-              <p className="pb-2 text-[11px] font-bold text-text">انتخاب بازه دلخواه (شمسی)</p>
+            <div className="p-2">
+              <p className="pb-2 text-[11px] font-bold text-text">{t('filter.pickCustom')}</p>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="mb-1 block text-[10px] text-muted">از تاریخ</span>
+                  <span className="mb-1 block text-[10px] text-muted">{t('filter.from')}</span>
                   <input
                     value={customFrom}
                     onChange={(event) => setCustomFrom(event.target.value)}
@@ -155,7 +160,7 @@ export function FilterBar({
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10px] text-muted">تا تاریخ</span>
+                  <span className="mb-1 block text-[10px] text-muted">{t('filter.to')}</span>
                   <input
                     value={customTo}
                     onChange={(event) => setCustomTo(event.target.value)}
@@ -173,7 +178,7 @@ export function FilterBar({
                 className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-2 text-xs font-bold text-[var(--on-primary)] transition-transform hover:scale-[1.01] active:scale-95"
               >
                 <Check className="size-3.5" aria-hidden />
-                اعمال بازه
+                {t('filter.applyRange')}
               </button>
             </div>
           )}
@@ -201,7 +206,7 @@ export function FilterBar({
 
         {onSearch && (
           <label className="relative block min-w-0 xl:w-56">
-            <span className="sr-only">{searchPlaceholder}</span>
+            <span className="sr-only">{placeholder}</span>
             <Search
               className="pointer-events-none absolute top-1/2 start-3 size-3.5 -translate-y-1/2 text-faint"
               aria-hidden
@@ -209,7 +214,7 @@ export function FilterBar({
             <input
               value={search ?? ''}
               onChange={(event) => onSearch(event.target.value)}
-              placeholder={searchPlaceholder}
+              placeholder={placeholder}
               className="h-[38px] w-full rounded-xl border border-border bg-card ps-9 pe-3 text-[12.5px] text-text outline-none transition-colors hover:border-border-strong focus:border-accent"
             />
           </label>
@@ -217,7 +222,7 @@ export function FilterBar({
 
         <div className="flex items-center justify-between gap-2 xl:ms-auto xl:w-auto">
           <p className="text-[10.5px] text-faint">
-            {rangeLabel(range)} · {range.from} تا {range.to}
+            {presetLabel(range.preset)} · {range.from} {t('filter.rangeJoin')} {range.to}
             {note ? ` · ${note}` : ''}
           </p>
           <button
@@ -231,7 +236,7 @@ export function FilterBar({
             )}
           >
             <RotateCcw className="size-3.5" aria-hidden />
-            بازنشانی
+            {t('common.reset')}
           </button>
         </div>
       </div>

@@ -34,112 +34,99 @@ import {Sidebar, ICONS, type NavGroup, type NavItem} from './components/Sidebar'
 import {Topbar, type NotificationItem, type SearchHit} from './components/Topbar'
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
+import {useI18n, type TranslationKey} from './lib/i18n'
+import {formatCount} from './lib/format'
 // styles.css و theme.css از داخل design-system.css و در لایه‌ی `legacy`
 // بارگذاری می‌شوند تا کلاس‌های تِیلویند بتوانند بر آن‌ها مقدم شوند.
 
 /** یک آیتم منو؛ `page` صفحه‌ای است که با کلیک روی خود آیتم باز می‌شود. */
 type MenuItem = {
   id: string
-  label: string
+  /** کلید ترجمه‌ی عنوان — متن هرگز مستقیم در ساختار منو نوشته نمی‌شود. */
+  labelKey: TranslationKey
   icon: string
   /** صفحه‌ی پیش‌فرض هنگام کلیک روی عنوان (نه فلش) */
   page: string
-  children?: {label: string; page: string}[]
+  /** زیرمنوها فقط شناسه‌ی صفحه‌اند؛ عنوانشان از `page.<id>` می‌آید. */
+  children?: string[]
 }
 
 /** گروه‌بندی منو مطابق ساختار منوی نرم‌افزار فعلی نوین پرداز. */
-const MENU: {title: string; items: MenuItem[]}[] = [
+const MENU: {id: string; titleKey: TranslationKey; items: MenuItem[]}[] = [
   {
-    title: 'اصلی',
-    items: [{id: 'dashboard', label: 'داشبورد', icon: 'grid', page: 'dashboard'}],
+    id: 'main',
+    titleKey: 'nav.group.main',
+    items: [{id: 'dashboard', labelKey: 'page.dashboard', icon: 'grid', page: 'dashboard'}],
   },
   {
-    title: 'عملیات',
+    id: 'operations',
+    titleKey: 'nav.group.operations',
     items: [
       {
         id: 'sales',
-        label: 'فروش',
+        labelKey: 'nav.sales',
         icon: 'receipt',
         page: 'invoice-form',
-        children: [
-          {label: 'صدور فاکتور فروش', page: 'invoice-form'},
-          {label: 'فاکتورهای فروش', page: 'sales'},
-          {label: 'برگشت از فروش', page: 'sales-return'},
-          {label: 'پیش‌فاکتورها', page: 'proforma'},
-        ],
+        children: ['invoice-form', 'sales', 'sales-return', 'proforma'],
       },
       {
         id: 'purchase',
-        label: 'خرید',
+        labelKey: 'nav.purchase',
         icon: 'cart',
         page: 'purchase',
-        children: [
-          {label: 'فاکتورهای خرید', page: 'purchase'},
-          {label: 'برگشت از خرید', page: 'purchase-return'},
-          {label: 'سفارش خرید', page: 'purchase-order'},
-        ],
+        children: ['purchase', 'purchase-return', 'purchase-order'],
       },
       {
         id: 'inventory',
-        label: 'انبار و کالا',
+        labelKey: 'nav.inventory',
         icon: 'package',
         page: 'inventory',
         children: [
-          {label: 'کالاها', page: 'products'},
-          {label: 'قیمت کالاها', page: 'product-pricing'},
-          {label: 'موجودی انبار', page: 'inventory'},
-          {label: 'انتقال بین انبارها', page: 'inventory-transfer'},
-          {label: 'انبارگردانی', page: 'inventory-count'},
-          {label: 'تولید', page: 'production'},
+          'products',
+          'product-pricing',
+          'inventory',
+          'inventory-transfer',
+          'inventory-count',
+          'production',
         ],
       },
       {
         id: 'treasury',
-        label: 'خزانه',
+        labelKey: 'nav.treasury',
         icon: 'wallet',
         page: 'treasury-document',
-        children: [
-          {label: 'سند دریافت و پرداخت', page: 'treasury-document'},
-          {label: 'گردش خزانه', page: 'treasury'},
-          {label: 'بانک‌ها', page: 'banks'},
-          {label: 'صندوق‌ها', page: 'cashboxes'},
-        ],
+        children: ['treasury-document', 'treasury', 'banks', 'cashboxes'],
       },
-      {id: 'checks', label: 'چک‌ها', icon: 'check', page: 'checks'},
+      {id: 'checks', labelKey: 'nav.checks', icon: 'check', page: 'checks'},
     ],
   },
   {
-    title: 'حسابداری',
+    id: 'accounting',
+    titleKey: 'nav.group.accounting',
     items: [
       {
         id: 'accounting',
-        label: 'اسناد حسابداری',
+        labelKey: 'nav.journals',
         icon: 'file',
         page: 'accounting',
-        children: [
-          {label: 'سند یک‌سطری', page: 'single-journal'},
-          {label: 'اسناد حسابداری', page: 'accounting'},
-          {label: 'کدینگ حساب‌ها', page: 'chart-of-accounts'},
-        ],
+        children: ['single-journal', 'accounting', 'chart-of-accounts'],
       },
-      {id: 'parties', label: 'اشخاص', icon: 'users', page: 'parties'},
+      {id: 'parties', labelKey: 'nav.parties', icon: 'users', page: 'parties'},
     ],
   },
   {
-    title: 'گزارش و ابزار',
+    id: 'tools',
+    titleKey: 'nav.group.reports',
     items: [
       {
         id: 'reports',
-        label: 'گزارشات',
+        labelKey: 'nav.reports',
         icon: 'bar',
         page: 'reports',
-        children: [
-          {label: 'مرکز گزارشات', page: 'reports'},
-          {label: 'گزارش‌ساز', page: 'report-builder'},
-        ],
+        children: ['reports', 'report-builder'],
       },
-      {id: 'data-tools', label: 'ورود و خروج اطلاعات', icon: 'upload', page: 'data-tools'},
-      {id: 'settings', label: 'مرکز تنظیمات', icon: 'settings', page: '__settings'},
+      {id: 'data-tools', labelKey: 'page.data-tools', icon: 'upload', page: 'data-tools'},
+      {id: 'settings', labelKey: 'page.settings', icon: 'settings', page: '__settings'},
     ],
   },
 ]
@@ -151,45 +138,19 @@ const MENU: {title: string; items: MenuItem[]}[] = [
  * می‌راند. حالا از «مرکز تنظیمات ← ابزارهای پیشرفته» و از پالت فرمان
  * (Ctrl+K) در دسترس‌اند. */
 
-const PAGE_TITLES: Record<string, string> = {
-  dashboard: 'داشبورد',
-  'invoice-form': 'صدور فاکتور فروش',
-  sales: 'فاکتورهای فروش',
-  production: 'تولید',
-  'sales-return': 'برگشت از فروش',
-  proforma: 'پیش‌فاکتورها',
-  purchase: 'فاکتورهای خرید',
-  'purchase-return': 'برگشت از خرید',
-  'purchase-order': 'سفارش خرید',
-  products: 'کالاها',
-  'product-pricing': 'قیمت کالاها',
-  inventory: 'موجودی انبار',
-  'inventory-transfer': 'انتقال بین انبارها',
-  'inventory-count': 'انبارگردانی',
-  'treasury-document': 'سند دریافت و پرداخت',
-  treasury: 'گردش خزانه',
-  banks: 'بانک‌ها',
-  cashboxes: 'صندوق‌ها',
-  checks: 'چک‌ها',
-  accounting: 'اسناد حسابداری',
-  'single-journal': 'سند یک‌سطری',
-  'chart-of-accounts': 'کدینگ حساب‌ها',
-  parties: 'اشخاص',
-  reports: 'مرکز گزارشات',
-  'report-builder': 'گزارش‌ساز',
-  'data-tools': 'ورود و خروج اطلاعات',
-  'print-templates': 'قالب‌های چاپ',
-  integrations: 'اتصالات و افزونه‌ها',
+/** عنوان صفحه از کلید `page.<id>` می‌آید؛ فهرست جداگانه‌ای لازم نیست. */
+function pageTitleKey(page: string): TranslationKey {
+  return (page === '__settings' ? 'page.settings' : `page.${page}`) as TranslationKey
 }
 
-/** عملیات سریع دکمه‌ی شناور — در تنظیمات قابل تغییر خواهد بود. */
-const QUICK_ACTIONS = [
-  {page: 'invoice-form', label: 'ثبت فاکتور فروش', icon: 'receipt'},
-  {page: 'purchase', label: 'ثبت فاکتور خرید', icon: 'cart'},
-  {page: 'products', label: 'ثبت کالای جدید', icon: 'package'},
-  {page: 'parties', label: 'ثبت شخص جدید', icon: 'users'},
-  {page: 'single-journal', label: 'ثبت سند حسابداری', icon: 'file'},
-  {page: 'treasury-document', label: 'ثبت سند دریافت', icon: 'wallet'},
+/** عملیات سریع دکمه‌ی شناور. */
+const QUICK_ACTIONS: {page: string; labelKey: TranslationKey; icon: string}[] = [
+  {page: 'invoice-form', labelKey: 'fab.newSalesInvoice', icon: 'receipt'},
+  {page: 'purchase', labelKey: 'fab.newPurchaseInvoice', icon: 'cart'},
+  {page: 'products', labelKey: 'fab.newProduct', icon: 'package'},
+  {page: 'parties', labelKey: 'fab.newParty', icon: 'users'},
+  {page: 'single-journal', labelKey: 'fab.newJournal', icon: 'file'},
+  {page: 'treasury-document', labelKey: 'fab.newReceipt', icon: 'wallet'},
 ]
 
 /** بستن منوی بازشو با کلیک بیرون از آن. */
@@ -206,6 +167,7 @@ function useOutsideClose(onClose: () => void) {
 }
 
 export default function App() {
+  const {t, dir, locale, setLocale} = useI18n()
   const [page, setPage] = useState('dashboard')
   // همه‌ی منوها هنگام باز شدن برنامه بسته‌اند.
   const [expanded, setExpanded] = useState<string[]>([])
@@ -270,6 +232,11 @@ export default function App() {
         setAvatar(list.find((item) => item.key === 'user.avatar')?.value ?? '')
         const stored = list.find((item) => item.key === 'appearance.dark_mode')
         if (stored?.is_customized) setDark(stored.value === 'true')
+        // زبان ذخیره‌شده در پایگاه داده بر انتخاب موقتِ همین مرورگر مقدم است،
+        // چون روی همه‌ی دستگاه‌های همان نصب اعمال می‌شود.
+        const language = list.find((item) => item.key === 'appearance.language')
+        if (language?.is_customized && language.value !== locale)
+          setLocale(language.value as typeof locale)
       })
       .catch(() => {
         /* نبود تنظیمات نباید پوسته را از کار بیندازد */
@@ -277,6 +244,10 @@ export default function App() {
     return () => {
       alive = false
     }
+    // `locale` عمداً در وابستگی‌ها نیست: این اثر فقط یک بار هنگام بالا آمدن
+    // برنامه، زبانِ ذخیره‌شده را می‌خواند و نباید با تغییر دستی زبان دوباره
+    // اجرا شود و انتخاب کاربر را برگرداند.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booting, bootError])
 
   // جستجوی سراسری و اعلان‌ها روی داده‌ی واقعی کار می‌کنند، نه فهرست ثابت.
@@ -366,19 +337,19 @@ export default function App() {
 
   if (booting) {
     return (
-      <div className="boot-screen" dir="rtl">
+      <div className="boot-screen" dir={dir}>
         <div className="boot-card">
-          <strong>حسابداری نوین پرداز</strong>
-          <span>در حال آماده‌سازی…</span>
+          <strong>{t('app.name')}</strong>
+          <span>{t('app.booting')}</span>
         </div>
       </div>
     )
   }
   if (bootError) {
     return (
-      <div className="boot-screen" dir="rtl">
+      <div className="boot-screen" dir={dir}>
         <div className="boot-card error">
-          <strong>اجرای برنامه انجام نشد</strong>
+          <strong>{t('app.bootFailed')}</strong>
           <span>{bootError}</span>
         </div>
       </div>
@@ -449,16 +420,22 @@ export default function App() {
     const hits: SearchHit[] = []
     for (const party of directory.parties) {
       if (hits.length >= 12) break
-      if (party.name.includes(query)) hits.push({title: party.name, meta: 'شخص', page: 'parties'})
+      if (party.name.includes(query))
+        hits.push({title: party.name, meta: t('search.party'), page: 'parties'})
     }
     for (const product of directory.products) {
       if (hits.length >= 12) break
-      if (product.name.includes(query)) hits.push({title: product.name, meta: 'کالا', page: 'products'})
+      if (product.name.includes(query))
+        hits.push({title: product.name, meta: t('search.product'), page: 'products'})
     }
     for (const check of directory.checks) {
       if (hits.length >= 12) break
       if (check.number.includes(query))
-        hits.push({title: `چک ${check.number}`, meta: `سررسید ${check.due}`, page: 'checks'})
+        hits.push({
+          title: t('search.check', {number: check.number}),
+          meta: t('search.dueDate', {date: check.due}),
+          page: 'checks',
+        })
     }
     return hits
   }
@@ -470,8 +447,8 @@ export default function App() {
   if (directory.overdueChecks > 0) {
     notifications.push({
       id: 'overdue-checks',
-      title: `${directory.overdueChecks.toLocaleString('fa-IR')} چک سررسید گذشته`,
-      meta: 'هنوز تعیین تکلیف نشده‌اند — وصول یا برگشت را ثبت کنید.',
+      title: t('alert.overdueChecks', {count: formatCount(directory.overdueChecks)}),
+      meta: t('alert.overdueChecksHint'),
       tone: 'danger',
       page: 'checks',
     })
@@ -479,43 +456,44 @@ export default function App() {
   if (directory.dueSoonChecks > 0) {
     notifications.push({
       id: 'due-soon-checks',
-      title: `${directory.dueSoonChecks.toLocaleString('fa-IR')} چک نزدیک سررسید`,
-      meta: 'بازه‌ی هشدار در مرکز تنظیمات قابل تغییر است.',
+      title: t('alert.dueSoonChecks', {count: formatCount(directory.dueSoonChecks)}),
+      meta: t('alert.dueSoonChecksHint'),
       tone: 'warning',
       page: 'checks',
     })
   }
 
   // ---- گروه‌بندی منو برای اجزای تازه ----
-  const navGroups: NavGroup[] = MENU.filter((group) => group.title !== 'گزارش و ابزار').map(
-    (group) => ({
-      title: group.title,
-      items: group.items.map((item) => ({
-        id: item.id,
-        label: item.label,
-        icon: ICONS[item.icon] ?? ICONS.file,
-        page: item.page,
-        children: item.children,
-        badge: item.id === 'checks' ? checkAlerts : undefined,
-      })),
-    }),
-  )
-  const bottomNav: NavItem[] = (MENU.find((group) => group.title === 'گزارش و ابزار')?.items ?? []).map(
-    (item) => ({
+  const childItems = (pages: string[] | undefined) =>
+    pages?.map((child) => ({label: t(pageTitleKey(child)), page: child}))
+  const navGroups: NavGroup[] = MENU.filter((group) => group.id !== 'tools').map((group) => ({
+    title: t(group.titleKey),
+    items: group.items.map((item) => ({
       id: item.id,
-      label: item.label,
+      label: t(item.labelKey),
       icon: ICONS[item.icon] ?? ICONS.file,
       page: item.page,
-      children: item.children,
+      children: childItems(item.children),
+      badge: item.id === 'checks' ? checkAlerts : undefined,
+    })),
+  }))
+  const bottomNav: NavItem[] = (MENU.find((group) => group.id === 'tools')?.items ?? []).map(
+    (item) => ({
+      id: item.id,
+      label: t(item.labelKey),
+      icon: ICONS[item.icon] ?? ICONS.file,
+      page: item.page,
+      children: childItems(item.children),
     }),
   )
 
-  const breadcrumb =
-    MENU.find((group) => group.items.some((item) => item.page === page || item.children?.some((child) => child.page === page)))
-      ?.title ?? 'نوین پرداز'
+  const breadcrumbGroup = MENU.find((group) =>
+    group.items.some((item) => item.page === page || item.children?.includes(page)),
+  )
+  const breadcrumb = breadcrumbGroup ? t(breadcrumbGroup.titleKey) : t('app.name')
 
   return (
-    <div className="min-h-screen" dir="rtl">
+    <div className="min-h-screen" dir={dir}>
       <Sidebar
         groups={navGroups}
         bottom={bottomNav}
@@ -525,10 +503,10 @@ export default function App() {
         toggleCollapsed={() => setCollapsed((value) => !value)}
         mobileOpen={mobileNav}
         setMobileOpen={setMobileNav}
-        companyName="شرکت نوین پرداز"
-        fiscalYear="۱۴۰۵"
-        userName="مدیر سیستم"
-        userRole="دسترسی کامل"
+        companyName={t('app.company')}
+        fiscalYear={formatCount(1405)}
+        userName={t('app.systemAdmin')}
+        userRole={t('app.fullAccess')}
         avatar={avatar}
         onOpenSettings={() => setSettings(true)}
       />
@@ -540,7 +518,7 @@ export default function App() {
         )}
       >
         <Topbar
-          title={PAGE_TITLES[page] ?? 'نوین پرداز'}
+          title={t(pageTitleKey(page))}
           breadcrumb={breadcrumb}
           dark={dark}
           setDark={setDark}
@@ -550,8 +528,8 @@ export default function App() {
           search={globalSearch}
           navigate={go}
           notifications={notifications}
-          userName="مدیر سیستم"
-          userRole="دسترسی کامل"
+          userName={t('app.systemAdmin')}
+          userRole={t('app.fullAccess')}
           avatar={avatar}
         />
 
@@ -564,20 +542,20 @@ export default function App() {
       <div className="fixed bottom-6 end-6 z-40" ref={fabRef}>
         {openMenu === 'fab' && (
           <div className="fade-up mb-3 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
-            <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">افزودن سریع</p>
+            <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">{t('fab.quickAdd')}</p>
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.page}
                 onClick={() => go(action.page)}
                 className="block w-full rounded-lg px-2.5 py-2 text-start text-xs text-muted transition-colors hover:bg-bg-soft hover:text-text"
               >
-                {action.label}
+                {t(action.labelKey)}
               </button>
             ))}
           </div>
         )}
         <button
-          aria-label="افزودن سریع"
+          aria-label={t('fab.quickAdd')}
           onClick={() => setOpenMenu(openMenu === 'fab' ? '' : 'fab')}
           className={cn(
             'fab-pulse grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] text-[#21254E] transition-transform hover:scale-105 active:scale-95',
@@ -591,7 +569,7 @@ export default function App() {
             className="mt-3 block w-full rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-[11px] font-semibold text-danger transition-colors hover:bg-card"
             disabled={demoBusy}
             onClick={async () => {
-              if (!confirm('تمام داده‌های نمونه حذف می‌شوند. ادامه می‌دهید؟')) return
+              if (!confirm(t('demo.deleteConfirm'))) return
               setDemoBusy(true)
               try {
                 await deleteDemo()
@@ -601,7 +579,7 @@ export default function App() {
               }
             }}
           >
-            {demoBusy ? 'در حال حذف…' : 'حذف داده‌ی نمونه'}
+            {demoBusy ? t('demo.deleting') : t('demo.delete')}
           </button>
         )}
       </div>

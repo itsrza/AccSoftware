@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Select } from '../components/Select'
 import { CommandPalette } from '../components/CommandPalette'
+import { fa as faDictionary } from '../lib/i18n'
 
 const src = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf8')
 
@@ -293,7 +294,7 @@ describe('ناوبری', () => {
   const app = src('App.tsx')
 
   it('ن۱ — قالب‌های چاپ و اتصالات از منوی کناری حذف شده‌اند', () => {
-    const menu = app.slice(app.indexOf('const MENU'), app.indexOf('const PAGE_TITLES'))
+    const menu = app.slice(app.indexOf('const MENU'), app.indexOf('function pageTitleKey'))
     expect(menu).not.toContain("page: 'print-templates'")
     expect(menu).not.toContain("page: 'integrations'")
   })
@@ -301,7 +302,9 @@ describe('ناوبری', () => {
   it('ن۲ — اما هر دو صفحه هنوز مسیر و عنوان دارند', () => {
     expect(app).toContain("case 'print-templates'")
     expect(app).toContain("case 'integrations'")
-    expect(app).toContain("'print-templates': 'قالب‌های چاپ'")
+    // عنوان صفحه از دیکشنری می‌آید، نه از فهرست ثابت داخل App.
+    expect(faDictionary['page.print-templates']).toBe('قالب‌های چاپ')
+    expect(faDictionary['page.integrations']).toBe('اتصالات و افزونه‌ها')
   })
 
   it('ن۳ — مرکز تنظیمات به آن دو صفحه پل می‌زند', () => {

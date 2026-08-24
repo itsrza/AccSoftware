@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react'
 import {Icon} from './Icon'
+import {useI18n, type TranslationKey} from '../lib/i18n'
 
 /**
  * پالت فرمان (Ctrl+K).
@@ -8,38 +9,41 @@ import {Icon} from './Icon'
  * شناسه‌های ناموجود («contacts») داشت و کاربر را به صفحه‌ی پیش‌فرض می‌برد.
  * ابزارهایی که از منوی کناری برداشته شده‌اند (قالب چاپ، اتصالات) اینجا
  * قابل دسترس‌اند.
+ *
+ * عنوان هر مورد از کلید `page.<id>` می‌آید، پس با تغییر زبان برنامه،
+ * پالت هم ترجمه می‌شود و جستجو روی متن همان زبان کار می‌کند.
  */
-type Item = {id: string; label: string; group: string; icon: string; keywords?: string}
+type Item = {id: string; group: TranslationKey; icon: string; keywords?: string}
 
 const ITEMS: Item[] = [
-  {id: 'dashboard', label: 'داشبورد', group: 'ناوبری', icon: 'grid'},
-  {id: 'invoice-form', label: 'صدور فاکتور فروش', group: 'فروش', icon: 'receipt', keywords: 'فاکتور جدید'},
-  {id: 'sales', label: 'فاکتورهای فروش', group: 'فروش', icon: 'receipt'},
-  {id: 'sales-return', label: 'برگشت از فروش', group: 'فروش', icon: 'receipt'},
-  {id: 'proforma', label: 'پیش‌فاکتورها', group: 'فروش', icon: 'file'},
-  {id: 'purchase', label: 'فاکتورهای خرید', group: 'خرید', icon: 'cart'},
-  {id: 'purchase-return', label: 'برگشت از خرید', group: 'خرید', icon: 'cart'},
-  {id: 'purchase-order', label: 'سفارش خرید', group: 'خرید', icon: 'cart'},
-  {id: 'products', label: 'کالاها', group: 'انبار', icon: 'package'},
-  {id: 'product-pricing', label: 'قیمت کالاها', group: 'انبار', icon: 'package'},
-  {id: 'inventory', label: 'موجودی انبار', group: 'انبار', icon: 'package'},
-  {id: 'inventory-transfer', label: 'انتقال بین انبارها', group: 'انبار', icon: 'package'},
-  {id: 'inventory-count', label: 'انبارگردانی', group: 'انبار', icon: 'package'},
-  {id: 'production', label: 'تولید', group: 'انبار', icon: 'package'},
-  {id: 'treasury-document', label: 'سند دریافت و پرداخت', group: 'خزانه', icon: 'wallet'},
-  {id: 'treasury', label: 'گردش خزانه', group: 'خزانه', icon: 'wallet'},
-  {id: 'banks', label: 'بانک‌ها', group: 'خزانه', icon: 'wallet'},
-  {id: 'cashboxes', label: 'صندوق‌ها', group: 'خزانه', icon: 'wallet'},
-  {id: 'checks', label: 'چک‌ها', group: 'خزانه', icon: 'check'},
-  {id: 'single-journal', label: 'سند یک‌سطری', group: 'حسابداری', icon: 'file'},
-  {id: 'accounting', label: 'اسناد حسابداری', group: 'حسابداری', icon: 'file'},
-  {id: 'chart-of-accounts', label: 'کدینگ حساب‌ها', group: 'حسابداری', icon: 'file'},
-  {id: 'parties', label: 'اشخاص', group: 'حسابداری', icon: 'users', keywords: 'مشتری تأمین‌کننده'},
-  {id: 'reports', label: 'مرکز گزارشات', group: 'گزارش', icon: 'bar'},
-  {id: 'report-builder', label: 'گزارش‌ساز', group: 'گزارش', icon: 'bar'},
-  {id: 'data-tools', label: 'ورود و خروج اطلاعات', group: 'ابزار', icon: 'upload', keywords: 'csv اکسل'},
-  {id: 'print-templates', label: 'قالب‌های چاپ', group: 'ابزار', icon: 'print'},
-  {id: 'integrations', label: 'اتصالات و افزونه‌ها', group: 'ابزار', icon: 'plug', keywords: 'api افزونه'},
+  {id: 'dashboard', group: 'palette.group.navigation', icon: 'grid'},
+  {id: 'invoice-form', group: 'palette.group.sales', icon: 'receipt', keywords: 'فاکتور جدید new invoice فاتورة'},
+  {id: 'sales', group: 'palette.group.sales', icon: 'receipt'},
+  {id: 'sales-return', group: 'palette.group.sales', icon: 'receipt'},
+  {id: 'proforma', group: 'palette.group.sales', icon: 'file'},
+  {id: 'purchase', group: 'palette.group.purchase', icon: 'cart'},
+  {id: 'purchase-return', group: 'palette.group.purchase', icon: 'cart'},
+  {id: 'purchase-order', group: 'palette.group.purchase', icon: 'cart'},
+  {id: 'products', group: 'palette.group.inventory', icon: 'package'},
+  {id: 'product-pricing', group: 'palette.group.inventory', icon: 'package'},
+  {id: 'inventory', group: 'palette.group.inventory', icon: 'package'},
+  {id: 'inventory-transfer', group: 'palette.group.inventory', icon: 'package'},
+  {id: 'inventory-count', group: 'palette.group.inventory', icon: 'package'},
+  {id: 'production', group: 'palette.group.inventory', icon: 'package'},
+  {id: 'treasury-document', group: 'palette.group.treasury', icon: 'wallet'},
+  {id: 'treasury', group: 'palette.group.treasury', icon: 'wallet'},
+  {id: 'banks', group: 'palette.group.treasury', icon: 'wallet'},
+  {id: 'cashboxes', group: 'palette.group.treasury', icon: 'wallet'},
+  {id: 'checks', group: 'palette.group.treasury', icon: 'check'},
+  {id: 'single-journal', group: 'palette.group.accounting', icon: 'file'},
+  {id: 'accounting', group: 'palette.group.accounting', icon: 'file'},
+  {id: 'chart-of-accounts', group: 'palette.group.accounting', icon: 'file'},
+  {id: 'parties', group: 'palette.group.accounting', icon: 'users', keywords: 'مشتری تأمین‌کننده customer supplier عميل مورد'},
+  {id: 'reports', group: 'palette.group.reports', icon: 'bar'},
+  {id: 'report-builder', group: 'palette.group.reports', icon: 'bar'},
+  {id: 'data-tools', group: 'palette.group.tools', icon: 'upload', keywords: 'csv اکسل excel'},
+  {id: 'print-templates', group: 'palette.group.tools', icon: 'print'},
+  {id: 'integrations', group: 'palette.group.tools', icon: 'plug', keywords: 'api افزونه add-on إضافة'},
 ]
 
 export function CommandPalette({
@@ -51,20 +55,32 @@ export function CommandPalette({
   onClose: () => void
   onSelect: (id: string) => void
 }) {
+  const {t} = useI18n()
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
+  /** عنوان و گروه به زبان فعال، تا جستجو روی همان متنی کار کند که کاربر می‌بیند. */
+  const rows = useMemo(
+    () =>
+      ITEMS.map((item) => ({
+        ...item,
+        label: t(`page.${item.id}` as TranslationKey),
+        groupLabel: t(item.group),
+      })),
+    [t],
+  )
+
   const filtered = useMemo(() => {
-    const needle = q.trim()
-    if (!needle) return ITEMS
-    return ITEMS.filter(
+    const needle = q.trim().toLowerCase()
+    if (!needle) return rows
+    return rows.filter(
       (item) =>
-        item.label.includes(needle) ||
-        item.group.includes(needle) ||
-        (item.keywords ?? '').includes(needle),
+        item.label.toLowerCase().includes(needle) ||
+        item.groupLabel.toLowerCase().includes(needle) ||
+        (item.keywords ?? '').toLowerCase().includes(needle),
     )
-  }, [q])
+  }, [q, rows])
 
   useEffect(() => {
     if (!open) return
@@ -111,8 +127,8 @@ export function CommandPalette({
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="دستور یا صفحه را جستجو کنید…"
-            aria-label="جستجوی فرمان"
+            placeholder={t('palette.placeholder')}
+            aria-label={t('palette.aria')}
           />
           <kbd>ESC</kbd>
         </div>
@@ -132,20 +148,20 @@ export function CommandPalette({
             >
               <Icon name={item.icon as never} />
               <span>{item.label}</span>
-              <small>{item.group}</small>
+              <small>{item.groupLabel}</small>
               <Icon name="chevron" size={14} />
             </button>
           ))}
           {!filtered.length && (
             <div className="empty-state">
-              <p>نتیجه‌ای پیدا نشد.</p>
+              <p>{t('common.noResult')}</p>
             </div>
           )}
         </div>
         <div className="command-foot">
-          <span>Enter انتخاب</span>
-          <span>↑ ↓ حرکت</span>
-          <span>Esc بستن</span>
+          <span>{t('palette.enter')}</span>
+          <span>{t('palette.move')}</span>
+          <span>{t('palette.escape')}</span>
         </div>
       </div>
     </div>

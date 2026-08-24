@@ -27,7 +27,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { errorText } from '../lib/errors'
-import { formatRials as money, formatNumber } from '../lib/format'
+import { formatRials as money, formatNumber, percentSign, rialUnit } from '../lib/format'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import { Badge, Card, CardHeader, EmptyState, ErrorState, Skeleton, TrendChip } from '../components/ui'
 import { FilterBar } from '../components/FilterBar'
 import { AgingPanel, TopParties } from '../components/DashboardPanels'
@@ -56,30 +57,33 @@ import { resolveRange, type JalaliRange } from '../lib/dateRange'
 
 type KpiDef = {
   key: string
-  label: string
+  labelKey: TranslationKey
   icon: LucideIcon
   tone: string
-  unit: string
+  /** `rial` یعنی مبلغ ریالی و `count` یعنی تعداد سند. */
+  unit: 'rial' | 'count'
   /** آیا این شاخص به بازه‌ی انتخابی وابسته است؟ */
   periodic: boolean
+  /** شاخص شمارشی (تعداد فاکتور) با مبلغ ریالی یکی نیست. */
+  counter?: boolean
   /** برای مطالبات و بدهی‌ها، رشد خبر بدی است. */
   invert?: boolean
 }
 
 const KPI_DEFS: KpiDef[] = [
-  { key: 'sales', label: 'فروش دوره', icon: TrendingUp, tone: 'var(--chart-1)', unit: 'ریال', periodic: true },
-  { key: 'purchases', label: 'خرید دوره', icon: CreditCard, tone: 'var(--chart-6)', unit: 'ریال', periodic: true },
-  { key: 'vat', label: 'ارزش افزوده دوره', icon: Receipt, tone: 'var(--chart-4)', unit: 'ریال', periodic: true },
-  { key: 'invoices', label: 'فاکتور فروش', icon: HandCoins, tone: 'var(--chart-5)', unit: 'فقره', periodic: true },
-  { key: 'receivables', label: 'مطالبات', icon: Clock4, tone: 'var(--chart-2)', unit: 'ریال', periodic: false, invert: true },
-  { key: 'payables', label: 'بدهی‌ها', icon: AlertCircle, tone: 'var(--chart-3)', unit: 'ریال', periodic: false, invert: true },
-  { key: 'cash', label: 'موجودی نقد و بانک', icon: Wallet, tone: 'var(--chart-5)', unit: 'ریال', periodic: false },
-  { key: 'inventory', label: 'ارزش موجودی کالا', icon: Package, tone: 'var(--chart-2)', unit: 'ریال', periodic: false },
+  { key: 'sales', labelKey: 'dashboard.kpi.sales', icon: TrendingUp, tone: 'var(--chart-1)', unit: 'rial', periodic: true },
+  { key: 'purchases', labelKey: 'dashboard.kpi.purchases', icon: CreditCard, tone: 'var(--chart-6)', unit: 'rial', periodic: true },
+  { key: 'vat', labelKey: 'dashboard.kpi.vat', icon: Receipt, tone: 'var(--chart-4)', unit: 'rial', periodic: true },
+  { key: 'invoices', labelKey: 'dashboard.kpi.invoices', icon: HandCoins, tone: 'var(--chart-5)', unit: 'count', periodic: true, counter: true },
+  { key: 'receivables', labelKey: 'dashboard.kpi.receivables', icon: Clock4, tone: 'var(--chart-2)', unit: 'rial', periodic: false, invert: true },
+  { key: 'payables', labelKey: 'dashboard.kpi.payables', icon: AlertCircle, tone: 'var(--chart-3)', unit: 'rial', periodic: false, invert: true },
+  { key: 'cash', labelKey: 'dashboard.kpi.cash', icon: Wallet, tone: 'var(--chart-5)', unit: 'rial', periodic: false },
+  { key: 'inventory', labelKey: 'dashboard.kpi.inventory', icon: Package, tone: 'var(--chart-2)', unit: 'rial', periodic: false },
 ]
 
 const AXIS = { stroke: 'transparent', tickLine: false, axisLine: false } as const
 
-function chartTooltipStyle() {
+function chartTooltipStyle(dir: 'rtl' | 'ltr') {
   return {
     contentStyle: {
       background: 'var(--card)',
@@ -88,7 +92,7 @@ function chartTooltipStyle() {
       boxShadow: 'var(--shadow-md)',
       fontSize: 12,
       fontFamily: 'inherit',
-      direction: 'rtl' as const,
+      direction: dir,
     },
     labelStyle: { color: 'var(--muted)', fontSize: 11, marginBottom: 4 },
     itemStyle: { color: 'var(--text)' },
@@ -136,6 +140,7 @@ function KpiCard({
   spark: number[]
   loading: boolean
 }) {
+  const { t } = useI18n()
   const Icon = def.icon
   return (
     <article
@@ -159,14 +164,16 @@ function KpiCard({
             >
               <Icon className="size-3.5" aria-hidden />
             </span>
-            {def.label}
+            {t(def.labelKey)}
           </p>
           {loading ? (
             <Skeleton className="mt-2.5 h-6 w-32" />
           ) : (
             <p className="tnum mt-2 truncate text-[19px] font-extrabold tracking-tight text-text sm:text-xl">
-              {def.unit === 'فقره' ? formatNumber(value) : money(value)}
-              <span className="ms-1.5 text-[10.5px] font-semibold text-faint">{def.unit}</span>
+              {def.counter ? formatNumber(value) : money(value)}
+              <span className="ms-1.5 text-[10.5px] font-semibold text-faint">
+                {def.counter ? t('common.item') : rialUnit()}
+              </span>
             </p>
           )}
         </div>
@@ -180,7 +187,7 @@ function KpiCard({
         ) : (
           <span className="inline-flex items-center gap-1 text-[11px] text-faint">
             <Clock4 className="size-3" aria-hidden />
-            مانده در لحظه — مستقل از بازه
+            {t('dashboard.liveBalance')}
           </span>
         )}
       </div>
@@ -189,6 +196,7 @@ function KpiCard({
 }
 
 export function Dashboard({ demo }: { demo: boolean }) {
+  const { t, dir } = useI18n()
   const [range, setRange] = useState<JalaliRange>(() => defaultRange())
   const [payment, setPayment] = useState<PaymentFilter>('all')
   const [search, setSearch] = useState('')
@@ -263,8 +271,13 @@ export function Dashboard({ demo }: { demo: boolean }) {
   }
 
   const chartData = useMemo(
-    () => data.trend.map((point) => ({ period: point.period, فروش: point.sales, خرید: point.purchases })),
-    [data.trend],
+    () =>
+      data.trend.map((point) => ({
+        period: point.period,
+        [t('dashboard.chart.sales')]: point.sales,
+        [t('dashboard.chart.purchases')]: point.purchases,
+      })),
+    [data.trend, t],
   )
 
   const productShare = useMemo(
@@ -282,15 +295,12 @@ export function Dashboard({ demo }: { demo: boolean }) {
       <section className="page">
         <div className="page-head">
           <div>
-            <div className="eyebrow">نمای کلی</div>
-            <h1>داشبورد</h1>
-            <p>پس از ثبت اولین فاکتور و سند، شاخص‌های واقعی کسب‌وکار اینجا نمایش داده می‌شوند.</p>
+            <div className="eyebrow">{t('dashboard.eyebrow')}</div>
+            <h1>{t('dashboard.title')}</h1>
+            <p>{t('dashboard.emptyLead')}</p>
           </div>
         </div>
-        <EmptyState
-          title="هنوز داده‌ای برای نمایش نیست"
-          hint="از منوی فروش، اولین فاکتور را صادر کنید یا داده‌ی نمونه را فعال کنید."
-        />
+        <EmptyState title={t('dashboard.emptyTitle')} hint={t('dashboard.emptyHint')} />
       </section>
     )
   }
@@ -299,12 +309,9 @@ export function Dashboard({ demo }: { demo: boolean }) {
     <section className="page flex flex-col gap-4">
       <div className="page-head">
         <div>
-          <div className="eyebrow">نمای کلی</div>
-          <h1>داشبورد</h1>
-          <p>
-            اقلام سود و زیان با بازه‌ی انتخابی عوض می‌شوند؛ مانده‌های ترازنامه‌ای همیشه «در لحظه»
-            نمایش داده می‌شوند.
-          </p>
+          <div className="eyebrow">{t('dashboard.eyebrow')}</div>
+          <h1>{t('dashboard.title')}</h1>
+          <p>{t('dashboard.subtitle')}</p>
         </div>
       </div>
 
@@ -314,32 +321,32 @@ export function Dashboard({ demo }: { demo: boolean }) {
         filters={[
           {
             key: 'payment',
-            label: 'وضعیت تسویه',
+            label: t('dashboard.paymentStatus'),
             value: payment,
             width: 'xl:w-44',
             onChange: (value) => setPayment(value as PaymentFilter),
             options: [
-              { value: 'all', label: 'همه‌ی وضعیت‌ها' },
-              { value: 'paid', label: 'تسویه‌شده' },
-              { value: 'partial', label: 'تسویه‌ی جزئی' },
-              { value: 'unpaid', label: 'تسویه‌نشده' },
+              { value: 'all', label: t('dashboard.allStatuses') },
+              { value: 'paid', label: t('dashboard.paid') },
+              { value: 'partial', label: t('dashboard.partial') },
+              { value: 'unpaid', label: t('dashboard.unpaid') },
             ],
           },
         ]}
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="جستجوی طرف حساب…"
+        searchPlaceholder={t('dashboard.searchParty')}
         onReset={reset}
         isDefault={isDefault}
         fiscalRange={fiscalRange}
-        note={loading ? undefined : `${formatNumber(data.matchCount)} فاکتور`}
+        note={loading ? undefined : t('dashboard.invoiceCount', { count: formatNumber(data.matchCount) })}
       />
 
       {data.error && <ErrorState onRetry={data.reload} />}
 
       {/* --- شبکه‌ی شاخص‌ها --- */}
       <section
-        aria-label="شاخص‌های کلیدی"
+        aria-label={t('dashboard.kpi')}
         className="fade-up grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
       >
         {KPI_DEFS.map((def) => (
@@ -358,12 +365,14 @@ export function Dashboard({ demo }: { demo: boolean }) {
       <div className="fade-up grid grid-cols-12 gap-4" style={{ animationDelay: '80ms' }}>
         <Card className="col-span-12 xl:col-span-8">
           <CardHeader
-            title="روند فروش و خرید"
-            subtitle="بر اساس فاکتورهای همان بازه — بازه‌ی یک‌ماهه روزانه، بازه‌ی بلندتر ماهانه"
+            title={t('dashboard.trendTitle')}
+            subtitle={t('dashboard.trendSubtitle')}
             action={
               data.profit ? (
                 <Badge tone="accent" dot={false}>
-                  حاشیه سود ناخالص سال مالی: {formatNumber(data.profit.gross_margin_percent)}٪
+                  {t('dashboard.grossMargin', {
+                    value: `${formatNumber(data.profit.gross_margin_percent)}${percentSign()}`,
+                  })}
                 </Badge>
               ) : undefined
             }
@@ -372,8 +381,8 @@ export function Dashboard({ demo }: { demo: boolean }) {
             <Skeleton className="h-72 w-full" />
           ) : chartData.length === 0 ? (
             <EmptyState
-              title="در این بازه فاکتوری ثبت نشده است."
-              hint="بازه را تغییر دهید یا فیلترها را بردارید."
+              title={t('dashboard.noInvoiceInRange')}
+              hint={t('dashboard.changeRangeHint')}
             />
           ) : (
             <div className="h-72 w-full">
@@ -390,28 +399,43 @@ export function Dashboard({ demo }: { demo: boolean }) {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="var(--grid)" strokeDasharray="3 6" vertical={false} />
-                  <XAxis dataKey="period" {...AXIS} reversed />
+                  <XAxis dataKey="period" {...AXIS} reversed={dir === 'rtl'} />
                   <YAxis {...AXIS} width={70} tickFormatter={(value: number) => money(value / 1_000_000)} />
                   <ChartTooltip
-                    {...chartTooltipStyle()}
-                    formatter={(value) => `${money(Number(value ?? 0))} ریال`}
+                    {...chartTooltipStyle(dir)}
+                    formatter={(value) => `${money(Number(value ?? 0))} ${rialUnit()}`}
                   />
                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                  <Area type="monotone" dataKey="فروش" stroke="var(--chart-1)" strokeWidth={2.2} fill="url(#sales-fill)" />
-                  <Area type="monotone" dataKey="خرید" stroke="var(--chart-4)" strokeWidth={2.2} fill="url(#purchase-fill)" />
+                  <Area
+                    type="monotone"
+                    dataKey={t('dashboard.chart.sales')}
+                    stroke="var(--chart-1)"
+                    strokeWidth={2.2}
+                    fill="url(#sales-fill)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey={t('dashboard.chart.purchases')}
+                    stroke="var(--chart-4)"
+                    strokeWidth={2.2}
+                    fill="url(#purchase-fill)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
-          <p className="mt-2 text-[10.5px] text-faint">محور عمودی بر حسب میلیون ریال است.</p>
+          <p className="mt-2 text-[10.5px] text-faint">{t('dashboard.axisMillion')}</p>
         </Card>
 
         <Card className="col-span-12 md:col-span-6 xl:col-span-4">
-          <CardHeader title="سهم کالاها از فروش" subtitle="شش کالای پرفروش سال مالی" />
+          <CardHeader
+            title={t('dashboard.productShare')}
+            subtitle={t('dashboard.productShareSubtitle')}
+          />
           {loading ? (
             <Skeleton className="h-72 w-full" />
           ) : productShare.length === 0 ? (
-            <EmptyState title="فروشی ثبت نشده است." hint="پس از صدور فاکتور، سهم کالاها محاسبه می‌شود." />
+            <EmptyState title={t('dashboard.noSales')} hint={t('dashboard.noSalesHint')} />
           ) : (
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -431,8 +455,8 @@ export function Dashboard({ demo }: { demo: boolean }) {
                     ))}
                   </Pie>
                   <ChartTooltip
-                    {...chartTooltipStyle()}
-                    formatter={(value) => `${money(Number(value ?? 0))} ریال`}
+                    {...chartTooltipStyle(dir)}
+                    formatter={(value) => `${money(Number(value ?? 0))} ${rialUnit()}`}
                   />
                   <Legend wrapperStyle={{ fontSize: 10.5 }} />
                 </PieChart>
@@ -446,8 +470,8 @@ export function Dashboard({ demo }: { demo: boolean }) {
       <div className="fade-up grid grid-cols-12 gap-4" style={{ animationDelay: '140ms' }}>
         <div className="col-span-12 lg:col-span-6">
           <AgingPanel
-            title="مطالبات"
-            subtitle="سنی‌سازی طلب از مشتریان تا پایان بازه"
+            title={t('dashboard.receivables')}
+            subtitle={t('dashboard.receivablesSubtitle')}
             rows={data.receivableAging}
             loading={loading}
             kind="receivable"
@@ -455,8 +479,8 @@ export function Dashboard({ demo }: { demo: boolean }) {
         </div>
         <div className="col-span-12 lg:col-span-6">
           <AgingPanel
-            title="بدهی‌ها"
-            subtitle="سنی‌سازی بدهی به تأمین‌کنندگان تا پایان بازه"
+            title={t('dashboard.payables')}
+            subtitle={t('dashboard.payablesSubtitle')}
             rows={data.payableAging}
             loading={loading}
             kind="payable"
@@ -468,15 +492,15 @@ export function Dashboard({ demo }: { demo: boolean }) {
       <div className="fade-up grid grid-cols-12 gap-4" style={{ animationDelay: '200ms' }}>
         <TopParties
           className="col-span-12 xl:col-span-6"
-          title="مشتریان برتر"
-          subtitle="بیشترین مبلغ فاکتور فروش در بازه‌ی انتخابی"
+          title={t('dashboard.topCustomers')}
+          subtitle={t('dashboard.topCustomersSubtitle')}
           rows={data.topCustomers}
           loading={loading}
         />
         <TopParties
           className="col-span-12 xl:col-span-6"
-          title="تأمین‌کنندگان برتر"
-          subtitle="بیشترین مبلغ فاکتور خرید در بازه‌ی انتخابی"
+          title={t('dashboard.topSuppliers')}
+          subtitle={t('dashboard.topSuppliersSubtitle')}
           rows={data.topSuppliers}
           loading={loading}
         />
@@ -486,26 +510,28 @@ export function Dashboard({ demo }: { demo: boolean }) {
       <div className="fade-up grid grid-cols-12 gap-4" style={{ animationDelay: '260ms' }}>
         <Card className="col-span-12 xl:col-span-6">
           <CardHeader
-            title="کالاهای نزدیک به اتمام"
-            subtitle="حد هشدار در مرکز تنظیمات قابل تغییر است"
+            title={t('dashboard.lowStock')}
+            subtitle={t('dashboard.lowStockSubtitle')}
             action={
               data.lowStock.length > 0 ? (
-                <Badge tone="warning">{formatNumber(data.lowStock.length)} قلم</Badge>
+                <Badge tone="warning">
+                  {t('dashboard.lowStockCount', { count: formatNumber(data.lowStock.length) })}
+                </Badge>
               ) : undefined
             }
           />
           {loading ? (
             <Skeleton className="h-56 w-full" />
           ) : data.lowStock.length === 0 ? (
-            <EmptyState title="موجودی همه‌ی کالاها بالای حد هشدار است." hint="نیازی به سفارش فوری نیست." />
+            <EmptyState title={t('dashboard.lowStockEmpty')} hint={t('dashboard.lowStockEmptyHint')} />
           ) : (
             <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={data.lowStock.slice(0, 8).map((row) => ({
                     name: row.name,
-                    موجودی: row.quantity,
-                    'حد سفارش': row.min_stock,
+                    [t('dashboard.stockOnHand')]: row.quantity,
+                    [t('dashboard.reorderLevel')]: row.min_stock,
                   }))}
                   layout="vertical"
                   margin={{ top: 4, right: 12, left: 4, bottom: 0 }}
@@ -513,10 +539,20 @@ export function Dashboard({ demo }: { demo: boolean }) {
                   <CartesianGrid stroke="var(--grid)" strokeDasharray="3 6" horizontal={false} />
                   <XAxis type="number" {...AXIS} />
                   <YAxis type="category" dataKey="name" {...AXIS} width={110} tick={{ fontSize: 10.5 }} />
-                  <ChartTooltip {...chartTooltipStyle()} />
+                  <ChartTooltip {...chartTooltipStyle(dir)} />
                   <Legend wrapperStyle={{ fontSize: 10.5 }} />
-                  <Bar dataKey="موجودی" fill="var(--chart-3)" radius={[0, 6, 6, 0]} barSize={11} />
-                  <Bar dataKey="حد سفارش" fill="var(--chart-2)" radius={[0, 6, 6, 0]} barSize={11} />
+                  <Bar
+                    dataKey={t('dashboard.stockOnHand')}
+                    fill="var(--chart-3)"
+                    radius={[0, 6, 6, 0]}
+                    barSize={11}
+                  />
+                  <Bar
+                    dataKey={t('dashboard.reorderLevel')}
+                    fill="var(--chart-2)"
+                    radius={[0, 6, 6, 0]}
+                    barSize={11}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -525,7 +561,10 @@ export function Dashboard({ demo }: { demo: boolean }) {
 
         <Card className="col-span-12 xl:col-span-6" pad={false}>
           <div className="p-4 sm:p-5">
-            <CardHeader title="آخرین فاکتورها" subtitle="جدیدترین اسناد ثبت‌شده" />
+            <CardHeader
+              title={t('dashboard.recentInvoices')}
+              subtitle={t('dashboard.recentInvoicesSubtitle')}
+            />
           </div>
           {loading ? (
             <div className="px-4 pb-5 sm:px-5">
@@ -533,7 +572,7 @@ export function Dashboard({ demo }: { demo: boolean }) {
             </div>
           ) : data.recent.length === 0 ? (
             <div className="px-4 pb-5 sm:px-5">
-              <EmptyState title="فاکتوری ثبت نشده است." hint="از منوی فروش شروع کنید." />
+              <EmptyState title={t('dashboard.noInvoice')} hint={t('dashboard.noInvoiceHint')} />
             </div>
           ) : (
             <div className="max-h-56 overflow-y-auto px-2 pb-3">
@@ -544,21 +583,27 @@ export function Dashboard({ demo }: { demo: boolean }) {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-text">
-                      {invoice.contact_name ?? 'بدون طرف حساب'}
+                      {invoice.contact_name ?? t('dashboard.noParty')}
                     </p>
                     <p className="text-[10.5px] text-muted">
-                      {invoice.invoice_type === 'purchase' ? 'خرید' : 'فروش'} · شماره {invoice.number} ·{' '}
-                      {invoice.invoice_date}
+                      {t('dashboard.invoiceMeta', {
+                        kind:
+                          invoice.invoice_type === 'purchase'
+                            ? t('dashboard.kind.purchase')
+                            : t('dashboard.kind.sale'),
+                        number: invoice.number,
+                        date: invoice.invoice_date,
+                      })}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="tnum text-xs font-bold text-text">{money(invoice.total)}</span>
                     <Badge tone={invoice.payment_status === 'paid' ? 'success' : 'warning'}>
                       {invoice.payment_status === 'paid'
-                        ? 'تسویه'
+                        ? t('dashboard.settled')
                         : invoice.payment_status === 'partial'
-                          ? 'بخشی'
-                          : 'نسیه'}
+                          ? t('dashboard.partialShort')
+                          : t('dashboard.credit')}
                     </Badge>
                   </div>
                 </div>
@@ -570,20 +615,25 @@ export function Dashboard({ demo }: { demo: boolean }) {
 
       {/* --- پرفروش‌ترین کالاها --- */}
       <Card className="fade-up" >
-        <CardHeader title="پرفروش‌ترین کالاها" subtitle="بر اساس مبلغ فروش سال مالی" />
+        <CardHeader
+          title={t('dashboard.topProducts')}
+          subtitle={t('dashboard.topProductsSubtitle')}
+        />
         {loading ? (
           <Skeleton className="h-40 w-full" />
         ) : data.topProducts.length === 0 ? (
-          <EmptyState title="فروشی ثبت نشده است." hint="پس از صدور فاکتور، این فهرست پر می‌شود." />
+          <EmptyState title={t('dashboard.noSales')} hint={t('dashboard.noSalesListHint')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-[11px] text-muted">
-                  <th className="p-2 text-start font-semibold">کالا</th>
-                  <th className="p-2 text-start font-semibold">مقدار فروش</th>
-                  <th className="p-2 text-start font-semibold">مبلغ فروش (ریال)</th>
-                  <th className="p-2 text-start font-semibold">سهم</th>
+                  <th className="p-2 text-start font-semibold">{t('dashboard.colProduct')}</th>
+                  <th className="p-2 text-start font-semibold">{t('dashboard.colQuantity')}</th>
+                  <th className="p-2 text-start font-semibold">
+                    {t('dashboard.colRevenue', { unit: rialUnit() })}
+                  </th>
+                  <th className="p-2 text-start font-semibold">{t('dashboard.colShare')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -603,7 +653,10 @@ export function Dashboard({ demo }: { demo: boolean }) {
                               style={{ width: `${Math.min(100, share)}%` }}
                             />
                           </div>
-                          <span className="tnum text-[10.5px] text-muted">{formatNumber(share)}٪</span>
+                          <span className="tnum text-[10.5px] text-muted">
+                            {formatNumber(share)}
+                            {percentSign()}
+                          </span>
                         </div>
                       </td>
                     </tr>

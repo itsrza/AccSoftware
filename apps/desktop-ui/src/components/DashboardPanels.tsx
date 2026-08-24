@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { Badge, Card, CardHeader, Skeleton } from './ui'
-import { formatNumber, formatRials as money } from '../lib/format'
+import { formatNumber, formatRials as money, rialUnit } from '../lib/format'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import type { PartyAging, PartyBalance } from '../api'
 
 /**
@@ -55,7 +56,13 @@ const TONE_ICON: Record<Tone, typeof Clock4> = {
   done: Clock4,
 }
 
-export type AgingBucket = { label: string; amount: number; count: number; tone: Tone }
+export type AgingBucket = {
+  /** کلید ترجمه‌ی برچسب سطل — متن نهایی را خودِ جزء می‌سازد. */
+  labelKey: TranslationKey
+  amount: number
+  count: number
+  tone: Tone
+}
 
 /**
  * تبدیل خروجی `get_party_aging` به سطل‌های نمایشی.
@@ -64,15 +71,15 @@ export type AgingBucket = { label: string; amount: number; count: number; tone: 
  * تعداد فاکتور. برچسب هم همین را می‌گوید تا هیچ ابهامی نماند.
  */
 export function toBuckets(rows: PartyAging[]): { buckets: AgingBucket[]; total: number } {
-  const definitions: { label: string; tone: Tone; pick: (row: PartyAging) => number }[] = [
-    { label: 'سررسید نشده', tone: 'ok', pick: (row) => row.current },
-    { label: '۱ تا ۳۰ روز', tone: 'warn', pick: (row) => row.days_1_30 },
-    { label: '۳۱ تا ۶۰ روز', tone: 'warn', pick: (row) => row.days_31_60 },
-    { label: '۶۱ تا ۹۰ روز', tone: 'bad', pick: (row) => row.days_61_90 },
-    { label: 'بیش از ۹۰ روز', tone: 'bad', pick: (row) => row.over_90 },
+  const definitions: { labelKey: TranslationKey; tone: Tone; pick: (row: PartyAging) => number }[] = [
+    { labelKey: 'aging.bucket.current', tone: 'ok', pick: (row) => row.current },
+    { labelKey: 'aging.bucket.1_30', tone: 'warn', pick: (row) => row.days_1_30 },
+    { labelKey: 'aging.bucket.31_60', tone: 'warn', pick: (row) => row.days_31_60 },
+    { labelKey: 'aging.bucket.61_90', tone: 'bad', pick: (row) => row.days_61_90 },
+    { labelKey: 'aging.bucket.over_90', tone: 'bad', pick: (row) => row.over_90 },
   ]
   const buckets = definitions.map((definition) => ({
-    label: definition.label,
+    labelKey: definition.labelKey,
     tone: definition.tone,
     amount: rows.reduce((sum, row) => sum + definition.pick(row), 0),
     count: rows.filter((row) => definition.pick(row) > 0).length,
@@ -93,6 +100,7 @@ export function AgingPanel({
   loading: boolean
   kind: 'receivable' | 'payable'
 }) {
+  const { t } = useI18n()
   const { buckets, total } = toBuckets(rows)
   const largest = Math.max(...buckets.map((bucket) => bucket.amount), 1)
   const share = Math.max(total, 1)
@@ -119,18 +127,16 @@ export function AgingPanel({
         </div>
       ) : total === 0 ? (
         <p className="rounded-xl border border-dashed border-border-strong bg-card-soft py-8 text-center text-xs text-muted">
-          {kind === 'receivable'
-            ? 'همه‌ی فاکتورهای فروش تسویه شده‌اند.'
-            : 'بدهی تسویه‌نشده‌ای به تأمین‌کنندگان وجود ندارد.'}
+          {kind === 'receivable' ? t('aging.noReceivable') : t('aging.noPayable')}
         </p>
       ) : (
         <>
           <div className="mb-4 flex items-end justify-between">
             <div>
-              <p className="text-[10.5px] font-semibold text-muted">مانده باز</p>
+              <p className="text-[10.5px] font-semibold text-muted">{t('aging.openBalance')}</p>
               <p className="tnum text-[22px] font-extrabold tracking-tight text-text">
                 {money(total)}
-                <span className="ms-1 text-[10px] font-semibold text-faint">ریال</span>
+                <span className="ms-1 text-[10px] font-semibold text-faint">{rialUnit()}</span>
               </p>
             </div>
             <div
@@ -139,7 +145,7 @@ export function AgingPanel({
             >
               {buckets.map((bucket) => (
                 <span
-                  key={bucket.label}
+                  key={bucket.labelKey}
                   className={cn('h-full', TONE_STYLE[bucket.tone].bar)}
                   style={{ width: `${(bucket.amount / share) * 100}%` }}
                 />
@@ -151,7 +157,7 @@ export function AgingPanel({
             {buckets.map((bucket) => {
               const BucketIcon = TONE_ICON[bucket.tone]
               return (
-                <li key={bucket.label}>
+                <li key={bucket.labelKey}>
                   <div className="flex items-center gap-2 text-[11.5px]">
                     <span
                       className={cn('size-1.5 shrink-0 rounded-full', TONE_STYLE[bucket.tone].dot)}
@@ -159,9 +165,9 @@ export function AgingPanel({
                     />
                     <span className="flex items-center gap-1.5 text-muted">
                       <BucketIcon className="size-3.5 text-faint" aria-hidden />
-                      {bucket.label}
+                      {t(bucket.labelKey)}
                       <span className="tnum text-[10px] text-faint">
-                        ({formatNumber(bucket.count)} طرف حساب)
+                        {t('aging.partyCount', { count: formatNumber(bucket.count) })}
                       </span>
                     </span>
                     <span className="tnum ms-auto font-bold text-text">{money(bucket.amount)}</span>
@@ -206,6 +212,7 @@ export function TopParties({
   loading: boolean
   className?: string
 }) {
+  const { t } = useI18n()
   const items = [...rows].sort((a, b) => b.invoiced - a.invoiced).slice(0, 6)
   const largest = Math.max(...items.map((item) => item.invoiced), 1)
 
@@ -217,7 +224,7 @@ export function TopParties({
         action={
           items.length > 0 ? (
             <Badge tone="accent" dot={false}>
-              {formatNumber(items.length)} مورد اول
+              {t('top.firstItems', { count: formatNumber(items.length) })}
             </Badge>
           ) : undefined
         }
@@ -230,7 +237,7 @@ export function TopParties({
         </div>
       ) : items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border-strong bg-card-soft py-8 text-center text-xs text-muted">
-          در این بازه فاکتوری ثبت نشده است.
+          {t('dashboard.noInvoiceInRange')}
         </p>
       ) : (
         <ol className="space-y-1">
@@ -270,7 +277,10 @@ export function TopParties({
                     />
                   </div>
                   <span className="tnum shrink-0 text-[9.5px] text-faint">
-                    {formatNumber(item.invoice_count)} فاکتور · مانده {money(item.remaining)}
+                    {t('top.invoiceCount', {
+                      count: formatNumber(item.invoice_count),
+                      amount: money(item.remaining),
+                    })}
                   </span>
                 </div>
               </div>

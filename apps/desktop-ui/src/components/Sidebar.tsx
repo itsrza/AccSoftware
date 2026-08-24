@@ -24,6 +24,8 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { Avatar } from './Avatar'
+import { formatCount } from '../lib/format'
+import { useI18n } from '../lib/i18n'
 
 /**
  * منوی کناری — منطبق با سیستم طراحی مرجع.
@@ -119,7 +121,7 @@ function ItemContent({
       )}
       {!collapsed && item.badge !== undefined && item.badge > 0 && (
         <span className="grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-[#21254E]">
-          {item.badge.toLocaleString('fa-IR')}
+          {formatCount(item.badge)}
         </span>
       )}
     </span>
@@ -251,6 +253,7 @@ function CompanyChip({
   companyName: string
   fiscalYear: string
 }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -272,7 +275,7 @@ function CompanyChip({
     <div ref={ref} className={cn('relative mb-3', collapsed ? '' : 'w-full')}>
       <button
         type="button"
-        aria-label="شرکت و سال مالی فعال"
+        aria-label={t('company.activeCompany')}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={cn(collapsed ? '' : 'block w-full text-start')}
@@ -289,7 +292,7 @@ function CompanyChip({
             <span className="min-w-0 flex-1 leading-tight">
               <span className="block truncate text-xs font-bold text-white">{companyName}</span>
               <span className="block truncate text-[10px] text-[var(--sidebar-text)]">
-                سال مالی {fiscalYear}
+                {t('company.fiscalYear', { year: fiscalYear })}
               </span>
             </span>
             <ChevronDown className="size-3.5 shrink-0 text-[var(--sidebar-text)]" aria-hidden />
@@ -298,13 +301,13 @@ function CompanyChip({
       </button>
       {open && (
         <div className="fade-up absolute top-[calc(100%+8px)] z-50 w-60 start-0 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
-          <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">شرکت و دوره‌ی فعال</p>
+          <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">{t('company.activePeriod')}</p>
           <div className="flex items-center justify-between gap-2 rounded-lg bg-[var(--accent-soft)] px-2.5 py-2 text-xs font-bold text-accent-strong">
             <span className="min-w-0 truncate">{companyName}</span>
             <Check className="size-3.5 shrink-0" aria-hidden />
           </div>
           <p className="px-2.5 pt-2 text-[11px] leading-6 text-muted">
-            سال مالی {fiscalYear} باز است. برای بستن دوره یا تغییر شرکت، به مرکز تنظیمات بروید.
+            {t('company.fiscalOpenHint', { year: fiscalYear })}
           </p>
         </div>
       )}
@@ -343,6 +346,7 @@ export function Sidebar({
   avatar?: string
   onOpenSettings: () => void
 }) {
+  const { t, dir } = useI18n()
   const body = (isCollapsed: boolean) => (
     <div className="flex h-full min-h-0 flex-col">
       <div className="relative">
@@ -359,16 +363,16 @@ export function Sidebar({
           </div>
           {!isCollapsed && (
             <div className="min-w-0 leading-tight">
-              <p className="text-[15px] font-extrabold tracking-tight text-white">نوین پرداز</p>
+              <p className="text-[15px] font-extrabold tracking-tight text-white">{t('app.name')}</p>
               <p className="mt-0.5 text-[10px] font-medium text-[var(--sidebar-text)]">
-                حسابداری یکپارچه
+                {t('app.tagline')}
               </p>
             </div>
           )}
         </div>
         <button
           onClick={toggleCollapsed}
-          aria-label={isCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+          aria-label={isCollapsed ? t('nav.openMenu') : t('nav.collapseMenu')}
           className="absolute top-6 -end-3 hidden size-7 place-items-center rounded-full border border-[var(--sidebar-border)] bg-[#262a58] text-[var(--sidebar-text)] shadow-md transition-colors hover:text-white lg:grid"
         >
           {isCollapsed ? (
@@ -379,7 +383,7 @@ export function Sidebar({
         </button>
         <button
           onClick={() => setMobileOpen(false)}
-          aria-label="بستن منو"
+          aria-label={t('nav.closeMenu')}
           className="absolute top-5 start-3 grid size-8 place-items-center rounded-lg text-[var(--sidebar-text)] transition-colors hover:bg-white/10 hover:text-white lg:hidden"
         >
           <X className="size-4" aria-hidden />
@@ -390,7 +394,7 @@ export function Sidebar({
         <CompanyChip collapsed={isCollapsed} companyName={companyName} fiscalYear={fiscalYear} />
       </div>
 
-      <nav aria-label="منوی اصلی" className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-2">
+      <nav aria-label={t('nav.mainMenu')} className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-2">
         {groups.map((group) => (
           <div key={group.title} className="mt-3 first:mt-0">
             {!isCollapsed && (
@@ -430,7 +434,7 @@ export function Sidebar({
         {!isCollapsed ? (
           <button
             onClick={onOpenSettings}
-            aria-label="مرکز تنظیمات"
+            aria-label={t('page.settings')}
             className="mt-3 flex w-full items-center gap-2.5 rounded-xl border border-[var(--sidebar-border)] bg-white/5 px-3 py-2.5 text-start transition-colors hover:bg-white/10"
           >
             <span className="relative shrink-0">
@@ -449,7 +453,7 @@ export function Sidebar({
         ) : (
           <button
             onClick={onOpenSettings}
-            aria-label="مرکز تنظیمات"
+            aria-label={t('page.settings')}
             className="mt-3 flex w-full justify-center"
           >
             <span className="relative">
@@ -490,7 +494,7 @@ export function Sidebar({
         <aside
           className={cn(
             'absolute inset-y-0 start-0 flex w-[288px] max-w-[85vw] flex-col bg-gradient-to-b from-[var(--sidebar-from)] to-[var(--sidebar-to)] shadow-[var(--shadow-lg)] transition-transform duration-300',
-            mobileOpen ? 'translate-x-0' : 'translate-x-full',
+            mobileOpen ? 'translate-x-0' : dir === 'rtl' ? 'translate-x-full' : '-translate-x-full',
           )}
         >
           {body(false)}

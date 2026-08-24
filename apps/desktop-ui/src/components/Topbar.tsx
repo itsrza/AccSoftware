@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bell,
-  CircleUserRound,
+  Check as CheckIcon,
+  Languages,
   LogOut,
   Menu,
   Moon,
-  Plus,
   Search,
   Settings,
   Sun,
@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { Avatar } from './Avatar'
-import { todayJalali } from '../lib/format'
+import { todayJalali, formatCount } from '../lib/format'
+import { LOCALES, useI18n } from '../lib/i18n'
 
 /**
  * نوار بالای برنامه — منطبق با سیستم طراحی مرجع.
@@ -60,6 +61,7 @@ function GlobalSearch({
   search: (query: string) => SearchHit[]
   navigate: (page: string) => void
 }) {
+  const { t } = useI18n()
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
 
@@ -82,13 +84,13 @@ function GlobalSearch({
         onBlur={() => setTimeout(() => setFocused(false), 180)}
         onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
         type="search"
-        placeholder="جستجو: شخص، کالا، شماره سند…"
-        aria-label="جستجوی سراسری"
+        placeholder={t('topbar.searchPlaceholder')}
+        aria-label={t('topbar.globalSearch')}
         className="h-10 w-full rounded-xl border border-border bg-bg-soft ps-9 pe-9 text-xs font-medium text-text placeholder:text-faint outline-none transition-all focus:border-accent focus:bg-card"
       />
       {query && (
         <button
-          aria-label="پاک کردن جستجو"
+          aria-label={t('topbar.clearSearch')}
           onClick={() => setQuery('')}
           className="absolute end-2.5 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded-full text-faint hover:bg-bg-soft hover:text-text"
         >
@@ -100,7 +102,7 @@ function GlobalSearch({
         <div className="fade-up absolute top-[calc(100%+8px)] z-50 w-full min-w-72 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
           {hits.length === 0 ? (
             <p className="px-3 py-6 text-center text-xs text-muted">
-              نتیجه‌ای برای «{query}» یافت نشد.
+              {t('topbar.noSearchResult', { query })}
             </p>
           ) : (
             <div className="max-h-80 overflow-y-auto">
@@ -132,6 +134,7 @@ function NotificationsMenu({
   items: NotificationItem[]
   navigate: (page: string) => void
 }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useDismiss(() => setOpen(false))
   const tones: Record<NotificationItem['tone'], string> = {
@@ -144,25 +147,25 @@ function NotificationsMenu({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((value) => !value)}
-        aria-label="اعلان‌ها"
+        aria-label={t('topbar.notifications')}
         aria-expanded={open}
         className="relative grid size-10 place-items-center rounded-xl border border-border bg-card text-muted transition-colors hover:text-text"
       >
         <Bell className="size-4.5" aria-hidden />
         {items.length > 0 && (
           <span className="absolute -top-1 -end-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-[#21254E]">
-            {items.length.toLocaleString('fa-IR')}
+            {formatCount(items.length)}
           </span>
         )}
       </button>
       {open && (
         <div className="fade-up absolute top-[calc(100%+8px)] end-0 z-50 w-80 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
           <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">
-            اعلان‌ها — بر اساس داده‌ی واقعی برنامه
+            {t('topbar.notificationsNote')}
           </p>
           {items.length === 0 ? (
             <p className="px-3 py-6 text-center text-xs text-muted">
-              چیزی نیاز به توجه شما ندارد.
+              {t('topbar.notificationsEmpty')}
             </p>
           ) : (
             <div className="max-h-80 overflow-y-auto">
@@ -203,6 +206,7 @@ function ProfileMenu({
   onSettings: () => void
   onLogout: () => void
 }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useDismiss(() => setOpen(false))
 
@@ -210,7 +214,7 @@ function ProfileMenu({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((value) => !value)}
-        aria-label="حساب کاربری"
+        aria-label={t('topbar.account')}
         aria-expanded={open}
         className="flex items-center gap-2 rounded-xl border border-border bg-card px-2 py-1.5 transition-colors hover:border-border-strong"
       >
@@ -236,7 +240,7 @@ function ProfileMenu({
             }}
             className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-muted transition-colors hover:bg-bg-soft hover:text-text"
           >
-            <Settings className="size-3.5" aria-hidden /> مرکز تنظیمات
+            <Settings className="size-3.5" aria-hidden /> {t('page.settings')}
           </button>
           <button
             onClick={() => {
@@ -245,8 +249,59 @@ function ProfileMenu({
             }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-danger transition-colors hover:bg-[var(--danger-soft)]"
           >
-            <LogOut className="size-3.5" aria-hidden /> خروج از حساب
+            <LogOut className="size-3.5" aria-hidden /> {t('topbar.logout')}
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * انتخاب‌گر زبان.
+ *
+ * نام هر زبان به خودِ آن زبان نوشته شده است — کاربری که رابط را به زبانی
+ * ناآشنا دیده، باید بتواند زبان خودش را پیدا کند.
+ */
+function LanguageMenu() {
+  const { locale, setLocale, t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const ref = useDismiss(() => setOpen(false))
+  const active = LOCALES.find((item) => item.code === locale) ?? LOCALES[0]
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((value) => !value)}
+        aria-label={t('topbar.language')}
+        aria-expanded={open}
+        className="flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 text-muted transition-colors hover:text-text"
+      >
+        <Languages className="size-4.5" aria-hidden />
+        <span className="text-[11px] font-bold">{active.short}</span>
+      </button>
+      {open && (
+        <div className="fade-up absolute top-[calc(100%+8px)] end-0 z-50 w-44 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
+          <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">{t('topbar.language')}</p>
+          {LOCALES.map((item) => (
+            <button
+              key={item.code}
+              onClick={() => {
+                setLocale(item.code)
+                setOpen(false)
+              }}
+              dir={item.dir}
+              className={cn(
+                'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors',
+                item.code === locale
+                  ? 'bg-[var(--accent-soft)] font-bold text-accent-strong'
+                  : 'text-muted hover:bg-bg-soft hover:text-text',
+              )}
+            >
+              <span>{item.nativeLabel}</span>
+              {item.code === locale && <CheckIcon className="size-3.5 shrink-0" aria-hidden />}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -283,12 +338,13 @@ export function Topbar({
   /** تصویر پروفایل کاربر؛ خالی یعنی نشان پیش‌فرض طلایی. */
   avatar?: string
 }) {
+  const { t } = useI18n()
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] backdrop-blur-md">
       <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
         <button
           onClick={onOpenMobileNav}
-          aria-label="باز کردن منو"
+          aria-label={t('nav.openMenu')}
           className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted transition-colors hover:text-text lg:hidden"
         >
           <Menu className="size-4.5" aria-hidden />
@@ -310,11 +366,12 @@ export function Topbar({
           </span>
           <button
             onClick={() => setDark(!dark)}
-            aria-label={dark ? 'تم روشن' : 'تم تاریک'}
+            aria-label={dark ? t('topbar.lightTheme') : t('topbar.darkTheme')}
             className="grid size-10 place-items-center rounded-xl border border-border bg-card text-muted transition-colors hover:text-text"
           >
             {dark ? <Sun className="size-4.5" aria-hidden /> : <Moon className="size-4.5" aria-hidden />}
           </button>
+          <LanguageMenu />
           <NotificationsMenu items={notifications} navigate={navigate} />
           <ProfileMenu
             userName={userName}

@@ -10,6 +10,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import {Select} from './Select'
+import { useI18n, type Locale } from '../lib/i18n'
 
 /**
  * مرکز تنظیمات.
@@ -35,6 +36,7 @@ export function SettingsCenter({
   /** رفتن به صفحه‌ی ابزارهای راه‌اندازی که از منوی کناری برداشته شده‌اند. */
   navigate: (page: string) => void
 }) {
+  const { setLocale } = useI18n()
   const [settings, setSettings] = useState<SettingWithValue[]>([])
   const [activeGroup, setActiveGroup] = useState('')
   const [search, setSearch] = useState('')
@@ -100,8 +102,10 @@ export function SettingsCenter({
             : row,
         ),
       )
-      // تم باید فوراً اعمال شود تا کاربر نتیجه را ببیند.
+      // تم و زبان باید فوراً اعمال شوند تا کاربر نتیجه را ببیند؛ تنظیمی که
+      // اثرش تا اجرای بعدی دیده نشود، برای کاربر «کار نکرد» معنی می‌دهد.
       if (item.key === 'appearance.dark_mode') setDark(saved === 'true')
+      if (item.key === 'appearance.language') setLocale(saved as Locale)
       setNotice(`«${item.label}» ذخیره شد.`)
       setError('')
     } catch (e) {
