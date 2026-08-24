@@ -8,7 +8,8 @@ import {
   type PostableAccount,
 } from '../api'
 import {errorText} from '../lib/errors'
-import {formatRials, parseAmount, todayJalali} from '../lib/format'
+import {formatRials, parseAmount, rialUnit, todayJalali} from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import {Select} from '../components/Select'
 
 /** یک طرف سند: حساب + ابعاد مالی */
@@ -28,6 +29,7 @@ const emptySide: Side = {accountId: '', subsidiaryId: '', costCenterId: '', proj
  * یک طرف بستانکار، با جابه‌جایی سریع طرفین و اعتبارسنجی ابعاد مالی در بک‌اند.
  */
 export function SingleLineJournal() {
+  const {t} = useI18n()
   const [accounts, setAccounts] = useState<PostableAccount[]>([])
   const [costCenters, setCostCenters] = useState<DimensionOption[]>([])
   const [projects, setProjects] = useState<DimensionOption[]>([])
@@ -68,7 +70,7 @@ export function SingleLineJournal() {
     setError('')
     setSuccess('')
     if (amount <= 0) {
-      setError('مبلغ سند باید بزرگ‌تر از صفر باشد.')
+      setError(t('journal.errAmount'))
       return
     }
     setBusy(true)
@@ -92,13 +94,13 @@ export function SingleLineJournal() {
       <div className="panel side-panel">
         <h3>{title}</h3>
         <label>
-          <span>حساب</span>
+          <span>{t('reports.account')}</span>
           <Select
             value={side.accountId}
             onChange={(event) => setSide({...side, accountId: event.target.value})}
             required
           >
-            <option value="">انتخاب کنید…</option>
+            <option value="">{t('invoiceForm.selectPlaceholder')}</option>
             {accounts.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.code} — {item.name}
@@ -109,24 +111,24 @@ export function SingleLineJournal() {
 
         {account?.requires_subsidiary && (
           <label>
-            <span>تفصیلی (الزامی)</span>
+            <span>{t('journal.subsidiaryRequired')}</span>
             <input
               value={side.subsidiaryId}
               onChange={(event) => setSide({...side, subsidiaryId: event.target.value})}
-              placeholder="شناسه تفصیلی"
+              placeholder={t('journal.subsidiaryId')}
               required
             />
           </label>
         )}
 
         <label>
-          <span>مرکز هزینه{account?.requires_cost_center ? ' (الزامی)' : ''}</span>
+          <span>مرکز هزینه{account?.requires_cost_center ? t('journal.requiredSuffix') : ''}</span>
           <Select
             value={side.costCenterId}
             onChange={(event) => setSide({...side, costCenterId: event.target.value})}
             required={account?.requires_cost_center}
           >
-            <option value="">بدون مرکز هزینه</option>
+            <option value="">{t('journal.noCostCenter')}</option>
             {costCenters.map((item) => (
               <option key={item.id} value={item.code}>
                 {item.code} — {item.title}
@@ -136,13 +138,13 @@ export function SingleLineJournal() {
         </label>
 
         <label>
-          <span>پروژه{account?.requires_project ? ' (الزامی)' : ''}</span>
+          <span>پروژه{account?.requires_project ? t('journal.requiredSuffix') : ''}</span>
           <Select
             value={side.projectId}
             onChange={(event) => setSide({...side, projectId: event.target.value})}
             required={account?.requires_project}
           >
-            <option value="">بدون پروژه</option>
+            <option value="">{t('journal.noProject')}</option>
             {projects.map((item) => (
               <option key={item.id} value={item.code}>
                 {item.code} — {item.title}
@@ -152,7 +154,7 @@ export function SingleLineJournal() {
         </label>
 
         <div className="side-summary">
-          {account ? `ماهیت: ${account.nature === 'credit' ? 'بستانکار' : 'بدهکار'}` : 'حسابی انتخاب نشده'}
+          {account ? `ماهیت: ${account.nature === 'credit' ? t('reports.credit') : t('reports.debit')}` : t('journal.noAccountPicked')}
         </div>
       </div>
     )
@@ -162,9 +164,9 @@ export function SingleLineJournal() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">حسابداری</div>
-          <h1>صدور سند یک‌سطری</h1>
-          <p>سریع‌ترین راه ثبت سند: یک مبلغ، یک طرف بدهکار، یک طرف بستانکار.</p>
+          <div className="eyebrow">{t('nav.group.accounting')}</div>
+          <h1>{t('journal.title')}</h1>
+          <p>{t('journal.subtitle')}</p>
         </div>
       </div>
 
@@ -175,20 +177,20 @@ export function SingleLineJournal() {
         <div className="panel">
           <div className="form-row">
             <label>
-              <span>تاریخ</span>
+              <span>{t('common.date')}</span>
               <input value={date} onChange={(event) => setDate(event.target.value)} required />
             </label>
             <label className="grow">
-              <span>شرح</span>
+              <span>{t('common.description')}</span>
               <input
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="شرح سند"
+                placeholder={t('journal.description')}
                 required
               />
             </label>
             <label>
-              <span>مبلغ (ریال)</span>
+              <span>{t('journal.amountWithUnit', {unit: rialUnit()})}</span>
               <input
                 value={amountText}
                 onChange={(event) => setAmountText(event.target.value)}
@@ -201,19 +203,19 @@ export function SingleLineJournal() {
         </div>
 
         <div className="sides">
-          {sideEditor('طرف حساب بدهکار', debit, setDebit)}
-          <button type="button" className="swap-btn" onClick={swap} title="جابه‌جایی طرفین">
+          {sideEditor(t('journal.debitSide'), debit, setDebit)}
+          <button type="button" className="swap-btn" onClick={swap} title={t('journal.swapSides')}>
             &lt;&gt;
           </button>
-          {sideEditor('طرف حساب بستانکار', credit, setCredit)}
+          {sideEditor(t('journal.creditSide'), credit, setCredit)}
         </div>
 
         <div className="form-actions">
           <button type="submit" className="primary" disabled={busy}>
-            {busy ? 'در حال ثبت…' : 'ثبت سند'}
+            {busy ? t('journal.posting') : t('journal.post')}
           </button>
           <button type="button" onClick={load} disabled={busy}>
-            بارگذاری مجدد
+            {t('common.reload')}
           </button>
         </div>
       </form>

@@ -13,7 +13,8 @@ import {
 } from '../api'
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
-import {formatNumber, formatRials, todayJalali} from '../lib/format'
+import {formatNumber, formatRials, todayJalali, formatCount} from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import {Select} from '../components/Select'
 
 /**
@@ -25,6 +26,7 @@ import {Select} from '../components/Select'
  * تمام محاسبات (اختلاف، ارزش‌گذاری، شرایط ثبت) از موتور مالی می‌آید.
  */
 export function Stocktaking() {
+  const {t} = useI18n()
   const [sessions, setSessions] = useState<StocktakeSessionRow[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [detail, setDetail] = useState<StocktakeDetail | null>(null)
@@ -66,7 +68,7 @@ export function Stocktaking() {
 
   const create = async () => {
     if (!form.warehouse_id || !form.title.trim()) {
-      setError('انبار و عنوان دوره الزامی است.')
+      setError(t('stock.errRequired'))
       return
     }
     setBusy(true)
@@ -77,7 +79,7 @@ export function Stocktaking() {
       setForm({...form, title: ''})
       await loadSessions()
       await openSession(id)
-      setMessage('دوره ایجاد و موجودی سیستمی فریز شد. شمارش را آغاز کنید.')
+      setMessage(t('stock.frozen'))
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -89,7 +91,7 @@ export function Stocktaking() {
     const trimmed = raw.trim()
     const quantity = trimmed === '' ? null : Number(trimmed.replace(/[^\d.-]/g, ''))
     if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0)) {
-      setError('مقدار شمارش نمی‌تواند منفی باشد.')
+      setError(t('stock.errNegative'))
       return
     }
     try {
@@ -127,7 +129,7 @@ export function Stocktaking() {
     if (!detail) return
     if (
       !confirm(
-        'با ثبت نهایی، موجودی انبار اصلاح و سند تعدیل صادر می‌شود. این عملیات برگشت‌ناپذیر است. ادامه می‌دهید؟',
+        t('stock.confirmPost'),
       )
     )
       return
@@ -138,7 +140,7 @@ export function Stocktaking() {
       setMessage(
         journalId
           ? `انبارگردانی ثبت شد و سند تعدیل صادر گردید. شناسه سند: ${journalId}`
-          : 'انبارگردانی ثبت شد. اختلافی وجود نداشت، پس سندی صادر نشد.',
+          : t('stock.postedNoDiff'),
       )
       await loadSessions()
       await refreshDetail()
@@ -153,14 +155,14 @@ export function Stocktaking() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">انبار</div>
-          <h1>انبارگردانی</h1>
+          <div className="eyebrow">{t('common.warehouse')}</div>
+          <h1>{t('inv.tab.counts')}</h1>
           <p>
-            فریز موجودی ← شمارش ← شمارش مجدد ← تأیید اختلاف ← ثبت و صدور سند تعدیل
+            {t('stock.flow')}
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          <Icon name="plus" size={15} /> دوره‌ی جدید
+          <Icon name="plus" size={15} /> {t('stock.newPeriod')}
         </button>
       </div>
 
@@ -169,26 +171,26 @@ export function Stocktaking() {
 
       <div className="panel list-panel">
         <div className="toolbar">
-          <strong>دوره‌های انبارگردانی</strong>
+          <strong>{t('stock.periods')}</strong>
           <span className="spacer" />
-          <button className="icon-btn" aria-label="بارگذاری مجدد" onClick={loadSessions} title="بارگذاری مجدد">
+          <button className="icon-btn" aria-label={t('common.reload')} onClick={loadSessions} title={t('common.reload')}>
             <Icon name="refresh" />
           </button>
         </div>
         {sessions.length === 0 ? (
-          <div className="empty-state">هنوز دوره‌ای ایجاد نشده است.</div>
+          <div className="empty-state">{t('stock.noPeriod')}</div>
         ) : (
           <div className="table-wrap">
             <table className="large-table">
               <thead>
                 <tr>
-                  <th>عنوان</th>
-                  <th>انبار</th>
-                  <th>تاریخ</th>
-                  <th>اقلام</th>
-                  <th>شمارش‌شده</th>
-                  <th>دارای اختلاف</th>
-                  <th>وضعیت</th>
+                  <th>{t('partyForm.titlePrefix')}</th>
+                  <th>{t('common.warehouse')}</th>
+                  <th>{t('common.date')}</th>
+                  <th>{t('inv.items')}</th>
+                  <th>{t('stock.counted')}</th>
+                  <th>{t('stock.withDifference')}</th>
+                  <th>{t('common.status')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -208,7 +210,7 @@ export function Stocktaking() {
                       {session.variance_lines > 0 ? (
                         <span className="status danger">{formatNumber(session.variance_lines)}</span>
                       ) : (
-                        <span className="status done">۰</span>
+                        <span className="status done">{formatCount(0)}</span>
                       )}
                     </td>
                     <td>
@@ -225,7 +227,7 @@ export function Stocktaking() {
                       </span>
                     </td>
                     <td>
-                      <button className="btn btn-sm">مشاهده</button>
+                      <button className="btn btn-sm">{t('stock.view')}</button>
                     </td>
                   </tr>
                 ))}
@@ -239,28 +241,28 @@ export function Stocktaking() {
         <>
           <div className="metric-strip">
             <div>
-              <span>شمارش‌شده</span>
+              <span>{t('stock.counted')}</span>
               <b>
                 {formatNumber(detail.counted_lines)} / {formatNumber(detail.total_lines)}
               </b>
               <small>{formatNumber(detail.uncounted_lines)} قلم باقی‌مانده</small>
             </div>
             <div>
-              <span>اضافی</span>
+              <span>{t('stock.surplus')}</span>
               <b className="green-text">{formatRials(detail.surplus_value)}</b>
               <small>{formatNumber(detail.surplus_lines)} قلم</small>
             </div>
             <div>
-              <span>کسری</span>
+              <span>{t('stock.shortage')}</span>
               <b className="red-text">{formatRials(detail.shortage_value)}</b>
               <small>{formatNumber(detail.shortage_lines)} قلم</small>
             </div>
             <div>
-              <span>اثر خالص بر موجودی</span>
+              <span>{t('stock.netEffect')}</span>
               <b className={detail.net_value >= 0 ? 'green-text' : 'red-text'}>
                 {formatRials(Math.abs(detail.net_value))}
               </b>
-              <small>{detail.net_value >= 0 ? 'افزایش' : 'کاهش'} ارزش انبار</small>
+              <small>{detail.net_value >= 0 ? t('stock.increase') : t('stock.decrease')} ارزش انبار</small>
             </div>
           </div>
 
@@ -284,7 +286,7 @@ export function Stocktaking() {
                 disabled={busy || !detail.can_post || detail.status === 'posted'}
                 title={detail.blocking_reason ?? ''}
               >
-                ثبت نهایی و صدور سند تعدیل
+                {t('stock.postAndIssue')}
               </button>
             </div>
 
@@ -296,14 +298,14 @@ export function Stocktaking() {
               <table className="large-table">
                 <thead>
                   <tr>
-                    <th>کد</th>
-                    <th>کالا</th>
-                    <th>موجودی سیستم (فریزشده)</th>
-                    <th>شمارش اول</th>
-                    <th>شمارش مجدد</th>
-                    <th>اختلاف</th>
-                    <th>ارزش اختلاف</th>
-                    <th>تأیید</th>
+                    <th>{t('common.code')}</th>
+                    <th>{t('invoiceForm.product')}</th>
+                    <th>{t('stock.systemQty')}</th>
+                    <th>{t('stock.firstCount')}</th>
+                    <th>{t('stock.recount')}</th>
+                    <th>{t('inv.difference')}</th>
+                    <th>{t('stock.diffValue')}</th>
+                    <th>{t('stock.approve')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -334,7 +336,7 @@ export function Stocktaking() {
                             defaultValue={line.recount_quantity ?? ''}
                             disabled={locked}
                             inputMode="decimal"
-                            placeholder={line.needs_recount ? 'الزامی' : '—'}
+                            placeholder={line.needs_recount ? t('stock.required') : '—'}
                             onBlur={(event) => {
                               const next = event.target.value.trim()
                               const previous =
@@ -347,7 +349,7 @@ export function Stocktaking() {
                           {line.variance === null ? (
                             <span className="amount-zero">—</span>
                           ) : line.variance === 0 ? (
-                            <span className="amount-zero">۰</span>
+                            <span className="amount-zero">{formatCount(0)}</span>
                           ) : (
                             <span className={line.variance > 0 ? 'amount-credit' : 'amount-debit'}>
                               {line.variance > 0 ? '+' : '−'}
@@ -397,19 +399,18 @@ export function Stocktaking() {
       {creating && (
         <div className="modal-backdrop" role="presentation">
           <div className="modal">
-            <h2>دوره‌ی جدید انبارگردانی</h2>
+            <h2>{t('stock.newPeriodTitle')}</h2>
             <p style={{fontSize: 12.5, color: 'var(--text-2)', marginTop: 0}}>
-              با ایجاد دوره، موجودی سیستمی همه‌ی کالاهای این انبار در همین لحظه فریز می‌شود تا
-              خرید و فروش حین شمارش، مبنای مقایسه را تغییر ندهد.
+              {t('stock.freezeNote')}
             </p>
             <div className="form-row">
               <label>
-                <span>انبار</span>
+                <span>{t('common.warehouse')}</span>
                 <Select
                   value={form.warehouse_id}
                   onChange={(event) => setForm({...form, warehouse_id: event.target.value})}
                 >
-                  <option value="">انتخاب کنید…</option>
+                  <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                   {warehouses.map((warehouse) => (
                     <option key={warehouse.id} value={warehouse.id}>
                       {warehouse.name}
@@ -418,15 +419,15 @@ export function Stocktaking() {
                 </Select>
               </label>
               <label className="grow">
-                <span>عنوان دوره</span>
+                <span>{t('stock.periodTitle')}</span>
                 <input
                   value={form.title}
                   onChange={(event) => setForm({...form, title: event.target.value})}
-                  placeholder="مثلاً انبارگردانی پایان سال ۱۴۰۵"
+                  placeholder={t('stock.titleSample')}
                 />
               </label>
               <label>
-                <span>تاریخ</span>
+                <span>{t('common.date')}</span>
                 <input
                   value={form.count_date}
                   onChange={(event) => setForm({...form, count_date: event.target.value})}
@@ -435,10 +436,10 @@ export function Stocktaking() {
             </div>
             <div className="form-actions">
               <button className="btn btn-primary" onClick={create} disabled={busy}>
-                {busy ? 'در حال ایجاد…' : 'ایجاد و فریز موجودی'}
+                {busy ? t('stock.creating') : t('stock.createAndFreeze')}
               </button>
               <button className="btn" onClick={() => setCreating(false)}>
-                انصراف
+                {t('common.cancel')}
               </button>
             </div>
           </div>

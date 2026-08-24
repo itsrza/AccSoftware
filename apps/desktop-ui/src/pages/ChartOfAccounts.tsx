@@ -14,6 +14,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials as money, formatCount} from '../lib/format'
+import {useI18n, type TranslationKey} from '../lib/i18n'
 import {Select} from '../components/Select'
 
 type Draft = {
@@ -27,10 +28,10 @@ type Draft = {
   is_active: boolean
 }
 
-const NATURES = [
-  { value: 'debit', label: 'بدهکار' },
-  { value: 'credit', label: 'بستانکار' },
-  { value: 'mixed', label: 'دوطرفه' },
+const NATURES: { value: string; labelKey: TranslationKey }[] = [
+  { value: 'debit', labelKey: 'reports.debit' },
+  { value: 'credit', labelKey: 'reports.credit' },
+  { value: 'mixed', labelKey: 'coa.both' },
 ]
 
 /**
@@ -42,6 +43,7 @@ const NATURES = [
  * ۳. ماهیت فرزند باید با والد بخواند.
  */
 export function ChartOfAccounts() {
+  const {t} = useI18n()
   const [rows, setRows] = useState<AccountNodeRow[]>([])
   const [scheme, setScheme] = useState<CodingSchemeInfo>()
   const [issues, setIssues] = useState<CodingIssue[]>([])
@@ -156,7 +158,7 @@ export function ChartOfAccounts() {
     setBusy(true)
     try {
       await saveAccount(draft)
-      setNotice(draft.id ? 'حساب بروزرسانی شد.' : 'حساب جدید ساخته شد.')
+      setNotice(draft.id ? t('coa.updated') : t('coa.created'))
       setDraft(null)
       await load()
       setIssues(await auditCodingHealth())
@@ -191,7 +193,7 @@ export function ChartOfAccounts() {
               <button
                 className={`tree-toggle${isOpen ? ' open' : ''}`}
                 onClick={() => toggle(row.id)}
-                aria-label={isOpen ? 'بستن شاخه' : 'بازکردن شاخه'}
+                aria-label={isOpen ? t('coa.collapse') : t('coa.expand')}
               >
                 <Icon name="chevron" size={14} />
               </button>
@@ -206,7 +208,7 @@ export function ChartOfAccounts() {
         <td>{row.nature_label}</td>
         <td>
           {row.is_postable ? (
-            <span className="status done">قابل ثبت سند</span>
+            <span className="status done">{t('coa.postable')}</span>
           ) : (
             <span className="status neutral">تجمیعی ({row.child_count} زیرحساب)</span>
           )}
@@ -218,14 +220,14 @@ export function ChartOfAccounts() {
         </td>
         <td>
           <button className="table-action" onClick={() => openNew(row)}>
-            زیرحساب
+            {t('coa.child')}
           </button>
           <button className="table-action" onClick={() => openEdit(row)}>
-            ویرایش
+            {t('common.editAction')}
           </button>
           {row.is_active && (
             <button className="table-action" disabled={busy} onClick={() => remove(row)}>
-              غیرفعال
+              {t('coa.inactive')}
             </button>
           )}
         </td>
@@ -245,14 +247,14 @@ export function ChartOfAccounts() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">حسابداری</div>
-          <h1>کدینگ حساب‌ها</h1>
+          <div className="eyebrow">{t('nav.group.accounting')}</div>
+          <h1>{t('coa.title')}</h1>
           <p>
-            فقط برگ‌های درخت سند مستقیم می‌پذیرند؛ مانده‌ی هر شاخه جمع فرزندان آن است.
+            {t('coa.subtitle')}
           </p>
         </div>
         <button className="primary" onClick={() => openNew()}>
-          <Icon name="plus" /> حساب سطح گروه
+          <Icon name="plus" /> {t('coa.groupLevel')}
         </button>
       </div>
 
@@ -269,7 +271,7 @@ export function ChartOfAccounts() {
             </div>
           ))}
           <div>
-            <span>کل حساب‌ها</span>
+            <span>{t('coa.totalAccounts')}</span>
             <b>{rows.length}</b>
             <small>{rows.filter((r) => r.is_postable).length} قابل ثبت سند</small>
           </div>
@@ -296,13 +298,13 @@ export function ChartOfAccounts() {
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>درخت حساب‌ها</h3>
+            <h3>{t('coa.tree')}</h3>
             <p>{searching ? `${matches.length} نتیجه` : `${roots.length} شاخه‌ی اصلی`}</p>
           </div>
           <div className="filter-actions">
             <input
               className="search-input"
-              placeholder="جستجوی کد یا نام حساب…"
+              placeholder={t('coa.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -312,9 +314,9 @@ export function ChartOfAccounts() {
                 checked={showInactive}
                 onChange={(e) => setShowInactive(e.target.checked)}
               />
-              <span>غیرفعال‌ها</span>
+              <span>{t('coa.inactiveOnes')}</span>
             </label>
-            <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
+            <button className="icon-btn" onClick={load} aria-label={t('common.refresh')}>
               <Icon name="refresh" />
             </button>
           </div>
@@ -324,15 +326,15 @@ export function ChartOfAccounts() {
           <table className="large-table">
             <thead>
               <tr>
-                <th>کد</th>
-                <th>نام حساب</th>
-                <th>سطح</th>
-                <th>ماهیت</th>
-                <th>وضعیت</th>
-                <th>بدهکار</th>
-                <th>بستانکار</th>
-                <th>مانده شاخه</th>
-                <th>عملیات</th>
+                <th>{t('common.code')}</th>
+                <th>{t('coa.accountName')}</th>
+                <th>{t('coa.level')}</th>
+                <th>{t('coa.nature')}</th>
+                <th>{t('common.status')}</th>
+                <th>{t('reports.debit')}</th>
+                <th>{t('reports.credit')}</th>
+                <th>{t('coa.branchBalance')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -342,7 +344,7 @@ export function ChartOfAccounts() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="empty-row">
-                    حسابی تعریف نشده است.
+                    {t('coa.empty')}
                   </td>
                 </tr>
               )}
@@ -356,21 +358,21 @@ export function ChartOfAccounts() {
           <div className="modal">
             <div className="modal-head">
               <div>
-                <h2>{draft.id ? 'ویرایش حساب' : 'حساب جدید'}</h2>
+                <h2>{draft.id ? t('coa.editAccount') : t('coa.newAccount')}</h2>
                 <p>
                   {draft.parent_id
                     ? `زیرمجموعه‌ی ${rows.find((r) => r.id === draft.parent_id)?.name ?? ''}`
-                    : 'حساب سطح گروه (بدون والد)'}
+                    : t('coa.groupLevelNoParent')}
                 </p>
               </div>
-              <button aria-label="بستن" className="icon-btn" onClick={() => setDraft(null)}>
+              <button aria-label={t('common.close')} className="icon-btn" onClick={() => setDraft(null)}>
                 <Icon name="close" />
               </button>
             </div>
 
             <div className="filter-grid">
               <label>
-                <span>کد حساب *</span>
+                <span>{t('coa.codeRequired')}</span>
                 <input
                   value={draft.code}
                   onChange={(e) => setDraft({ ...draft, code: e.target.value })}
@@ -378,27 +380,27 @@ export function ChartOfAccounts() {
                 />
               </label>
               <label className="grow">
-                <span>نام حساب *</span>
+                <span>{t('coa.nameRequired')}</span>
                 <input
                   value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 />
               </label>
               <label>
-                <span>ماهیت *</span>
+                <span>{t('coa.natureRequired')}</span>
                 <Select
                   value={draft.nature}
                   onChange={(e) => setDraft({ ...draft, nature: e.target.value })}
                 >
                   {NATURES.map((n) => (
                     <option key={n.value} value={n.value}>
-                      {n.label}
+                      {t(n.labelKey)}
                     </option>
                   ))}
                 </Select>
               </label>
               <label className="grow">
-                <span>گروه تفصیلی الزامی</span>
+                <span>{t('coa.subsidiaryRequired')}</span>
                 <Select
                   value={draft.subsidiary_group_id ?? ''}
                   onChange={(e) =>
@@ -409,7 +411,7 @@ export function ChartOfAccounts() {
                     })
                   }
                 >
-                  <option value="">بدون تفصیلی</option>
+                  <option value="">{t('coa.noSubsidiary')}</option>
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.title}
@@ -424,13 +426,11 @@ export function ChartOfAccounts() {
                     checked={draft.is_active}
                     onChange={(e) => setDraft({ ...draft, is_active: e.target.checked })}
                   />
-                  <span>فعال</span>
+                  <span>{t('partyForm.active')}</span>
                 </label>
               </div>
               <p className="hint">
-                ماهیت فرزند باید با والد بخواند: حساب بدهکار زیر حساب بستانکار نمی‌نشیند، مگر
-                والد «دوطرفه» باشد. اگر حساب گردش داشته باشد، کد و ماهیت آن دیگر قابل تغییر
-                نیست — چون دفاتر سال‌های قبل به آن ارجاع دارند.
+                {t('coa.natureHint')}
               </p>
             </div>
 
@@ -440,10 +440,10 @@ export function ChartOfAccounts() {
                 onClick={save}
                 disabled={busy || !draft.code.trim() || !draft.name.trim()}
               >
-                ذخیره
+                {t('common.save')}
               </button>
               <button className="ghost" onClick={() => setDraft(null)}>
-                انصراف
+                {t('common.cancel')}
               </button>
             </div>
           </div>

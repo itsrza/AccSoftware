@@ -14,6 +14,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import { useSort } from '../lib/useSort'
 import {Select} from '../components/Select'
 
@@ -32,6 +33,7 @@ import {Select} from '../components/Select'
  * هزینه. فقط موجودی جابه‌جا می‌شود، پس سند حسابداری صادر نمی‌شود.
  */
 export function InventoryTransfer() {
+  const {t} = useI18n()
   const [orders, setOrders] = useState<InventoryTransferOrder[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -90,7 +92,7 @@ export function InventoryTransfer() {
 
   const problems = useMemo(() => {
     const list: string[] = []
-    if (fromId && toId && fromId === toId) list.push('انبار مبدأ و مقصد نباید یکسان باشد.')
+    if (fromId && toId && fromId === toId) list.push(t('transfer.errSame'))
     if (quantity > 0 && quantity > available)
       list.push(`مقدار انتقال از موجودی قابل انتقال (${available}) بیشتر است.`)
     return list
@@ -101,7 +103,7 @@ export function InventoryTransfer() {
     setNotice('')
     try {
       await createInventoryTransferOrder(productId, fromId, toId, quantity, unitCost, note || undefined)
-      setNotice('حواله‌ی انتقال صادر شد. کالا تا تحویل در انبار مقصد، «در راه» است.')
+      setNotice(t('transfer.issued'))
       setQuantity(0)
       setNote('')
       await load()
@@ -136,17 +138,16 @@ export function InventoryTransfer() {
     !busy && productId !== '' && fromId !== '' && toId !== '' && quantity > 0 && problems.length === 0
 
   const statusLabel = (status: string) =>
-    status === 'in_transit' ? 'در راه' : status === 'received' ? 'تحویل شده' : 'لغو شده'
+    status === 'in_transit' ? t('inv.inTransit') : status === 'received' ? t('transfer.received') : t('transfer.cancelled')
 
   return (
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">انبار</div>
-          <h1>انتقال بین انبارها</h1>
+          <div className="eyebrow">{t('common.warehouse')}</div>
+          <h1>{t('page.inventory-transfer')}</h1>
           <p>
-            انتقال دو مرحله‌ای است: کالا از مبدأ خارج می‌شود و تا تحویل در مقصد «در راه» می‌ماند.
-            این انتقال هیچ اثر مالی ندارد — فقط جای کالا عوض می‌شود.
+            {t('transfer.lead')}
           </p>
         </div>
       </div>
@@ -156,39 +157,39 @@ export function InventoryTransfer() {
 
       <div className="metric-strip">
         <div>
-          <span>در راه</span>
+          <span>{t('inv.inTransit')}</span>
           <b className="amber">{inTransit.length}</b>
-          <small>منتظر تحویل در مقصد</small>
+          <small>{t('transfer.awaiting')}</small>
         </div>
         <div>
-          <span>ارزش کالای در راه</span>
+          <span>{t('transfer.transitValue')}</span>
           <b>{money(inTransit.reduce((sum, o) => sum + o.quantity * o.unit_cost, 0))} ریال</b>
-          <small>به بهای تمام‌شده</small>
+          <small>{t('transfer.atCost')}</small>
         </div>
         <div>
-          <span>تحویل شده</span>
+          <span>{t('transfer.received')}</span>
           <b>{orders.filter((o) => o.status === 'received').length}</b>
-          <small>حواله‌ی بسته‌شده</small>
+          <small>{t('transfer.closedNotes')}</small>
         </div>
         <div>
-          <span>انبارهای فعال</span>
+          <span>{t('transfer.activeWarehouses')}</span>
           <b>{warehouses.length}</b>
-          <small>مقصد ممکن</small>
+          <small>{t('transfer.possibleDestination')}</small>
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-head">
           <div>
-            <h3>حواله‌ی انتقال جدید</h3>
-            <p>موجودی قابل انتقال، موجودی منهای مقدار رزروشده است.</p>
+            <h3>{t('transfer.newNote')}</h3>
+            <p>{t('transfer.availableHint')}</p>
           </div>
         </div>
         <div className="filter-grid">
           <label className="grow">
-            <span>کالا *</span>
+            <span>{t('transfer.productRequired')}</span>
             <Select value={productId} onChange={(e) => setProductId(e.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -197,9 +198,9 @@ export function InventoryTransfer() {
             </Select>
           </label>
           <label>
-            <span>از انبار *</span>
+            <span>{t('transfer.fromRequired')}</span>
             <Select value={fromId} onChange={(e) => setFromId(e.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {warehouses.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -208,9 +209,9 @@ export function InventoryTransfer() {
             </Select>
           </label>
           <label>
-            <span>به انبار *</span>
+            <span>{t('transfer.toRequired')}</span>
             <Select value={toId} onChange={(e) => setToId(e.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {warehouses
                 .filter((w) => w.id !== fromId)
                 .map((w) => (
@@ -221,7 +222,7 @@ export function InventoryTransfer() {
             </Select>
           </label>
           <label>
-            <span>مقدار *</span>
+            <span>{t('transfer.quantityRequired')}</span>
             <input
               type="number"
               min={0}
@@ -232,7 +233,7 @@ export function InventoryTransfer() {
             />
           </label>
           <label className="grow">
-            <span>توضیح</span>
+            <span>{t('transfer.note')}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
         </div>
@@ -244,11 +245,11 @@ export function InventoryTransfer() {
               {selectedProduct?.unit ?? ''}
             </span>
             <span>
-              بهای تمام‌شده‌ی واحد: <b>{money(unitCost)} ریال</b>
+              {t('transfer.unitCost')} <b>{money(unitCost)} ریال</b>
             </span>
             {quantity > 0 && (
               <span>
-                ارزش انتقال: <b>{money(Math.round(quantity * unitCost))} ریال</b>
+                {t('transfer.value')} <b>{money(Math.round(quantity * unitCost))} ریال</b>
               </span>
             )}
           </div>
@@ -264,7 +265,7 @@ export function InventoryTransfer() {
 
         <div className="modal-actions">
           <button className="primary" onClick={submit} disabled={!canSubmit}>
-            صدور حواله‌ی انتقال
+            {t('transfer.issue')}
           </button>
         </div>
       </div>
@@ -272,17 +273,17 @@ export function InventoryTransfer() {
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>حواله‌های انتقال</h3>
+            <h3>{t('transfer.notes')}</h3>
             <p>{sorted.length} مورد</p>
           </div>
           <div className="filter-actions">
             <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">همه</option>
-              <option value="in_transit">در راه</option>
-              <option value="received">تحویل شده</option>
-              <option value="cancelled">لغو شده</option>
+              <option value="">{t('common.all')}</option>
+              <option value="in_transit">{t('inv.inTransit')}</option>
+              <option value="received">{t('transfer.received')}</option>
+              <option value="cancelled">{t('transfer.cancelled')}</option>
             </Select>
-            <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
+            <button className="icon-btn" onClick={load} aria-label={t('common.refresh')}>
               <Icon name="refresh" />
             </button>
           </div>
@@ -291,15 +292,15 @@ export function InventoryTransfer() {
           <table className="large-table">
             <thead>
               <tr>
-                <th>کالا</th>
-                <th>از انبار</th>
-                <th>به انبار</th>
-                <th {...sortProps('quantity')}>مقدار</th>
-                <th {...sortProps('unit_cost')}>بهای واحد</th>
-                <th>ارزش</th>
-                <th>توضیح</th>
-                <th {...sortProps('status')}>وضعیت</th>
-                <th>عملیات</th>
+                <th>{t('invoiceForm.product')}</th>
+                <th>{t('transfer.from')}</th>
+                <th>{t('transfer.to')}</th>
+                <th {...sortProps('quantity')}>{t('common.quantity')}</th>
+                <th {...sortProps('unit_cost')}>{t('ops.unitCost')}</th>
+                <th>{t('reports.value')}</th>
+                <th>{t('transfer.note')}</th>
+                <th {...sortProps('status')}>{t('common.status')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -332,7 +333,7 @@ export function InventoryTransfer() {
                         disabled={busy}
                         onClick={() => receive(order)}
                       >
-                        تحویل در مقصد
+                        {t('transfer.receiveAtDestination')}
                       </button>
                     )}
                   </td>
@@ -341,7 +342,7 @@ export function InventoryTransfer() {
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={9} className="empty-row">
-                    حواله‌ی انتقالی ثبت نشده است.
+                    {t('transfer.empty')}
                   </td>
                 </tr>
               )}
