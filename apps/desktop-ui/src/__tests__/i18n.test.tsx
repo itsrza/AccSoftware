@@ -201,6 +201,7 @@ describe('چندزبانی — پوشش صفحه‌ها', () => {
     'pages/Dashboard.tsx',
     'pages/Products.tsx',
     'pages/ProductForm.tsx',
+    'pages/ProductCardex.tsx',
     'pages/ProductPricing.tsx',
     'pages/Checks.tsx',
     'pages/Invoices.tsx',

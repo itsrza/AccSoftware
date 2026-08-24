@@ -25,6 +25,7 @@ import {SingleLineJournal} from './pages/SingleLineJournal'
 import {ProductPricing} from './pages/ProductPricing'
 import {Parties} from './pages/Parties'
 import {Products} from './pages/Products'
+import {ProductCardex} from './pages/ProductCardex'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {Stocktaking} from './pages/Stocktaking'
 import {getDemoStatus, deleteDemo, login, getParties, getProducts, getCheckDashboard, getChecks, getSettings} from './api'
@@ -35,7 +36,7 @@ import {Topbar, type NotificationItem, type SearchHit} from './components/Topbar
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
 import {useI18n, type TranslationKey} from './lib/i18n'
-import {shortcutTarget} from './lib/shortcuts'
+import {shortcutTarget, isTypingTarget} from './lib/shortcuts'
 import {formatCount} from './lib/format'
 // styles.css و theme.css از داخل design-system.css و در لایه‌ی `legacy`
 // بارگذاری می‌شوند تا کلاس‌های تِیلویند بتوانند بر آن‌ها مقدم شوند.
@@ -170,6 +171,11 @@ function useOutsideClose(onClose: () => void) {
 export default function App() {
   const {t, dir, locale, setLocale} = useI18n()
   const [page, setPage] = useState('dashboard')
+  // کاردکس کالا (F4/F5/F6 مرجع) — با چه کالا و کانالی باز شود.
+  const [cardexSeed, setCardexSeed] = useState<{
+    productId?: string
+    kind: 'sales' | 'purchase' | 'all'
+  } | null>(null)
   // همه‌ی منوها هنگام باز شدن برنامه بسته‌اند.
   const [expanded, setExpanded] = useState<string[]>([])
   // تم پیش‌فرض تیره است — انتخاب کاربر در همین جلسه بر آن مقدم می‌شود.
@@ -311,6 +317,24 @@ export default function App() {
         setOpenMenu('')
         return
       }
+      // در صفحه‌ی کالاها، F4/F5/F6 همان کاردکس مرجع‌اند (تصویر 8Xmc1p)؛
+      // در بقیه‌ی صفحه‌ها نگاشت سراسری (صندوق/بانک) برقرار می‌ماند.
+      if (
+        page === 'products' &&
+        !isTypingTarget(event.target) &&
+        (event.key === 'F4' || event.key === 'F5' || event.key === 'F6')
+      ) {
+        event.preventDefault()
+        setSettings(false)
+        setPalette(false)
+        setOpenMenu('')
+        setCardexSeed({
+          productId: undefined,
+          kind: event.key === 'F4' ? 'sales' : event.key === 'F5' ? 'purchase' : 'all',
+        })
+        setPage('product-cardex')
+        return
+      }
       // میانبرهای تک‌حرفی نوار کناری مرجع؛ حین تایپ در فرم غیرفعال‌اند.
       const target = shortcutTarget(event)
       if (target) {
@@ -323,7 +347,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [page])
 
   const closeMenus = useMemo(() => () => setOpenMenu(''), [])
   const bellRef = useOutsideClose(closeMenus)
@@ -339,6 +363,13 @@ export default function App() {
       return
     }
     setPage(target)
+    setOpenMenu('')
+  }
+
+  /** باز کردن کاردکس از صفحه‌ی کالاها — با کالای از پیش انتخاب‌شده یا بدون آن. */
+  const openCardex = (productId: string | undefined, kind: 'sales' | 'purchase' | 'all') => {
+    setCardexSeed({productId, kind})
+    setPage('product-cardex')
     setOpenMenu('')
   }
   const toggleExpand = (id: string) =>
@@ -380,7 +411,9 @@ export default function App() {
       case 'single-journal':
         return <SingleLineJournal />
       case 'products':
-        return <Products />
+        return <Products onCardex={openCardex} />
+      case 'product-cardex':
+        return <ProductCardex initial={cardexSeed ?? undefined} />
       case 'inventory':
         return <AdvancedInventory />
       case 'inventory-count':

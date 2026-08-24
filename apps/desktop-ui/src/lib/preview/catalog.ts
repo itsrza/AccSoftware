@@ -6,6 +6,8 @@
  * یک ماژول است و ماندنش در `extras.ts` آن فایل را غول‌پیکر می‌کرد.
  */
 
+import { toJalali } from '../format'
+import { jalaliToDate, shiftJalali } from '../dateRange'
 import type { PreviewDataset } from './extras'
 
 type Handler = (args: Record<string, unknown>) => unknown
@@ -118,6 +120,74 @@ export function catalogResponses(data: PreviewDataset): Record<string, Handler> 
     const profit = Math.round((metal + making) * 0.07)
     const vat = Math.round((metal + making + profit) * 0.09)
     return {metal_value: metal, making_charge: making, profit, vat, total: metal + making + profit + vat}
+  },
+
+  // ------------------------------------------------------- کاردکس کالا
+  // ساخت حرکت‌های قطعی از خود کالای درخواستی — نه اعداد تصادفی.
+  // ماند هر سطر واقعاً تجمعی حساب می‌شود تا نمودار پیش‌نمایش درست باشد.
+  product_cardex: (args) => {
+    const product = products.find((item) => item.id === args.productId) ?? products[0]
+    const kind = String(args.kind ?? 'all')
+    const warehouse = warehouses[0]
+    const today = toJalali(new Date())
+    const pad = (value: number) => String(value).padStart(2, '0')
+    const todayStr = `${today.year}/${pad(today.month)}/${pad(today.day)}`
+    const daysAgo = (offset: number) => shiftJalali(todayStr, -offset) ?? todayStr
+    const iso = (jalali: string) => {
+      const [year, month, day] = jalali.split('/').map(Number)
+      return jalaliToDate(year, month, day).toISOString().slice(0, 10)
+    }
+
+    const cost = product.purchase_price
+    const drafts = [
+      // (کانال، جهت، مقدار، بهای واحد، نوع سند، شماره، روز‌های پیش، یادداشت)
+      {channel: 'internal', flow: 'in', quantity: product.quantity + 6, unitCost: cost, doc: 'opening', number: null as number | null, offset: 120, note: 'موجودی اول دوره'},
+      {channel: 'purchase', flow: 'in', quantity: 4, unitCost: cost, doc: 'purchase_invoice', number: 12, offset: 21, note: 'خرید'},
+      {channel: 'sales', flow: 'in', quantity: 1, unitCost: 0, doc: 'sales_return', number: 2, offset: 14, note: 'برگشت از فروش'},
+      {channel: 'sales', flow: 'out', quantity: 3, unitCost: 0, doc: 'sales_invoice', number: 7, offset: 7, note: 'فروش'},
+      {channel: 'purchase', flow: 'out', quantity: 2, unitCost: cost, doc: 'purchase_return', number: 3, offset: 3, note: 'برگشت از خرید'},
+    ]
+      .filter((row) => kind === 'all' || row.channel === kind)
+      .map((row) => ({...row, jalali: daysAgo(row.offset)}))
+      .sort((a, b) => (a.jalali < b.jalali ? -1 : a.jalali > b.jalali ? 1 : 0))
+
+    let balance = 0
+    let totalIn = 0
+    let totalOut = 0
+    const entries = drafts.map((row) => {
+      if (row.flow === 'in') {
+        balance += row.quantity
+        totalIn += row.quantity
+      } else {
+        balance -= row.quantity
+        totalOut += row.quantity
+      }
+      return {
+        date_iso: iso(row.jalali),
+        date_jalali: row.jalali,
+        warehouse_name: warehouse?.name ?? 'انبار مرکزی',
+        flow: row.flow,
+        doc_kind: row.doc,
+        doc_number: row.number,
+        quantity: row.quantity,
+        unit_cost: row.unitCost,
+        value: Math.round(row.quantity * row.unitCost),
+        balance,
+        note: row.note,
+      }
+    })
+
+    return {
+      product_id: product.id,
+      product_name: product.name,
+      product_unit: product.unit,
+      kind,
+      opening_balance: 0,
+      total_in: totalIn,
+      total_out: totalOut,
+      closing_balance: balance,
+      entries,
+    }
   }
   }
 }

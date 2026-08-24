@@ -486,7 +486,7 @@ describe('م۸ · نگهبان‌های ساختاری', () => {
     expect(called.length).toBeGreaterThan(150)
     const registry = [
       mainRs,
-      ...['treasury_docs', 'treasury_accounts', 'parties_form', 'chart_of_accounts', 'returns', 'quotes', 'production', 'settings', 'products_form']
+      ...['treasury_docs', 'treasury_accounts', 'parties_form', 'chart_of_accounts', 'returns', 'quotes', 'production', 'settings', 'products_form', 'cardex']
         .filter((name) => existsSync(resolve(ROOT, 'apps/desktop-host/src-tauri/src', `${name}.rs`)))
         .map((name) => host(`${name}.rs`)),
     ].join('\n')

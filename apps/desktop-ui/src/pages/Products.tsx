@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, Pencil, Plus, RefreshCw, Tags } from 'lucide-react'
+import { Download, Pencil, Plus, RefreshCw, ScrollText, Tags } from 'lucide-react'
 import { getProductGroups, getProductsDetailed, type ProductGroupRow, type ProductListRow } from '../api'
 import { errorText } from '../lib/errors'
 import { formatNumber, formatRials as money, percentSign, rialUnit } from '../lib/format'
@@ -23,7 +23,12 @@ import { ProductForm } from './ProductForm'
  * مختلف. بدون این‌ها فاکتور هم نمی‌تواند درست محاسبه شود.
  */
 
-export function Products() {
+export function Products({
+  onCardex,
+}: {
+  /** باز کردن کاردکس — با کالای انتخاب‌شده یا بدون آن (F4/F5/F6 مرجع). */
+  onCardex?: (productId: string | undefined, kind: 'sales' | 'purchase' | 'all') => void
+}) {
   const { t } = useI18n()
   const [rows, setRows] = useState<ProductListRow[]>([])
   const [groups, setGroups] = useState<ProductGroupRow[]>([])
@@ -245,11 +250,41 @@ export function Products() {
             title={t('products.listTitle')}
             subtitle={t('products.listSubtitle')}
             action={
-              !loading ? (
-                <Badge tone="neutral" dot={false}>
-                  {t('common.rowsCount', { count: formatNumber(sorted.length) })}
-                </Badge>
-              ) : undefined
+              <div className="flex items-center gap-2">
+                {onCardex && (
+                  <>
+                    <button
+                      type="button"
+                      className="table-action"
+                      onClick={() => onCardex(undefined, 'sales')}
+                      title="F4"
+                    >
+                      <ScrollText className="size-3.5" aria-hidden /> {t('cardex.kind.sales')}
+                    </button>
+                    <button
+                      type="button"
+                      className="table-action"
+                      onClick={() => onCardex(undefined, 'purchase')}
+                      title="F5"
+                    >
+                      <ScrollText className="size-3.5" aria-hidden /> {t('cardex.kind.purchase')}
+                    </button>
+                    <button
+                      type="button"
+                      className="table-action"
+                      onClick={() => onCardex(undefined, 'all')}
+                      title="F6"
+                    >
+                      <ScrollText className="size-3.5" aria-hidden /> {t('cardex.kind.all')}
+                    </button>
+                  </>
+                )}
+                {!loading ? (
+                  <Badge tone="neutral" dot={false}>
+                    {t('common.rowsCount', { count: formatNumber(sorted.length) })}
+                  </Badge>
+                ) : undefined}
+              </div>
             }
           />
         </div>
@@ -317,13 +352,26 @@ export function Products() {
                         )}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="table-action"
-                          onClick={() => setEditing({ id: row.id })}
-                        >
-                          <Pencil className="size-3.5" aria-hidden /> {t('common.editAction')}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          {onCardex && (
+                            <button
+                              type="button"
+                              className="table-action"
+                              aria-label={t('cardex.title')}
+                              title={t('cardex.title')}
+                              onClick={() => onCardex(row.id, 'all')}
+                            >
+                              <ScrollText className="size-3.5" aria-hidden />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => setEditing({ id: row.id })}
+                          >
+                            <Pencil className="size-3.5" aria-hidden /> {t('common.editAction')}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

@@ -1101,3 +1101,50 @@ export const saveProductProfile = (input: ProductInput) =>
 export const getProductsDetailed = () => api<ProductListRow[]>('list_products_detailed')
 export const previewGoldPrice = (id: string, ratePerGram: number) =>
   api<GoldBreakdown>('preview_gold_price', {id, ratePerGram})
+
+// ---------------------------------------------------------------------------
+// کاردکس کالا — F4 فروش / F5 خرید / F6 کلی
+// ---------------------------------------------------------------------------
+
+export type CardexKindValue = 'sales' | 'purchase' | 'all'
+
+export type CardexEntry = {
+  date_iso: string
+  date_jalali: string
+  warehouse_name: string
+  flow: 'in' | 'out'
+  doc_kind: string
+  doc_number: number | null
+  quantity: number
+  unit_cost: number
+  value: number
+  balance: number
+  note: string | null
+}
+
+export type CardexReport = {
+  product_id: string
+  product_name: string
+  product_unit: string
+  kind: CardexKindValue
+  opening_balance: number
+  total_in: number
+  total_out: number
+  closing_balance: number
+  entries: CardexEntry[]
+}
+
+export const getProductCardex = (
+  productId: string,
+  kind: CardexKindValue,
+  from: string,
+  to: string,
+  warehouseId?: string,
+) =>
+  api<CardexReport>('product_cardex', {
+    productId,
+    kind,
+    fromJalali: from,
+    toJalali: to,
+    warehouseId,
+  })
