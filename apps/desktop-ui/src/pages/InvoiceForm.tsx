@@ -585,25 +585,33 @@ export function InvoiceForm() {
             </div>
           )}
 
-          <div className="form-actions">
+          {/* دکمه‌های پانل جمع فاکتور در ستونی ۳۸۰ پیکسلی می‌نشینند؛ با
+            * چیدمان عمومی `form-actions` (که برای فرم تمام‌عرض ساخته شده)
+            * هر دکمه یک سطر می‌گرفت و بیش از اندازه بزرگ دیده می‌شد. اینجا
+            * شبکه‌ی دوستونیِ فشرده است: دو چاپ کنار هم، ثبت تمام‌عرض. */}
+          <div className="invoice-actions">
             <button
               className="ghost"
               onClick={() => void printInvoice('receipt')}
               disabled={!preview || lines.length === 0}
             >
-              <Icon name="print" /> {t('invoiceForm.printReceipt')}
+              <Icon name="print" size={14} /> {t('invoiceForm.printReceipt')}
             </button>
             <button
               className="ghost"
               onClick={() => void printInvoice('invoice')}
               disabled={!preview || lines.length === 0}
             >
-              <Icon name="print" /> {t('invoiceForm.printInvoice')}
+              <Icon name="print" size={14} /> {t('invoiceForm.printInvoice')}
             </button>
-            <button className="primary" onClick={save} disabled={saving || !preview}>
+            <button className="primary wide" onClick={save} disabled={saving || !preview}>
               {saving ? t('invoiceForm.saving') : t('invoiceForm.save')}
             </button>
-            <button onClick={() => setShowProfit((value) => !value)} disabled={!preview}>
+            <button
+              className="wide subtle"
+              onClick={() => setShowProfit((value) => !value)}
+              disabled={!preview}
+            >
               {t('invoiceForm.profitToggle')}
             </button>
           </div>

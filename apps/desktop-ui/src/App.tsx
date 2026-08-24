@@ -548,36 +548,46 @@ export default function App() {
       </div>
 
       {/* دکمه‌ی شناور ایجاد سریع — همیشه پایین سمت چپ صفحه.
-        * در راست‌به‌چپ `end` یعنی چپ؛ پس منوی کناری (که سمت راست است) را
-        * نمی‌پوشاند و در چپ‌به‌راست هم کنار منو نمی‌افتد. */}
-      <div className="fixed bottom-6 end-6 z-40" ref={fabRef}>
-        {openMenu === 'fab' && (
-          <div className="fade-up mb-3 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
-            <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">{t('fab.quickAdd')}</p>
-            {QUICK_ACTIONS.map((action) => (
-              <button
-                key={action.page}
-                onClick={() => go(action.page)}
-                className="block w-full rounded-lg px-2.5 py-2 text-start text-xs text-muted transition-colors hover:bg-bg-soft hover:text-text"
-              >
-                {t(action.labelKey)}
-              </button>
-            ))}
-          </div>
-        )}
-        <button
-          aria-label={t('fab.quickAdd')}
-          onClick={() => setOpenMenu(openMenu === 'fab' ? '' : 'fab')}
-          className={cn(
-            'fab-pulse grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] text-[#21254E] transition-transform hover:scale-105 active:scale-95',
-            openMenu === 'fab' && 'rotate-45',
+        *
+        * ## چرا این ساختار
+        * نسخه‌ی قبلی، منوی بازشو و دکمه‌ی «حذف داده‌ی نمونه» را **هم‌سطح**
+        * دکمه می‌گذاشت؛ چون عرض ظرف با عرض پهن‌ترین فرزندش تعیین می‌شود،
+        * باز شدن منو ظرف را پهن می‌کرد و دکمه از جایش می‌پرید.
+        *
+        * حالا: منو `absolute` است (اصلاً در چیدمان اثر ندارد) و ستون
+        * `items-end` است، پس هر فرزندی هر عرضی داشته باشد، لبه‌ی دکمه ثابت
+        * می‌ماند. `end` در راست‌به‌چپ یعنی چپ، پس منوی کناری را نمی‌پوشاند. */}
+      <div className="fixed bottom-6 end-6 z-40 flex flex-col items-end gap-3" ref={fabRef}>
+        <div className="relative">
+          {openMenu === 'fab' && (
+            <div className="fade-up absolute bottom-[calc(100%+12px)] end-0 w-56 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
+              <p className="px-2.5 py-1.5 text-[10px] font-bold text-faint">{t('fab.quickAdd')}</p>
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.page}
+                  onClick={() => go(action.page)}
+                  className="block w-full rounded-lg px-2.5 py-2 text-start text-xs text-muted transition-colors hover:bg-bg-soft hover:text-text"
+                >
+                  {t(action.labelKey)}
+                </button>
+              ))}
+            </div>
           )}
-        >
-          <Plus className="size-6" aria-hidden />
-        </button>
+          <button
+            aria-label={t('fab.quickAdd')}
+            aria-expanded={openMenu === 'fab'}
+            onClick={() => setOpenMenu(openMenu === 'fab' ? '' : 'fab')}
+            className={cn(
+              'fab-pulse grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-[#e7bd75] to-[#c8923c] text-[#21254E] transition-transform hover:scale-105 active:scale-95',
+              openMenu === 'fab' && 'rotate-45',
+            )}
+          >
+            <Plus className="size-6" aria-hidden />
+          </button>
+        </div>
         {DEMO_BUILD && demo && (
           <button
-            className="mt-3 block w-full rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-[11px] font-semibold text-danger transition-colors hover:bg-card"
+            className="w-max whitespace-nowrap rounded-xl border border-[var(--danger)] bg-[var(--danger-soft)] px-3 py-2 text-[11px] font-semibold text-danger transition-colors hover:bg-card"
             disabled={demoBusy}
             onClick={async () => {
               if (!confirm(t('demo.deleteConfirm'))) return
