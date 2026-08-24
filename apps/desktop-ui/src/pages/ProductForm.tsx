@@ -195,10 +195,16 @@ export function ProductForm({
     } catch (e) {
       setError(errorText(e))
       // زبانه‌ی مربوط به خطا باز شود تا کاربر دنبالش نگردد.
+      // کدها همان ITM-xxx هستند که `products_form` میزبان برمی‌گرداند؛
+      // نگاشت قدیمی روی PRD-xxx نوشته شده بود که هیچ‌وقت از میزبان
+      // نمی‌آمد و این شاخه عملاً مرده بود (ممیزی دور ۱۰).
       const message = errorText(e)
-      if (/PRD-00[789]|PRD-01[012]/.test(message)) setTab('prices')
-      if (/PRD-007/.test(message)) setTab('tax')
-      if (/PRD-01[678]/.test(message)) setTab('gold')
+      if (/ITM-007/.test(message)) setTab('tax')
+      else if (/ITM-00[89]|ITM-021/.test(message)) setTab('prices')
+      else if (/ITM-01[0123]/.test(message)) setTab('units')
+      else if (/ITM-01[45]/.test(message)) setTab('tiers')
+      else if (/ITM-01[678]/.test(message)) setTab('gold')
+      else if (/ITM-0(0[23456]|19|20)/.test(message)) setTab('general')
     } finally {
       setSaving(false)
     }
@@ -730,7 +736,7 @@ export function ProductForm({
                         {t('productForm.vatValue')} <b>{money(goldPreview.vat)}</b>
                       </span>
                       <span>
-                        {t('productForm.payable')} <b>{money(goldPreview.total)} ریال</b>
+                        {t('productForm.payable')} <b>{money(goldPreview.total)} {rialUnit()}</b>
                       </span>
                     </div>
                   )}
