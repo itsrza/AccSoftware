@@ -12,21 +12,23 @@ import {
   CheckTransitionOption,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatRials as money } from '../lib/format'
-import { checkStatusLabel, checkStatusTone, CHECK_STATUS_LABELS } from '../lib/checkStatus'
+import { formatCount, formatRials as money, rialUnit } from '../lib/format'
+import { checkStatusLabel, checkStatusTone, CHECK_STATUSES } from '../lib/checkStatus'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useSort } from '../lib/useSort'
 import {Select} from '../components/Select'
 
 type Kind = '' | 'received' | 'issued'
 
-/** برچسب فارسی اثر خزانه‌ای یک گذار، تا کاربر بداند چه سندی صادر می‌شود. */
-const EFFECT_NOTE: Record<CheckTransitionOption['treasury_effect'], string> = {
-  increase: 'سند دریافت صادر می‌شود',
-  decrease: 'سند پرداخت صادر می‌شود',
-  none: 'بدون اثر مالی',
+/** کلید ترجمه‌ی اثر خزانه‌ای هر گذار، تا کاربر بداند چه سندی صادر می‌شود. */
+const EFFECT_NOTE: Record<CheckTransitionOption['treasury_effect'], TranslationKey> = {
+  increase: 'checks.receiptVoucher',
+  decrease: 'checks.paymentVoucher',
+  none: 'checks.noFinancialEffect',
 }
 
 export function Checks() {
+  const { t, locale } = useI18n()
   const [dash, setDash] = useState<CheckDashboard>()
   const [rows, setRows] = useState<CheckSummary[]>([])
   const [kind, setKind] = useState<Kind>('')
@@ -125,9 +127,9 @@ export function Checks() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">خزانه‌داری</div>
-          <h1>مدیریت چک‌ها</h1>
-          <p>چرخه‌ی وضعیت چک و سند حسابداری آن به‌طور کامل توسط هسته‌ی مالی کنترل می‌شود.</p>
+          <div className="eyebrow">{t('checks.eyebrow')}</div>
+          <h1>{t('checks.title')}</h1>
+          <p>{t('checks.subtitle')}</p>
         </div>
       </div>
 
@@ -136,29 +138,29 @@ export function Checks() {
       {dash && (
         <div className="metric-strip">
           <div>
-            <span>چک‌های دریافتی</span>
-            <b>{money(dash.total_received)} ریال</b>
-            <small>{dash.received_count} فقره</small>
+            <span>{t('checks.received')}</span>
+            <b>{money(dash.total_received)} {rialUnit()}</b>
+            <small>{t('invoices.itemsCount', {count: formatCount(dash.received_count)})}</small>
           </div>
           <div>
-            <span>چک‌های پرداختی</span>
-            <b>{money(dash.total_issued)} ریال</b>
-            <small>{dash.issued_count} فقره</small>
+            <span>{t('checks.issued')}</span>
+            <b>{money(dash.total_issued)} {rialUnit()}</b>
+            <small>{t('invoices.itemsCount', {count: formatCount(dash.issued_count)})}</small>
           </div>
           <div>
-            <span>سررسید هفته‌ی جاری</span>
-            <b className="amber">{dash.due_soon_count} فقره</b>
-            <small>نیازمند پیگیری</small>
+            <span>{t('checks.dueThisWeek')}</span>
+            <b className="amber">{t('invoices.itemsCount', {count: formatCount(dash.due_soon_count)})}</b>
+            <small>{t('checks.needsFollowUp')}</small>
           </div>
           <div>
-            <span>سررسید گذشته</span>
-            <b className="amber">{dash.overdue_count} فقره</b>
-            <small>هنوز تعیین تکلیف نشده</small>
+            <span>{t('checks.overdue')}</span>
+            <b className="amber">{t('invoices.itemsCount', {count: formatCount(dash.overdue_count)})}</b>
+            <small>{t('checks.unresolved')}</small>
           </div>
           <div>
-            <span>برگشتی</span>
-            <b className="red-text">{dash.bounced_count} فقره</b>
-            <small>اثر معکوس ثبت شده</small>
+            <span>{t('checks.bounced')}</span>
+            <b className="red-text">{t('invoices.itemsCount', {count: formatCount(dash.bounced_count)})}</b>
+            <small>{t('checks.bouncedNote')}</small>
           </div>
         </div>
       )}
@@ -166,42 +168,46 @@ export function Checks() {
       <div className="panel filter-panel">
         <div className="filter-grid">
           <label>
-            <span>نوع چک</span>
+            <span>{t('checks.kind')}</span>
             <Select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
-              <option value="">همه</option>
-              <option value="received">دریافتی</option>
-              <option value="issued">پرداختی</option>
+              <option value="">{t('common.all')}</option>
+              <option value="received">{t('checks.kindReceived')}</option>
+              <option value="issued">{t('checks.kindIssued')}</option>
             </Select>
           </label>
           <label>
-            <span>وضعیت</span>
+            <span>{t('common.status')}</span>
             <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">همه‌ی وضعیت‌ها</option>
-              {Object.entries(CHECK_STATUS_LABELS).map(([value, text]) => (
+              <option value="">{t('invoices.allDocStatuses')}</option>
+              {CHECK_STATUSES.map((value) => (
                 <option key={value} value={value}>
-                  {text}
+                  {checkStatusLabel(value, locale)}
                 </option>
               ))}
             </Select>
           </label>
           <label>
-            <span>سررسید از</span>
+            <span>{t('checks.dueFrom')}</span>
             <input value={fromDue} onChange={(e) => setFromDue(e.target.value)} placeholder="1405/01/01" />
           </label>
           <label>
-            <span>سررسید تا</span>
+            <span>{t('checks.dueTo')}</span>
             <input value={toDue} onChange={(e) => setToDue(e.target.value)} placeholder="1405/12/29" />
           </label>
           <label className="grow">
-            <span>جستجو در شماره چک، بانک یا نام شخص</span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="جستجو…" />
+            <span>{t('checks.searchHint')}</span>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('common.searchShort')}
+            />
           </label>
           <div className="filter-actions">
             <button className="ghost" onClick={resetFilters}>
-              پاک‌کردن فیلترها
+              {t('common.clearFilters')}
             </button>
             <button className="primary" onClick={load} disabled={busy}>
-              <Icon name="refresh" /> بروزرسانی
+              <Icon name="refresh" /> {t('common.refresh')}
             </button>
           </div>
         </div>
@@ -210,43 +216,43 @@ export function Checks() {
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>فهرست چک‌ها</h3>
-            <p>{sorted.length} فقره — برای دیدن جزئیات و تغییر وضعیت روی هر ردیف کلیک کنید.</p>
+            <h3>{t('checks.listTitle')}</h3>
+            <p>{t('checks.listCount', {count: formatCount(sorted.length)})}</p>
           </div>
         </div>
         <div className="table-wrap">
           <table className="large-table">
             <thead>
               <tr>
-                <th {...sortProps('check_number')}>شماره چک</th>
-                <th {...sortProps('check_type')}>نوع</th>
-                <th>طرف حساب</th>
-                <th {...sortProps('amount')}>مبلغ (ریال)</th>
-                <th {...sortProps('issue_date')}>تاریخ صدور</th>
-                <th {...sortProps('due_date')}>سررسید</th>
-                <th>بانک</th>
-                <th {...sortProps('status')}>وضعیت</th>
+                <th {...sortProps('check_number')}>{t('checks.number')}</th>
+                <th {...sortProps('check_type')}>{t('common.type')}</th>
+                <th>{t('common.party')}</th>
+                <th {...sortProps('amount')}>{t('checks.amountWithUnit', {unit: rialUnit()})}</th>
+                <th {...sortProps('issue_date')}>{t('checks.issueDate')}</th>
+                <th {...sortProps('due_date')}>{t('checks.dueDate')}</th>
+                <th>{t('checks.bank')}</th>
+                <th {...sortProps('status')}>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.id} className="clickable" onClick={() => openDetail(r)}>
                   <td className="code">{r.check_number}</td>
-                  <td>{r.check_type === 'received' ? 'دریافتی' : 'پرداختی'}</td>
+                  <td>{r.check_type === 'received' ? t('checks.kindReceived') : t('checks.kindIssued')}</td>
                   <td>{partyNames[r.party_id ?? ''] ?? '—'}</td>
                   <td className="num">{money(r.amount)}</td>
                   <td>{r.issue_date}</td>
                   <td>{r.due_date}</td>
                   <td>{r.bank_name || '—'}</td>
                   <td>
-                    <span className={`status ${checkStatusTone(r.status)}`}>{checkStatusLabel(r.status)}</span>
+                    <span className={`status ${checkStatusTone(r.status)}`}>{checkStatusLabel(r.status, locale)}</span>
                   </td>
                 </tr>
               ))}
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={8} className="empty-row">
-                    چکی با این فیلترها یافت نشد.
+                    {t('checks.emptyRow')}
                   </td>
                 </tr>
               )}
@@ -260,52 +266,56 @@ export function Checks() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <div>
-                <h2>چک شماره {selected.check_number}</h2>
-                <p>{selected.check_type === 'received' ? 'چک دریافتی' : 'چک پرداختی'}</p>
+                <h2>{t('checks.detailTitle', {number: selected.check_number})}</h2>
+                <p>
+                  {selected.check_type === 'received'
+                    ? t('checks.receivedCheque')
+                    : t('checks.issuedCheque')}
+                </p>
               </div>
-              <button aria-label="بستن" className="icon-btn" onClick={() => setSelected(null)}>
+              <button aria-label={t('common.close')} className="icon-btn" onClick={() => setSelected(null)}>
                 <Icon name="close" />
               </button>
             </div>
 
             <dl className="detail-grid">
               <div>
-                <dt>مبلغ</dt>
-                <dd>{money(selected.amount)} ریال</dd>
+                <dt>{t('common.amount')}</dt>
+                <dd>{money(selected.amount)} {rialUnit()}</dd>
               </div>
               <div>
-                <dt>طرف حساب</dt>
+                <dt>{t('common.party')}</dt>
                 <dd>{partyNames[selected.party_id ?? ''] ?? '—'}</dd>
               </div>
               <div>
-                <dt>تاریخ صدور</dt>
+                <dt>{t('checks.issueDate')}</dt>
                 <dd>{selected.issue_date}</dd>
               </div>
               <div>
-                <dt>سررسید</dt>
+                <dt>{t('checks.dueDate')}</dt>
                 <dd>{selected.due_date}</dd>
               </div>
               <div>
-                <dt>بانک</dt>
+                <dt>{t('checks.bank')}</dt>
                 <dd>{selected.bank_name || '—'}</dd>
               </div>
               <div>
-                <dt>حساب خزانه</dt>
+                <dt>{t('checks.treasuryAccount')}</dt>
                 <dd>{treasuryNames[selected.treasury_account_id ?? ''] ?? '—'}</dd>
               </div>
               <div>
-                <dt>وضعیت فعلی</dt>
+                <dt>{t('checks.currentStatus')}</dt>
                 <dd>
                   <span className={`status ${checkStatusTone(selected.status)}`}>
-                    {checkStatusLabel(selected.status)}
+                    {checkStatusLabel(selected.status, locale)}
                   </span>
                 </dd>
               </div>
             </dl>
 
-            <h3 className="section-title">تغییر وضعیت</h3>
+            <h3 className="section-title">{t('checks.changeStatus')}</h3>
             {options.length === 0 ? (
-              <p className="muted">این چک در وضعیت پایانی است و گذار دیگری ندارد.</p>
+              <p className="muted">{t('checks.finalStatus')}</p>
             ) : (
               <div className="transition-list">
                 {options.map((option) => (
@@ -315,8 +325,10 @@ export function Checks() {
                     disabled={busy}
                     onClick={() => applyTransition(option.status)}
                   >
-                    <b>{option.label}</b>
-                    <small>{EFFECT_NOTE[option.treasury_effect]}</small>
+                    {/* برچسب گذار از هسته می‌آید (فارسی)؛ برای زبان‌های دیگر
+                      * همان وضعیت مقصد ترجمه می‌شود تا متن فارسی نماند. */}
+                    <b>{locale === 'fa' ? option.label : checkStatusLabel(option.status, locale)}</b>
+                    <small>{t(EFFECT_NOTE[option.treasury_effect])}</small>
                   </button>
                 ))}
               </div>

@@ -14,6 +14,7 @@ import {
 import { cn } from "../lib/cn";
 import { Select as DsSelect } from "./Select";
 import { formatPercent as fmtPct } from "../lib/format";
+import { useI18n } from "../lib/i18n";
 
 // ------------------------------------------------------------- Card
 export function Card({
@@ -80,12 +81,14 @@ export function Badge({
 
 // ------------------------------------------------------------- Trend chip
 export function TrendChip({
-  value, invert = false, suffix = "نسبت به دوره قبل",
+  value, invert = false, suffix,
 }: { value: number | null; invert?: boolean; suffix?: string }) {
+  const { t } = useI18n();
+  const caption = suffix ?? t("ui.vsPrevious");
   if (value === null || !isFinite(value)) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-faint">
-        <Minus className="size-3" /> {suffix}: داده‌ای نیست
+        <Minus className="size-3" /> {caption}: {t("ui.noData")}
       </span>
     );
   }
@@ -95,7 +98,7 @@ export function TrendChip({
   return (
     <span
       className={cn("inline-flex items-center gap-1.5 text-[11px] font-semibold")}
-      title={suffix}
+      title={caption}
     >
       <span
         className={cn(
@@ -238,37 +241,39 @@ export function Segmented<T extends string>({
 
 // ------------------------------------------------------------- States
 export function EmptyState({
-  title = "اطلاعاتی برای نمایش وجود ندارد.",
-  hint = "بازه زمانی یا فیلترها را تغییر دهید.",
+  title,
+  hint,
   action,
 }: { title?: string; hint?: string; action?: ReactNode }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border-strong bg-card-soft px-6 py-10 text-center">
       <span className="grid size-12 place-items-center rounded-2xl bg-bg-soft text-faint">
         <Inbox className="size-6" aria-hidden />
       </span>
-      <p className="text-sm font-semibold text-text">{title}</p>
-      <p className="text-xs text-muted">{hint}</p>
+      <p className="text-sm font-semibold text-text">{title ?? t("ui.emptyTitle")}</p>
+      <p className="text-xs text-muted">{hint ?? t("ui.emptyHint")}</p>
       {action}
     </div>
   );
 }
 
 export function ErrorState({ onRetry }: { onRetry?: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--danger)]/40 bg-[var(--danger-soft)] px-6 py-10 text-center">
       <span className="grid size-12 place-items-center rounded-2xl bg-card text-danger">
         <AlertTriangle className="size-6" aria-hidden />
       </span>
-      <p className="text-sm font-semibold text-text">خطا در دریافت اطلاعات</p>
-      <p className="text-xs text-muted">ارتباط با سرور برقرار نشد. لطفاً دوباره تلاش کنید.</p>
+      <p className="text-sm font-semibold text-text">{t("ui.errorTitle")}</p>
+      <p className="text-xs text-muted">{t("ui.errorHint")}</p>
       {onRetry && (
         <button
           onClick={onRetry}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-[#f4f5fd] transition-transform hover:scale-[1.03] active:scale-95 dark:bg-accent dark:text-[#1d1836]"
         >
           <RotateCcw className="size-3.5" aria-hidden />
-          تلاش مجدد
+          {t("common.retry")}
         </button>
       )}
     </div>

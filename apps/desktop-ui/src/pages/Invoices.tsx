@@ -8,7 +8,8 @@ import {
   InvoiceSummary,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatNumber, formatRials as money } from '../lib/format'
+import { formatNumber, formatRials as money, rialUnit } from '../lib/format'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import { Badge, Card, CardHeader, EmptyState, ErrorState, Skeleton } from '../components/ui'
 import { FilterBar } from '../components/FilterBar'
 import { useSort } from '../lib/useSort'
@@ -30,24 +31,25 @@ import { inRange, resolveRange, type JalaliRange } from '../lib/dateRange'
  * `ModulePage` مرجع برای همه‌ی ماژول‌ها دارد.
  */
 
-const STATUS_LABEL: Record<string, string> = {
-  posted: 'ثبت شده',
-  draft: 'پیش‌نویس',
-  cancelled: 'باطل شده',
-  reversed: 'برگشت شده',
+const STATUS_LABEL: Record<string, TranslationKey> = {
+  posted: 'invoices.status.posted',
+  draft: 'invoices.status.draft',
+  cancelled: 'invoices.status.void',
+  reversed: 'invoices.status.returned',
 }
 
-const PAYMENT_LABEL: Record<string, string> = {
-  paid: 'تسویه کامل',
-  partial: 'تسویه جزئی',
-  unpaid: 'تسویه نشده',
+const PAYMENT_LABEL: Record<string, TranslationKey> = {
+  paid: 'invoices.settled',
+  partial: 'invoices.partial',
+  unpaid: 'invoices.unsettled',
 }
 
 type Row = InvoiceSummary & { contact_name: string; warehouse_name: string; net: number }
 
 export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (page: string) => void }) {
+  const { t, dir } = useI18n()
   const sale = page === 'sales'
-  const title = sale ? 'فاکتورهای فروش' : 'فاکتورهای خرید'
+  const title = sale ? t('page.sales') : t('page.purchase')
 
   const [rows, setRows] = useState<InvoiceSummary[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
@@ -91,7 +93,7 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
     () =>
       rows.map((row) => ({
         ...row,
-        contact_name: names[row.contact_id ?? ''] ?? 'بدون طرف حساب',
+        contact_name: names[row.contact_id ?? ''] ?? t('invoices.noParty'),
         warehouse_name: warehouses[row.warehouse_id ?? ''] ?? '—',
         net: row.subtotal - row.discount,
       })),
@@ -141,15 +143,15 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
   /** خروجی CSV واقعی از همان سطرهایی که روی صفحه دیده می‌شوند. */
   const exportCsv = () => {
     const header = [
-      'شماره',
-      'تاریخ',
-      'طرف حساب',
-      'انبار',
-      'خالص',
-      'مالیات',
-      'جمع کل',
-      'وضعیت',
-      'تسویه',
+      t('common.number'),
+      t('common.date'),
+      t('common.party'),
+      t('common.warehouse'),
+      t('common.net'),
+      t('common.tax'),
+      t('common.grandTotal'),
+      t('common.status'),
+      t('invoices.settlementShort'),
     ]
     const lines = sorted.map((row) =>
       [
@@ -178,26 +180,31 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
   }
 
   const KPIS = [
-    { label: 'تعداد فاکتور', value: formatNumber(totals.count), unit: 'فقره' },
-    { label: 'مبلغ خالص', value: money(totals.net), unit: 'ریال' },
-    { label: 'ارزش افزوده', value: money(totals.tax), unit: 'ریال' },
-    { label: 'جمع کل', value: money(totals.total), unit: 'ریال' },
-    { label: 'تسویه‌نشده', value: money(totals.unsettled), unit: 'ریال', warn: true },
+    { label: t('invoices.count'), value: formatNumber(totals.count), unit: t('common.item') },
+    { label: t('invoices.netAmount'), value: money(totals.net), unit: rialUnit() },
+    { label: t('common.vat'), value: money(totals.tax), unit: rialUnit() },
+    { label: t('common.grandTotal'), value: money(totals.total), unit: rialUnit() },
+    {
+      label: t('invoices.unsettledAmount'),
+      value: money(totals.unsettled),
+      unit: rialUnit(),
+      warn: true,
+    },
   ]
 
   return (
-    <section className="page flex flex-col gap-4" dir="rtl">
+    <section className="page flex flex-col gap-4" dir={dir}>
       <div className="page-head">
         <div>
-          <div className="eyebrow">مدیریت و عملیات</div>
+          <div className="eyebrow">{t('invoices.eyebrow')}</div>
           <h1>{title}</h1>
-          <p>ستون‌ها با کلیک روی سربرگ مرتب می‌شوند و خروجی از همین سطرهای فیلترشده ساخته می‌شود.</p>
+          <p>{t('invoices.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="ghost" onClick={exportCsv} disabled={sorted.length === 0}>
-            <Download className="size-3.5" aria-hidden /> خروجی CSV
+            <Download className="size-3.5" aria-hidden /> {t('products.exportCsv')}
           </button>
-          <button aria-label="بارگذاری دوباره" className="icon-btn" onClick={load}>
+          <button aria-label={t('common.reload')} className="icon-btn" onClick={load}>
             <RefreshCw className="size-4" aria-hidden />
           </button>
           {sale && (
@@ -215,13 +222,13 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
         filters={[
           {
             key: 'status',
-            label: 'وضعیت سند',
+            label: t('invoices.docStatus'),
             value: status,
             width: 'xl:w-40',
             onChange: setStatus,
             options: [
-              { value: 'all', label: 'همه‌ی وضعیت‌ها' },
-              { value: 'posted', label: 'ثبت شده' },
+              { value: 'all', label: t('invoices.allDocStatuses') },
+              { value: 'posted', label: t('invoices.status.posted') },
               { value: 'draft', label: 'پیش‌نویس' },
               { value: 'cancelled', label: 'باطل شده' },
               { value: 'reversed', label: 'برگشت شده' },
@@ -229,24 +236,31 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
           },
           {
             key: 'payment',
-            label: 'وضعیت تسویه',
+            label: t('invoices.settlement'),
             value: payment,
             width: 'xl:w-40',
             onChange: setPayment,
             options: [
-              { value: 'all', label: 'همه‌ی تسویه‌ها' },
-              { value: 'paid', label: 'تسویه کامل' },
-              { value: 'partial', label: 'تسویه جزئی' },
-              { value: 'unpaid', label: 'تسویه نشده' },
+              { value: 'all', label: t('invoices.allSettlements') },
+              { value: 'paid', label: t('invoices.settled') },
+              { value: 'partial', label: t('invoices.partial') },
+              { value: 'unpaid', label: t('invoices.unsettled') },
             ],
           },
         ]}
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="شماره، طرف حساب یا انبار…"
+        searchPlaceholder={t('invoices.searchHint')}
         onReset={reset}
         isDefault={isDefault}
-        note={loading ? undefined : `${formatNumber(filtered.length)} از ${formatNumber(rows.length)}`}
+        note={
+          loading
+            ? undefined
+            : t('invoices.matchRatio', {
+                shown: formatNumber(filtered.length),
+                total: formatNumber(rows.length),
+              })
+        }
       />
 
       {error && <ErrorState onRetry={load} />}
@@ -279,11 +293,11 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
         <div className="p-4 sm:p-5">
           <CardHeader
             title={title}
-            subtitle="جمع‌های بالا فقط سطرهای فیلترشده را می‌شمارند"
+            subtitle={t('invoices.totalsNote')}
             action={
               !loading && filtered.length > 0 ? (
                 <Badge tone="neutral" dot={false}>
-                  {formatNumber(filtered.length)} ردیف
+                  {t('common.rowsCount', { count: formatNumber(filtered.length) })}
                 </Badge>
               ) : undefined
             }
@@ -296,8 +310,8 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
         ) : sorted.length === 0 ? (
           <div className="px-4 pb-5 sm:px-5">
             <EmptyState
-              title="فاکتوری با این فیلترها پیدا نشد."
-              hint="بازه یا وضعیت را تغییر دهید."
+              title={t('invoices.emptyTitle')}
+              hint={t('invoices.emptyHint')}
             />
           </div>
         ) : (
@@ -305,15 +319,17 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
             <table className="large-table">
               <thead>
                 <tr>
-                  <th {...sortProps('number')}>شماره</th>
-                  <th {...sortProps('invoice_date')}>تاریخ</th>
-                  <th {...sortProps('contact_name')}>طرف حساب</th>
-                  <th {...sortProps('warehouse_name')}>انبار</th>
-                  <th {...sortProps('net')}>خالص (ریال)</th>
-                  <th {...sortProps('tax')}>ارزش افزوده</th>
-                  <th {...sortProps('total')}>جمع کل (ریال)</th>
-                  <th {...sortProps('status')}>وضعیت</th>
-                  <th {...sortProps('payment_status')}>تسویه</th>
+                  <th {...sortProps('number')}>{t('common.number')}</th>
+                  <th {...sortProps('invoice_date')}>{t('common.date')}</th>
+                  <th {...sortProps('contact_name')}>{t('common.party')}</th>
+                  <th {...sortProps('warehouse_name')}>{t('common.warehouse')}</th>
+                  <th {...sortProps('net')}>{t('invoices.netWithUnit', { unit: rialUnit() })}</th>
+                  <th {...sortProps('tax')}>{t('common.vat')}</th>
+                  <th {...sortProps('total')}>
+                    {t('invoices.grandTotalWithUnit', { unit: rialUnit() })}
+                  </th>
+                  <th {...sortProps('status')}>{t('common.status')}</th>
+                  <th {...sortProps('payment_status')}>{t('invoices.settlementShort')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -340,7 +356,7 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
                               : 'status danger'
                         }
                       >
-                        {STATUS_LABEL[row.status] ?? row.status}
+                        {STATUS_LABEL[row.status] ? t(STATUS_LABEL[row.status]) : row.status}
                       </span>
                     </td>
                     <td>
@@ -353,13 +369,15 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
                               : 'status neutral'
                         }
                       >
-                        {PAYMENT_LABEL[row.payment_status] ?? row.payment_status}
+                        {PAYMENT_LABEL[row.payment_status]
+                          ? t(PAYMENT_LABEL[row.payment_status])
+                          : row.payment_status}
                       </span>
                     </td>
                   </tr>
                 ))}
                 <tr className="total-row">
-                  <td colSpan={4}>جمع سطرهای نمایش‌داده‌شده</td>
+                  <td colSpan={4}>{t('invoices.sumOfShownRows')}</td>
                   <td className="num">{money(totals.net)}</td>
                   <td className="num">{money(totals.tax)}</td>
                   <td className="num">{money(totals.total)}</td>

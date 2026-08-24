@@ -5,26 +5,33 @@
  * فهرست گذارهای مجاز را از خودش بسازد. برچسب‌ها اینجا هستند، ولی «چه گذاری
  * مجاز است» را همیشه backend می‌گوید (`getCheckTransitionOptions`).
  */
+import { translate, type Locale, type TranslationKey } from './i18n'
 
-export const CHECK_STATUS_LABELS: Record<string, string> = {
-  in_hand: 'موجود',
-  deposited: 'واگذار شده به بانک',
-  collected: 'وصول شده',
-  cashed: 'نقد شده',
-  endorsed: 'خرج شده',
-  bounced: 'برگشتی',
-  returned: 'عودت شده',
-  void: 'باطل شده',
-  outstanding: 'پرداختی در جریان',
-  paid: 'پرداخت شده',
-  memo_in_hand: 'انتظامی موجود',
-  memo_returned: 'انتظامی عودت شده',
+export const CHECK_STATUSES = [
+  'in_hand',
+  'deposited',
+  'collected',
+  'cashed',
+  'endorsed',
+  'bounced',
+  'returned',
+  'void',
+  'outstanding',
+  'paid',
+  'memo_in_hand',
+  'memo_returned',
+] as const
+
+/** برچسب وضعیت به زبان فعال؛ وضعیت ناشناخته خودش برگردانده می‌شود. */
+export function checkStatusLabel(status: string, locale: Locale = 'fa'): string {
+  if (!(CHECK_STATUSES as readonly string[]).includes(status)) return status
+  return translate(locale, `check.status.${status}` as TranslationKey)
 }
 
-/** برچسب فارسی وضعیت؛ اگر وضعیت ناشناخته بود خود مقدار برگردانده می‌شود. */
-export function checkStatusLabel(status: string): string {
-  return CHECK_STATUS_LABELS[status] ?? status
-}
+/** نگاشت وضعیت→برچسب فارسی، برای جاهایی که فهرست کامل لازم است. */
+export const CHECK_STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  CHECK_STATUSES.map((status) => [status, checkStatusLabel(status)]),
+)
 
 /** رنگ‌بندی معنایی: سبز پایان موفق، قرمز مشکل، خاکستری خنثی، کهربایی در جریان. */
 export type CheckStatusTone = 'done' | 'danger' | 'pending' | 'neutral'

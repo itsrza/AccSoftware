@@ -11,22 +11,25 @@ import {
 } from '../api'
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
-import {formatRials} from '../lib/format'
+import {formatCount, formatRials} from '../lib/format'
+import {useI18n, type TranslationKey} from '../lib/i18n'
 import {useSort} from '../lib/useSort'
 import {Select} from '../components/Select'
 
-const PARTY_TYPES = [
-  {value: 'natural', label: 'حقیقی'},
-  {value: 'private_legal', label: 'حقوقی غیردولتی'},
-  {value: 'government_legal', label: 'حقوقی دولتی'},
-  {value: 'civil_partnership', label: 'مشارکت مدنی'},
-]
+/* برچسب نوع و نقش شخص از هسته می‌آید (فارسی). برای انگلیسی و عربی همان
+ * شناسه‌ی ساختاری ترجمه می‌شود تا در فهرست، متن فارسی جا نماند. */
+const PARTY_TYPE_KEY: Record<string, TranslationKey> = {
+  natural: 'parties.kind.natural',
+  private_legal: 'parties.kind.private',
+  government_legal: 'parties.kind.government',
+  civil_partnership: 'parties.kind.partnership',
+}
 
-const PARTY_FUNCTIONS = [
-  {value: 'person', label: 'شخص'},
-  {value: 'marketer', label: 'بازاریاب'},
-  {value: 'supervisor', label: 'سوپروایزر'},
-]
+const PARTY_FUNCTION_KEY: Record<string, TranslationKey> = {
+  person: 'parties.role.person',
+  marketer: 'parties.role.agent',
+  supervisor: 'parties.role.supervisor',
+}
 
 /**
  * مدیریت اشخاص — بازطراحی صفحه‌ی «لیست اشخاص».
@@ -35,6 +38,16 @@ const PARTY_FUNCTIONS = [
  * مانده‌ی واقعی اسناد ثبت‌شده محاسبه می‌شود، نه داده‌ی نمایشی.
  */
 export function Parties() {
+  const {t, locale} = useI18n()
+  /** فارسی از هسته می‌آید؛ زبان‌های دیگر از دیکشنری. */
+  const typeLabel = (row: PartyRow) =>
+    locale === 'fa' || !PARTY_TYPE_KEY[row.party_type]
+      ? row.party_type_label
+      : t(PARTY_TYPE_KEY[row.party_type])
+  const functionLabel = (row: PartyRow) =>
+    locale === 'fa' || !PARTY_FUNCTION_KEY[row.party_function]
+      ? row.party_function_label
+      : t(PARTY_FUNCTION_KEY[row.party_function])
   const [data, setData] = useState<PartyListResult | null>(null)
   const [routes, setRoutes] = useState<RouteRow[]>([])
   const [search, setSearch] = useState('')
@@ -96,12 +109,12 @@ export function Parties() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">اشخاص</div>
-          <h1>مدیریت اشخاص</h1>
-          <p>مشتریان، تأمین‌کنندگان، بازاریاب‌ها و سوپروایزرها با مانده‌ی واقعی حساب.</p>
+          <div className="eyebrow">{t('parties.eyebrow')}</div>
+          <h1>{t('parties.title')}</h1>
+          <p>{t('parties.subtitle')}</p>
         </div>
         <button className="primary" onClick={openNew}>
-          <Icon name="plus" /> افزودن شخص
+          <Icon name="plus" /> {t('parties.add')}
         </button>
       </div>
 
@@ -110,26 +123,26 @@ export function Parties() {
       {summary && (
         <div className="metric-strip">
           <div>
-            <span>بدهکاران</span>
+            <span>{t('parties.debtors')}</span>
             <b className="red-text">{formatRials(summary.debtor_total)}</b>
-            <small>{summary.debtor_count} نفر</small>
+            <small>{t('parties.peopleCount', {count: formatCount(summary.debtor_count)})}</small>
           </div>
           <div>
-            <span>بستانکاران</span>
+            <span>{t('parties.creditors')}</span>
             <b className="green-text">{formatRials(summary.creditor_total)}</b>
-            <small>{summary.creditor_count} نفر</small>
+            <small>{t('parties.peopleCount', {count: formatCount(summary.creditor_count)})}</small>
           </div>
           <div>
-            <span>بی‌حساب</span>
-            <b>{summary.settled_count}</b>
-            <small>نفر</small>
+            <span>{t('parties.balanced')}</span>
+            <b>{formatCount(summary.settled_count)}</b>
+            <small>{t('common.person')}</small>
           </div>
           <div>
-            <span>خالص مانده</span>
+            <span>{t('parties.netBalance')}</span>
             <b className={summary.net_total >= 0 ? 'red-text' : 'green-text'}>
               {formatRials(Math.abs(summary.net_total))}
             </b>
-            <small>{summary.total_count} شخص</small>
+            <small>{t('parties.personsCount', {count: formatCount(summary.total_count)})}</small>
           </div>
         </div>
       )}
@@ -138,12 +151,12 @@ export function Parties() {
         <div className="toolbar">
           <input
             className="search-input"
-            placeholder="جستجوی نام یا موبایل…"
+            placeholder={t('parties.searchHint')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
           <Select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
-            <option value="">همه‌ی گروه‌ها</option>
+            <option value="">{t('parties.allGroups')}</option>
             {groups.map((group) => (
               <option key={group} value={group}>
                 {group}
@@ -151,45 +164,50 @@ export function Parties() {
             ))}
           </Select>
           <Select value={balanceFilter} onChange={(event) => setBalanceFilter(event.target.value)}>
-            <option value="">همه‌ی وضعیت‌ها</option>
-            <option value="debtor">فقط بدهکاران</option>
-            <option value="creditor">فقط بستانکاران</option>
-            <option value="settled">فقط بی‌حساب</option>
+            <option value="">{t('parties.allStatuses')}</option>
+            <option value="debtor">{t('parties.onlyDebtors')}</option>
+            <option value="creditor">{t('parties.onlyCreditors')}</option>
+            <option value="settled">{t('parties.onlyBalanced')}</option>
           </Select>
           <span className="spacer" />
-          <button aria-label="بروزرسانی" className="icon-btn" onClick={load} title="بارگذاری مجدد">
+          <button
+            aria-label={t('common.refresh')}
+            className="icon-btn"
+            onClick={load}
+            title={t('common.reload')}
+          >
             <Icon name="refresh" />
           </button>
         </div>
 
         {loading ? (
-          <div className="empty-state">در حال بارگذاری…</div>
+          <div className="empty-state">{t('common.loading')}</div>
         ) : visible.length === 0 ? (
-          <div className="empty-state">شخصی یافت نشد.</div>
+          <div className="empty-state">{t('parties.empty')}</div>
         ) : (
           <div className="table-wrap">
             <table className="large-table">
               <thead>
                 <tr>
                   <th className={headerClass('display_name')} onClick={() => toggle('display_name')}>
-                    نام
+                    {t('common.name')}
                   </th>
                   <th className={headerClass('party_type_label')} onClick={() => toggle('party_type_label')}>
-                    نوع
+                    {t('common.type')}
                   </th>
                   <th className={headerClass('party_function_label')} onClick={() => toggle('party_function_label')}>
-                    نقش
+                    {t('parties.role')}
                   </th>
                   <th className={headerClass('group_title')} onClick={() => toggle('group_title')}>
-                    گروه
+                    {t('common.group')}
                   </th>
-                  <th>مسیر</th>
-                  <th>بازاریاب</th>
+                  <th>{t('parties.route')}</th>
+                  <th>{t('parties.marketer')}</th>
                   <th className={headerClass('credit_limit')} onClick={() => toggle('credit_limit')}>
-                    سقف اعتبار
+                    {t('parties.creditLimit')}
                   </th>
                   <th className={headerClass('balance')} onClick={() => toggle('balance')}>
-                    بدهکار / بستانکار
+                    {t('parties.balanceColumn')}
                   </th>
                   <th></th>
                 </tr>
@@ -198,19 +216,19 @@ export function Parties() {
                 {sorted.map((row) => (
                   <tr key={row.id}>
                     <td>{row.display_name}</td>
-                    <td>{row.party_type_label}</td>
-                    <td>{row.party_function_label}</td>
+                    <td>{typeLabel(row)}</td>
+                    <td>{functionLabel(row)}</td>
                     <td>{row.group_title}</td>
                     <td>{row.route_title ?? '—'}</td>
                     <td>{row.marketer_name ?? '—'}</td>
                     <td>{row.credit_limit > 0 ? formatRials(row.credit_limit) : '—'}</td>
                     <td>
                       {row.balance === 0 ? (
-                        <span className="amount-zero">بی‌حساب</span>
+                        <span className="amount-zero">{t('parties.balanced')}</span>
                       ) : (
                         <span
                           className={row.balance > 0 ? 'amount-debit' : 'amount-credit'}
-                          title={row.balance > 0 ? 'بدهکار' : 'بستانکار'}
+                          title={row.balance > 0 ? t('parties.debtor') : t('parties.creditor')}
                         >
                           {formatRials(Math.abs(row.balance))}
                           <small> {row.balance_indicator}</small>
@@ -219,7 +237,7 @@ export function Parties() {
                     </td>
                     <td>
                       <button className="table-action" onClick={() => openEditor(row)}>
-                        مشخصات
+                        {t('parties.profile')}
                       </button>
                     </td>
                   </tr>

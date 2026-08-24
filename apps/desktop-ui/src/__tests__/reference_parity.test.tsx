@@ -29,7 +29,7 @@ import {
 import { toJalali } from '../lib/format'
 import { FilterBar } from '../components/FilterBar'
 import { toBuckets } from '../components/DashboardPanels'
-import { translate } from '../lib/i18n'
+import { translate, type TranslationKey } from '../lib/i18n'
 import type { PartyAging } from '../api'
 
 const src = (path: string) => readFileSync(resolve(__dirname, '..', path), 'utf8')
@@ -355,8 +355,19 @@ describe('فهرست فاکتور — تصویر مرجع sFpxWK', () => {
 
   it('ل۱ — ستون‌های ضروری فهرست فاکتور وجود دارند', () => {
     // بدون نام طرف حساب و انبار، کاربر نمی‌تواند فاکتور را تشخیص بدهد.
-    for (const column of ['شماره', 'تاریخ', 'طرف حساب', 'انبار', 'جمع کل', 'وضعیت', 'تسویه']) {
-      expect(invoices, `ستون «${column}»`).toContain(column)
+    // ستون‌ها حالا با کلید ترجمه نوشته می‌شوند؛ متن فارسی از دیکشنری می‌آید.
+    const columns: [string, TranslationKey][] = [
+      ['شماره', 'common.number'],
+      ['تاریخ', 'common.date'],
+      ['طرف حساب', 'common.party'],
+      ['انبار', 'common.warehouse'],
+      ['جمع کل', 'invoices.grandTotalWithUnit'],
+      ['وضعیت', 'common.status'],
+      ['تسویه', 'invoices.settlementShort'],
+    ]
+    for (const [persian, key] of columns) {
+      expect(invoices, `ستون «${persian}»`).toContain(`t('${key}'`)
+      expect(translate('fa', key), `ستون «${persian}»`).toContain(persian)
     }
   })
 
@@ -368,7 +379,8 @@ describe('فهرست فاکتور — تصویر مرجع sFpxWK', () => {
   it('ل۳ — نوار فیلتر و سطر جمع دارد', () => {
     expect(invoices).toContain('<FilterBar')
     expect(invoices).toContain('total-row')
-    expect(invoices).toContain('جمع سطرهای نمایش‌داده‌شده')
+    expect(invoices).toContain("t('invoices.sumOfShownRows')")
+    expect(translate('fa', 'invoices.sumOfShownRows')).toBe('جمع سطرهای نمایش‌داده‌شده')
   })
 
   it('ل۴ — خروجی CSV واقعی می‌سازد، نه دکمه‌ی تزئینی', () => {
