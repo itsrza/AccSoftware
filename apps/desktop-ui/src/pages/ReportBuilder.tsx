@@ -12,6 +12,7 @@ import {
 import { errorText } from '../lib/errors'
 import { REPORT_PRINT_STYLE } from '../lib/printStyle'
 import { formatNumber, formatRials as money, todayJalali } from '../lib/format'
+import {storedLocale, translate, useI18n, type TranslationKey} from '../lib/i18n'
 import {
   aggregate,
   allowedAggregations,
@@ -36,11 +37,11 @@ type Config = {
   to: string
 }
 
-const SOURCE_LABELS: Record<Source, string> = {
-  sales: 'گزارش فروش',
-  purchase: 'گزارش خرید',
-  inventory: 'ارزش موجودی انبار',
-  ledger: 'گردش حساب‌ها',
+const SOURCE_LABEL_KEYS: Record<Source, TranslationKey> = {
+  sales: 'reports.salesReport',
+  purchase: 'reports.purchaseReport',
+  inventory: 'reports.inventoryValue',
+  ledger: 'reports.ledger',
 }
 
 /**
@@ -50,43 +51,50 @@ const SOURCE_LABELS: Record<Source, string> = {
  * دارد. مثلاً «مانده» را نباید مثل «مبلغ» جمع زد و «میانگین بها» جمع‌پذیر
  * نیست — میانگینِ میانگین‌ها عدد بی‌معنایی است.
  */
-const COLUMNS: Record<Source, ReportColumn[]> = {
+/** ستون‌های هر منبع؛ عنوان‌ها کلید ترجمه‌اند و در زمان نمایش ترجمه می‌شوند. */
+type ColumnDef = Omit<ReportColumn, 'label'> & { labelKey: TranslationKey }
+
+const COLUMNS: Record<Source, ColumnDef[]> = {
   sales: [
-    { key: 'date', label: 'تاریخ', kind: 'date', aggregation: 'none' },
-    { key: 'invoice_number', label: 'شماره فاکتور', kind: 'text', aggregation: 'count' },
-    { key: 'contact_name', label: 'مشتری', kind: 'text', aggregation: 'none' },
-    { key: 'subtotal', label: 'مبلغ خالص', kind: 'money', aggregation: 'sum' },
-    { key: 'discount', label: 'تخفیف', kind: 'money', aggregation: 'sum' },
-    { key: 'tax', label: 'مالیات', kind: 'money', aggregation: 'sum' },
-    { key: 'total', label: 'جمع کل', kind: 'money', aggregation: 'sum' },
-    { key: 'payment_status', label: 'وضعیت پرداخت', kind: 'text', aggregation: 'none' },
+    { key: 'date', labelKey: 'common.date', kind: 'date', aggregation: 'none' },
+    { key: 'invoice_number', labelKey: 'rb.col.invoiceNumber', kind: 'text', aggregation: 'count' },
+    { key: 'contact_name', labelKey: 'reports.customer', kind: 'text', aggregation: 'none' },
+    { key: 'subtotal', labelKey: 'rb.col.netAmount', kind: 'money', aggregation: 'sum' },
+    { key: 'discount', labelKey: 'invoiceForm.discount', kind: 'money', aggregation: 'sum' },
+    { key: 'tax', labelKey: 'common.tax', kind: 'money', aggregation: 'sum' },
+    { key: 'total', labelKey: 'common.grandTotal', kind: 'money', aggregation: 'sum' },
+    { key: 'payment_status', labelKey: 'rb.col.paymentStatus', kind: 'text', aggregation: 'none' },
   ],
   purchase: [
-    { key: 'date', label: 'تاریخ', kind: 'date', aggregation: 'none' },
-    { key: 'invoice_number', label: 'شماره فاکتور', kind: 'text', aggregation: 'count' },
-    { key: 'contact_name', label: 'تأمین‌کننده', kind: 'text', aggregation: 'none' },
-    { key: 'subtotal', label: 'مبلغ خالص', kind: 'money', aggregation: 'sum' },
-    { key: 'discount', label: 'تخفیف', kind: 'money', aggregation: 'sum' },
-    { key: 'tax', label: 'مالیات', kind: 'money', aggregation: 'sum' },
-    { key: 'total', label: 'جمع کل', kind: 'money', aggregation: 'sum' },
-    { key: 'payment_status', label: 'وضعیت پرداخت', kind: 'text', aggregation: 'none' },
+    { key: 'date', labelKey: 'common.date', kind: 'date', aggregation: 'none' },
+    { key: 'invoice_number', labelKey: 'rb.col.invoiceNumber', kind: 'text', aggregation: 'count' },
+    { key: 'contact_name', labelKey: 'reports.supplier', kind: 'text', aggregation: 'none' },
+    { key: 'subtotal', labelKey: 'rb.col.netAmount', kind: 'money', aggregation: 'sum' },
+    { key: 'discount', labelKey: 'invoiceForm.discount', kind: 'money', aggregation: 'sum' },
+    { key: 'tax', labelKey: 'common.tax', kind: 'money', aggregation: 'sum' },
+    { key: 'total', labelKey: 'common.grandTotal', kind: 'money', aggregation: 'sum' },
+    { key: 'payment_status', labelKey: 'rb.col.paymentStatus', kind: 'text', aggregation: 'none' },
   ],
   inventory: [
-    { key: 'product_name', label: 'کالا', kind: 'text', aggregation: 'count' },
-    { key: 'warehouse_name', label: 'انبار', kind: 'text', aggregation: 'none' },
-    { key: 'quantity', label: 'موجودی', kind: 'quantity', aggregation: 'sum' },
+    { key: 'product_name', labelKey: 'invoiceForm.product', kind: 'text', aggregation: 'count' },
+    { key: 'warehouse_name', labelKey: 'common.warehouse', kind: 'text', aggregation: 'none' },
+    { key: 'quantity', labelKey: 'products.stock', kind: 'quantity', aggregation: 'sum' },
     // میانگین بها جمع‌پذیر نیست؛ جمع آن عدد بی‌معنایی می‌سازد.
-    { key: 'average_cost', label: 'میانگین بها', kind: 'money', aggregation: 'average' },
-    { key: 'value', label: 'ارزش موجودی', kind: 'money', aggregation: 'sum' },
+    { key: 'average_cost', labelKey: 'rb.col.averageCost', kind: 'money', aggregation: 'average' },
+    { key: 'value', labelKey: 'rb.col.stockValue', kind: 'money', aggregation: 'sum' },
   ],
   ledger: [
-    { key: 'code', label: 'کد حساب', kind: 'text', aggregation: 'count' },
-    { key: 'name', label: 'نام حساب', kind: 'text', aggregation: 'none' },
-    { key: 'debit', label: 'بدهکار', kind: 'money', aggregation: 'sum' },
-    { key: 'credit', label: 'بستانکار', kind: 'money', aggregation: 'sum' },
-    { key: 'balance', label: 'مانده', kind: 'money', aggregation: 'sum' },
+    { key: 'code', labelKey: 'reports.accountCode', kind: 'text', aggregation: 'count' },
+    { key: 'name', labelKey: 'rb.col.accountName', kind: 'text', aggregation: 'none' },
+    { key: 'debit', labelKey: 'reports.debit', kind: 'money', aggregation: 'sum' },
+    { key: 'credit', labelKey: 'reports.credit', kind: 'money', aggregation: 'sum' },
+    { key: 'balance', labelKey: 'reports.balance', kind: 'money', aggregation: 'sum' },
   ],
 }
+
+/** ستون‌های ترجمه‌شده‌ی یک منبع. */
+const columnsOf = (source: Source, translateKey: (key: TranslationKey) => string): ReportColumn[] =>
+  COLUMNS[source].map((column) => ({ ...column, label: translateKey(column.labelKey) }))
 
 const defaultConfig = (source: Source): Config => ({
   columns: COLUMNS[source].map((column) => column.key),
@@ -131,10 +139,12 @@ function download(name: string, content: string, type: string) {
  *    جمع خودش را نشان می‌دهد و جمع کل هم پایین جدول می‌آید.
  */
 export function ReportBuilder() {
+  const { t } = useI18n()
   const [source, setSource] = useState<Source>('sales')
   const [rows, setRows] = useState<ReportRow[]>([])
   const [config, setConfig] = useState<Config>(defaultConfig('sales'))
-  const [name, setName] = useState('گزارش سفارشی')
+  // نام پیش‌فرض به زبان فعال؛ کاربر می‌تواند عوضش کند و همان ذخیره می‌شود.
+  const [name, setName] = useState(() => translate(storedLocale(), 'rb.customReport'))
   const [saved, setSaved] = useState<
     { id: string; name: string; source: string; config_json: string }[]
   >([])
@@ -142,7 +152,7 @@ export function ReportBuilder() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const available = COLUMNS[source]
+  const available = columnsOf(source, t)
 
   const loadSource = useCallback(
     async (target: Source, from: string, to: string) => {
@@ -227,7 +237,7 @@ export function ReportBuilder() {
     setNotice('')
     try {
       await saveCustomReport(undefined, name, source, JSON.stringify(config))
-      setNotice('گزارش ذخیره شد.')
+      setNotice(t('rb.saved'))
       await refreshSaved()
     } catch (e) {
       setError(errorText(e))
@@ -243,7 +253,7 @@ export function ReportBuilder() {
       setName(item.name)
       setConfig({ ...base, ...parsed, aggregations: { ...base.aggregations, ...parsed.aggregations } })
     } catch {
-      setError('تنظیمات گزارش ذخیره‌شده نامعتبر است.')
+      setError(t('rb.invalidConfig'))
     }
   }
 
@@ -285,7 +295,7 @@ export function ReportBuilder() {
   const print = () => {
     const printWindow = window.open('', '_blank', 'width=1100,height=800')
     if (!printWindow) {
-      setError('پنجره چاپ توسط مرورگر مسدود شد.')
+      setError(t('rb.printBlocked'))
       return
     }
     const head = selected.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('')
@@ -319,7 +329,7 @@ export function ReportBuilder() {
     printWindow.document.write(
       `<html dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title>` +
         `<style>${REPORT_PRINT_STYLE}</style></head><body>` +
-        `<h1>${escapeHtml(name)}</h1><p>${SOURCE_LABELS[source]} — از ${config.from || 'ابتدای دوره'} تا ${config.to || 'امروز'} — ${report.rowCount} ردیف</p>` +
+        `<h1>${escapeHtml(name)}</h1><p>${t(SOURCE_LABEL_KEYS[source])} — از ${config.from || t('rb.periodStart')} تا ${config.to || t('rb.today')} — ${report.rowCount} ردیف</p>` +
         `<table><thead><tr>${head}</tr></thead><tbody>${bodyRows}${grand}</tbody></table>` +
         `<script>window.onload=()=>window.print()</script></body></html>`,
     )
@@ -330,19 +340,18 @@ export function ReportBuilder() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">گزارشات</div>
-          <h1>گزارش‌ساز</h1>
+          <div className="eyebrow">{t('nav.reports')}</div>
+          <h1>{t('page.report-builder')}</h1>
           <p>
-            ستون‌ها، فیلتر، گروه‌بندی و نوع جمع هر ستون را خودتان تعیین کنید. تاریخ‌ها شمسی‌اند و
-            جمع گروه‌ها همیشه با جمع کل می‌خواند.
+            {t('rb.subtitle')}
           </p>
         </div>
         <div className="filter-actions">
           <button className="ghost" onClick={() => loadSource(source, config.from, config.to)}>
-            <Icon name="refresh" /> بروزرسانی
+            <Icon name="refresh" /> {t('common.refresh')}
           </button>
           <button className="primary" onClick={save}>
-            ذخیره گزارش
+            {t('rb.saveReport')}
           </button>
         </div>
       </div>
@@ -353,21 +362,21 @@ export function ReportBuilder() {
       <div className="panel">
         <div className="filter-grid">
           <label>
-            <span>نام گزارش</span>
+            <span>{t('rb.reportName')}</span>
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <label>
-            <span>منبع داده</span>
+            <span>{t('rb.dataSource')}</span>
             <Select value={source} onChange={(e) => changeSource(e.target.value as Source)}>
-              {Object.entries(SOURCE_LABELS).map(([key, label]) => (
+              {Object.entries(SOURCE_LABEL_KEYS).map(([key, labelKey]) => (
                 <option key={key} value={key}>
-                  {label}
+                  {t(labelKey)}
                 </option>
               ))}
             </Select>
           </label>
           <label>
-            <span>از تاریخ (شمسی)</span>
+            <span>{t('rb.fromDate')}</span>
             <input
               value={config.from}
               onChange={(e) => setConfig({ ...config, from: e.target.value })}
@@ -375,7 +384,7 @@ export function ReportBuilder() {
             />
           </label>
           <label>
-            <span>تا تاریخ (شمسی)</span>
+            <span>{t('rb.toDate')}</span>
             <input
               value={config.to}
               onChange={(e) => setConfig({ ...config, to: e.target.value })}
@@ -383,20 +392,20 @@ export function ReportBuilder() {
             />
           </label>
           <label className="grow">
-            <span>جستجو در همه‌ی ستون‌ها</span>
+            <span>{t('rb.searchAllColumns')}</span>
             <input
               value={config.search}
               onChange={(e) => setConfig({ ...config, search: e.target.value })}
-              placeholder="جستجو…"
+              placeholder={t('common.searchShort')}
             />
           </label>
           <label>
-            <span>مرتب‌سازی بر اساس</span>
+            <span>{t('rb.sortBy')}</span>
             <Select
               value={config.sortKey}
               onChange={(e) => setConfig({ ...config, sortKey: e.target.value })}
             >
-              <option value="">بدون مرتب‌سازی</option>
+              <option value="">{t('rb.noSort')}</option>
               {available.map((column) => (
                 <option key={column.key} value={column.key}>
                   {column.label}
@@ -405,24 +414,24 @@ export function ReportBuilder() {
             </Select>
           </label>
           <label>
-            <span>جهت</span>
+            <span>{t('rb.direction')}</span>
             <Select
               value={config.sortDirection}
               onChange={(e) =>
                 setConfig({ ...config, sortDirection: e.target.value as 'asc' | 'desc' })
               }
             >
-              <option value="asc">صعودی</option>
-              <option value="desc">نزولی</option>
+              <option value="asc">{t('rb.ascending')}</option>
+              <option value="desc">{t('rb.descending')}</option>
             </Select>
           </label>
           <label>
-            <span>گروه‌بندی</span>
+            <span>{t('rb.grouping')}</span>
             <Select
               value={config.groupKey}
               onChange={(e) => setConfig({ ...config, groupKey: e.target.value })}
             >
-              <option value="">بدون گروه‌بندی</option>
+              <option value="">{t('rb.noGrouping')}</option>
               {available
                 .filter((column) => column.kind === 'text' || column.kind === 'date')
                 .map((column) => (
@@ -438,10 +447,9 @@ export function ReportBuilder() {
       <div className="panel">
         <div className="panel-head">
           <div>
-            <h3>ستون‌ها و نوع جمع</h3>
+            <h3>{t('rb.columnsAndAggregates')}</h3>
             <p>
-              «میانگین بها» جمع‌پذیر نیست — جمع میانگین‌ها عدد بی‌معنایی می‌سازد، پس پیش‌فرضش
-              میانگین است.
+              {t('rb.averageNote')}
             </p>
           </div>
         </div>
@@ -490,13 +498,13 @@ export function ReportBuilder() {
         </div>
         <div className="filter-actions">
           <button className="ghost" onClick={exportCsv}>
-            <Icon name="download" /> خروجی CSV
+            <Icon name="download" /> {t('rb.exportCsv')}
           </button>
           <button className="ghost" onClick={exportExcel}>
-            <Icon name="download" /> خروجی اکسل
+            <Icon name="download" /> {t('rb.exportExcel')}
           </button>
           <button className="ghost" onClick={print}>
-            <Icon name="file" /> چاپ / PDF
+            <Icon name="file" /> {t('rb.printPdf')}
           </button>
         </div>
       </div>
@@ -505,7 +513,7 @@ export function ReportBuilder() {
         <div className="panel">
           <div className="panel-head">
             <div>
-              <h3>گزارش‌های ذخیره‌شده</h3>
+              <h3>{t('rb.savedReports')}</h3>
               <p>{saved.length} گزارش</p>
             </div>
           </div>
@@ -514,11 +522,15 @@ export function ReportBuilder() {
               <div className="saved-chip" key={item.id}>
                 <button onClick={() => loadSaved(item)}>
                   <b>{item.name}</b>
-                  <small>{SOURCE_LABELS[item.source as Source] ?? item.source}</small>
+                  <small>
+                    {SOURCE_LABEL_KEYS[item.source as Source]
+                      ? t(SOURCE_LABEL_KEYS[item.source as Source])
+                      : item.source}
+                  </small>
                 </button>
                 <button
                   className="icon-btn danger-icon"
-                  aria-label="حذف"
+                  aria-label={t('partyForm.remove')}
                   onClick={async () => {
                     try {
                       await deleteCustomReport(item.id)
@@ -539,7 +551,7 @@ export function ReportBuilder() {
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>پیش‌نمایش</h3>
+            <h3>{t('rb.preview')}</h3>
             <p>
               {report.rowCount} ردیف
               {config.groupKey ? ` در ${report.groups.length} گروه` : ''}
@@ -547,9 +559,9 @@ export function ReportBuilder() {
           </div>
         </div>
         {loading ? (
-          <div className="empty-state">در حال آماده‌سازی…</div>
+          <div className="empty-state">{t('rb.preparing')}</div>
         ) : selected.length === 0 ? (
-          <div className="empty-state">حداقل یک ستون انتخاب کنید.</div>
+          <div className="empty-state">{t('rb.pickColumn')}</div>
         ) : (
           <div className="table-wrap">
             <table className="large-table">
@@ -603,7 +615,7 @@ export function ReportBuilder() {
                 {report.rowCount === 0 && (
                   <tr>
                     <td colSpan={selected.length} className="empty-row">
-                      داده‌ای با این فیلترها یافت نشد.
+                      {t('rb.noRows')}
                     </td>
                   </tr>
                 )}
@@ -616,7 +628,7 @@ export function ReportBuilder() {
                           column.kind === 'money' || column.kind === 'quantity' ? 'num' : ''
                         }
                       >
-                        {formatTotal(column, report.grandTotals[column.key]) || 'جمع کل'}
+                        {formatTotal(column, report.grandTotals[column.key]) || t('common.grandTotal')}
                       </td>
                     ))}
                   </tr>

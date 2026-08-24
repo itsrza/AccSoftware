@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { useI18n } from '../lib/i18n'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '../lib/cn'
 
@@ -89,7 +90,7 @@ export function Select({
   disabled,
   children,
   className,
-  placeholder = 'انتخاب کنید…',
+  placeholder,
   'aria-label': ariaLabel,
   id,
 }: {
@@ -106,6 +107,8 @@ export function Select({
   'aria-label'?: string
   id?: string
 }) {
+  const { t } = useI18n()
+  const label = placeholder ?? t('invoiceForm.selectPlaceholder')
   const options = useMemo(() => collectOptions(children), [children])
   const controlled = value !== undefined
   const [inner, setInner] = useState(defaultValue === undefined ? '' : String(defaultValue))
@@ -264,7 +267,7 @@ export function Select({
           !selected && 'text-faint',
         )}
       >
-        <span className="min-w-0 flex-1 truncate">{selected ? selected.label : placeholder}</span>
+        <span className="min-w-0 flex-1 truncate">{selected ? selected.label : label}</span>
         <ChevronDown
           className={cn('size-3.5 shrink-0 text-faint transition-transform duration-200', open && 'rotate-180')}
           aria-hidden
@@ -304,7 +307,7 @@ export function Select({
             dir="rtl"
           >
             {options.length === 0 && (
-              <li className="px-3 py-3 text-center text-[11.5px] text-faint">گزینه‌ای موجود نیست</li>
+              <li className="px-3 py-3 text-center text-[11.5px] text-faint">{t('select.noOption')}</li>
             )}
             {options.map((option, index) => {
               const isSelected = option.value === current

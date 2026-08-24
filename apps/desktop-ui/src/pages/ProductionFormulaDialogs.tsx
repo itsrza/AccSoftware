@@ -9,6 +9,7 @@
  */
 import { Icon } from '../components/Icon'
 import { formatRials as money } from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import type { FormulaComponentInput, FormulaDetail, Product } from '../api'
 import {Select} from '../components/Select'
 
@@ -39,6 +40,7 @@ export function ProductionFormulaDialogs({
   busy: boolean
   onSave: () => void
 }) {
+  const { t } = useI18n()
   return (
     <>
     {formulaForm && (
@@ -46,22 +48,22 @@ export function ProductionFormulaDialogs({
         <div className="modal party-modal">
           <div className="modal-head">
             <div>
-              <h2>فرمول تولید</h2>
-              <p>ضایعات بخشی از بهای تمام‌شده است، نه هزینه‌ی جداگانه.</p>
+              <h2>{t('prodDlg.title')}</h2>
+              <p>{t('prodDlg.wasteNote')}</p>
             </div>
-            <button aria-label="بستن" className="icon-btn" onClick={() => setFormulaForm(null)}>
+            <button aria-label={t('common.close')} className="icon-btn" onClick={() => setFormulaForm(null)}>
               <Icon name="close" />
             </button>
           </div>
           <div className="tab-body">
             <div className="filter-grid">
               <label className="grow">
-                <span>محصول تولیدی *</span>
+                <span>{t('prodDlg.productRequired')}</span>
                 <Select
                   value={formulaForm.product_id}
                   onChange={(e) => setFormulaForm({ ...formulaForm, product_id: e.target.value })}
                 >
-                  <option value="">انتخاب کنید…</option>
+                  <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -70,15 +72,15 @@ export function ProductionFormulaDialogs({
                 </Select>
               </label>
               <label className="grow">
-                <span>عنوان فرمول *</span>
+                <span>{t('prodDlg.titleRequired')}</span>
                 <input
                   value={formulaForm.title}
                   onChange={(e) => setFormulaForm({ ...formulaForm, title: e.target.value })}
-                  placeholder="فرمول استاندارد"
+                  placeholder={t('prodDlg.standardFormula')}
                 />
               </label>
               <label>
-                <span>مقدار تولید فرمول</span>
+                <span>{t('prodDlg.batchQuantity')}</span>
                 <input
                   type="number"
                   min={0}
@@ -95,7 +97,7 @@ export function ProductionFormulaDialogs({
             </div>
 
             <div className="repeat-head">
-              <h4 className="section-title">اجزای فرمول</h4>
+              <h4 className="section-title">{t('prodDlg.components')}</h4>
               <button
                 className="ghost"
                 onClick={() =>
@@ -108,13 +110,13 @@ export function ProductionFormulaDialogs({
                   })
                 }
               >
-                <Icon name="plus" /> افزودن جزء
+                <Icon name="plus" /> {t('prodDlg.addComponent')}
               </button>
             </div>
             {formulaForm.components.map((component, index) => (
               <div className="line-row" key={component.key}>
                 <label className="grow">
-                  <span>ماده</span>
+                  <span>{t('prod.material')}</span>
                   <Select
                     value={component.product_id}
                     onChange={(e) =>
@@ -126,7 +128,7 @@ export function ProductionFormulaDialogs({
                       })
                     }
                   >
-                    <option value="">انتخاب کنید…</option>
+                    <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                     {products
                       .filter((p) => p.id !== formulaForm.product_id)
                       .map((p) => (
@@ -137,7 +139,7 @@ export function ProductionFormulaDialogs({
                   </Select>
                 </label>
                 <label>
-                  <span>مصرف هر واحد</span>
+                  <span>{t('prodDlg.perUnit')}</span>
                   <input
                     type="number"
                     min={0}
@@ -156,7 +158,7 @@ export function ProductionFormulaDialogs({
                   />
                 </label>
                 <label>
-                  <span>ضایعات (٪)</span>
+                  <span>{t('prodDlg.waste')}</span>
                   <input
                     type="number"
                     min={0}
@@ -173,7 +175,7 @@ export function ProductionFormulaDialogs({
                     }
                   />
                 </label>
-                <button aria-label="حذف"
+                <button aria-label={t('partyForm.remove')}
                   className="icon-btn danger-icon"
                   disabled={formulaForm.components.length === 1}
                   onClick={() =>
@@ -189,8 +191,7 @@ export function ProductionFormulaDialogs({
               </div>
             ))}
             <p className="hint">
-              محصول نمی‌تواند در اجزای فرمول خودش باشد — بهای تمام‌شده‌اش به خودش وابسته
-              می‌شود و محاسبه بی‌معنا می‌گردد.
+              {t('prodDlg.selfRefNote')}
             </p>
           </div>
           <div className="modal-actions">
@@ -199,10 +200,10 @@ export function ProductionFormulaDialogs({
               onClick={onSave}
               disabled={busy || !formulaForm.product_id || !formulaForm.title.trim()}
             >
-              ذخیره
+              {t('common.save')}
             </button>
             <button className="ghost" onClick={() => setFormulaForm(null)}>
-              انصراف
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -220,7 +221,7 @@ export function ProductionFormulaDialogs({
                 {money(formulaDetail.header.estimated_unit_cost)} ریال
               </p>
             </div>
-            <button aria-label="بستن"
+            <button aria-label={t('common.close')}
               className="icon-btn"
               onClick={() => setFormulaDetail(undefined)}
            
@@ -231,12 +232,12 @@ export function ProductionFormulaDialogs({
           <table className="mini-table">
             <thead>
               <tr>
-                <th>ماده</th>
-                <th>مصرف پایه</th>
-                <th>ضایعات</th>
-                <th>مصرف واقعی</th>
-                <th>بهای واحد</th>
-                <th>موجودی</th>
+                <th>{t('prod.material')}</th>
+                <th>{t('prodDlg.baseConsumption')}</th>
+                <th>{t('prodDlg.wasteShort')}</th>
+                <th>{t('prodDlg.actualConsumption')}</th>
+                <th>{t('ops.unitCost')}</th>
+                <th>{t('products.stock')}</th>
               </tr>
             </thead>
             <tbody>

@@ -18,6 +18,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import { useSort } from '../lib/useSort'
 import {Select} from '../components/Select'
 
@@ -33,6 +34,7 @@ type Draft = Record<string, number>
  *    اشتباه درمی‌آید.
  */
 export function Returns({ sale }: { sale: boolean }) {
+  const { t } = useI18n()
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([])
   const [rows, setRows] = useState<ReturnRow[]>([])
   const [statusFilter, setStatusFilter] = useState('')
@@ -165,12 +167,12 @@ export function Returns({ sale }: { sale: boolean }) {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">{sale ? 'فروش' : 'خرید'}</div>
-          <h1>{sale ? 'برگشت از فروش' : 'برگشت از خرید'}</h1>
+          <div className="eyebrow">{sale ? t('nav.sales') : t('nav.purchase')}</div>
+          <h1>{sale ? t('returns.salesTitle') : t('returns.purchaseTitle')}</h1>
           <p>
             {sale
-              ? 'کالا به انبار بازمی‌گردد، درآمد و مالیات به نسبت معکوس می‌شوند.'
-              : 'کالا از انبار خارج می‌شود، بدهی به تأمین‌کننده و مالیات به نسبت معکوس می‌شوند.'}
+              ? t('returns.salesLead')
+              : t('returns.purchaseLead')}
           </p>
         </div>
       </div>
@@ -181,18 +183,18 @@ export function Returns({ sale }: { sale: boolean }) {
       <div className="panel">
         <div className="panel-head">
           <div>
-            <h3>برگشت جدید</h3>
-            <p>ابتدا فاکتور اصلی را انتخاب کنید؛ فقط اقلام قابل برگشت نمایش داده می‌شوند.</p>
+            <h3>{t('returns.new')}</h3>
+            <p>{t('returns.pickInvoice')}</p>
           </div>
         </div>
         <div className="filter-grid">
           <label className="grow">
-            <span>فاکتور اصلی *</span>
+            <span>{t('returns.originalInvoiceRequired')}</span>
             <Select
               value={selectedInvoice}
               onChange={(e) => setSelectedInvoice(e.target.value)}
             >
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {invoices.map((invoice) => (
                 <option key={invoice.id} value={invoice.id}>
                   شماره {invoice.number} — {invoice.invoice_date} — {money(invoice.total)} ریال
@@ -201,7 +203,7 @@ export function Returns({ sale }: { sale: boolean }) {
             </Select>
           </label>
           <label>
-            <span>تاریخ برگشت *</span>
+            <span>{t('returns.dateRequired')}</span>
             <input
               value={returnDate}
               onChange={(e) => setReturnDate(e.target.value)}
@@ -215,14 +217,14 @@ export function Returns({ sale }: { sale: boolean }) {
             <table className="large-table">
               <thead>
                 <tr>
-                  <th>کالا</th>
-                  <th>واحد</th>
-                  <th>مقدار فاکتور</th>
-                  <th>قبلاً برگشتی</th>
-                  <th>قابل برگشت</th>
-                  <th>مبلغ واحد</th>
-                  <th>مقدار برگشت</th>
-                  <th>جمع سطر</th>
+                  <th>{t('invoiceForm.product')}</th>
+                  <th>{t('common.unit')}</th>
+                  <th>{t('returns.invoiceQty')}</th>
+                  <th>{t('returns.alreadyReturned')}</th>
+                  <th>{t('returns.returnable')}</th>
+                  <th>{t('returns.unitAmount')}</th>
+                  <th>{t('returns.returnQty')}</th>
+                  <th>{t('returns.lineTotal')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -258,13 +260,13 @@ export function Returns({ sale }: { sale: boolean }) {
                 {candidates.length === 0 && (
                   <tr>
                     <td colSpan={8} className="empty-row">
-                      این فاکتور قلم قابل برگشتی ندارد.
+                      {t('returns.nothingReturnable')}
                     </td>
                   </tr>
                 )}
                 {chosen.length > 0 && (
                   <tr className="total-row">
-                    <td colSpan={7}>جمع مبلغ برگشتی (بدون مالیات)</td>
+                    <td colSpan={7}>{t('returns.totalExclTax')}</td>
                     <td className="num">{money(draftTotal)}</td>
                   </tr>
                 )}
@@ -275,7 +277,7 @@ export function Returns({ sale }: { sale: boolean }) {
 
         <div className="modal-actions">
           <button className="primary" onClick={submit} disabled={!canSubmit}>
-            ساخت برگشت پیش‌نویس
+            {t('returns.createDraft')}
           </button>
         </div>
       </div>
@@ -283,17 +285,17 @@ export function Returns({ sale }: { sale: boolean }) {
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>برگشت‌های ثبت‌شده</h3>
+            <h3>{t('returns.list')}</h3>
             <p>{sorted.length} مورد</p>
           </div>
           <div className="filter-actions">
             <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">همه‌ی وضعیت‌ها</option>
-              <option value="draft">پیش‌نویس</option>
-              <option value="posted">ثبت‌شده</option>
-              <option value="cancelled">باطل‌شده</option>
+              <option value="">{t('invoices.allDocStatuses')}</option>
+              <option value="draft">{t('quotes.status.draft')}</option>
+              <option value="posted">{t('returns.status.posted')}</option>
+              <option value="cancelled">{t('quotes.status.void')}</option>
             </Select>
-            <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
+            <button className="icon-btn" onClick={load} aria-label={t('common.refresh')}>
               <Icon name="refresh" />
             </button>
           </div>
@@ -302,16 +304,16 @@ export function Returns({ sale }: { sale: boolean }) {
           <table className="large-table">
             <thead>
               <tr>
-                <th {...sortProps('number')}>شماره</th>
-                <th {...sortProps('return_date')}>تاریخ</th>
-                <th>فاکتور اصلی</th>
-                <th {...sortProps('contact_name')}>طرف حساب</th>
-                <th>انبار</th>
-                <th {...sortProps('total')}>مبلغ خالص</th>
-                <th>مالیات</th>
-                <th {...sortProps('grand_total')}>جمع کل</th>
-                <th {...sortProps('status')}>وضعیت</th>
-                <th>عملیات</th>
+                <th {...sortProps('number')}>{t('common.number')}</th>
+                <th {...sortProps('return_date')}>{t('common.date')}</th>
+                <th>{t('returns.originalInvoice')}</th>
+                <th {...sortProps('contact_name')}>{t('common.party')}</th>
+                <th>{t('common.warehouse')}</th>
+                <th {...sortProps('total')}>{t('returns.netAmount')}</th>
+                <th>{t('common.tax')}</th>
+                <th {...sortProps('grand_total')}>{t('common.grandTotal')}</th>
+                <th {...sortProps('status')}>{t('common.status')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -349,7 +351,7 @@ export function Returns({ sale }: { sale: boolean }) {
                         }
                       }}
                     >
-                      جزئیات
+                      {t('treasuryDoc.details')}
                     </button>
                     {row.status === 'draft' && (
                       <>
@@ -358,10 +360,10 @@ export function Returns({ sale }: { sale: boolean }) {
                           disabled={busy}
                           onClick={() => finalize(row)}
                         >
-                          ثبت قطعی
+                          {t('returns.postFinal')}
                         </button>
                         <button className="table-action" disabled={busy} onClick={() => drop(row)}>
-                          ابطال
+                          {t('returns.void')}
                         </button>
                       </>
                     )}
@@ -371,7 +373,7 @@ export function Returns({ sale }: { sale: boolean }) {
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={10} className="empty-row">
-                    برگشتی ثبت نشده است.
+                    {t('returns.empty')}
                   </td>
                 </tr>
               )}
@@ -387,20 +389,20 @@ export function Returns({ sale }: { sale: boolean }) {
               <div>
                 <h2>برگشت شماره {detail.header.number}</h2>
                 <p>
-                  {detail.header.return_date} — {detail.header.contact_name ?? 'بدون طرف حساب'}
+                  {detail.header.return_date} — {detail.header.contact_name ?? t('invoices.noParty')}
                 </p>
               </div>
-              <button aria-label="بستن" className="icon-btn" onClick={() => setDetail(undefined)}>
+              <button aria-label={t('common.close')} className="icon-btn" onClick={() => setDetail(undefined)}>
                 <Icon name="close" />
               </button>
             </div>
             <table className="mini-table">
               <thead>
                 <tr>
-                  <th>کالا</th>
-                  <th>مقدار</th>
-                  <th>مبلغ واحد</th>
-                  <th>جمع</th>
+                  <th>{t('invoiceForm.product')}</th>
+                  <th>{t('common.quantity')}</th>
+                  <th>{t('returns.unitAmount')}</th>
+                  <th>{t('common.total')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -413,11 +415,11 @@ export function Returns({ sale }: { sale: boolean }) {
                   </tr>
                 ))}
                 <tr>
-                  <td colSpan={3}>مالیات معکوس‌شده</td>
+                  <td colSpan={3}>{t('returns.reversedTax')}</td>
                   <td className="num">{money(detail.header.tax)}</td>
                 </tr>
                 <tr className="total-row">
-                  <td colSpan={3}>جمع کل</td>
+                  <td colSpan={3}>{t('common.grandTotal')}</td>
                   <td className="num">{money(detail.header.grand_total)}</td>
                 </tr>
               </tbody>

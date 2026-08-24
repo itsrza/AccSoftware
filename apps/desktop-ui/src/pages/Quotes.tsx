@@ -21,6 +21,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import { useSort } from '../lib/useSort'
 import {Select} from '../components/Select'
 
@@ -37,6 +38,7 @@ const blankLine = (): EditableLine => ({ key: nextKey++, product_id: '', quantit
  * تغییر نمی‌دهند. اثر مالی فقط در لحظه‌ی تبدیل به فاکتور متولد می‌شود.
  */
 export function Quotes({ kind }: { kind: Kind }) {
+  const { t } = useI18n()
   const sales = kind === 'sales_quote'
   const [rows, setRows] = useState<QuoteRow[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -157,7 +159,7 @@ export function Quotes({ kind }: { kind: Kind }) {
         vat_basis_points: vat,
         lines: payload,
       })
-      setNotice(sales ? 'پیش‌فاکتور ثبت شد.' : 'سفارش خرید ثبت شد.')
+      setNotice(sales ? t('quotes.savedQuote') : t('quotes.savedOrder'))
       setFormOpen(false)
       resetForm()
       await load()
@@ -232,10 +234,10 @@ export function Quotes({ kind }: { kind: Kind }) {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">{sales ? 'فروش' : 'خرید'}</div>
-          <h1>{sales ? 'پیش‌فاکتورها' : 'سفارش‌های خرید'}</h1>
+          <div className="eyebrow">{sales ? t('nav.sales') : t('nav.purchase')}</div>
+          <h1>{sales ? t('page.proforma') : t('quotes.orders')}</h1>
           <p>
-            {sales ? 'پیش‌فاکتور' : 'سفارش خرید'} تعهد است نه رویداد مالی: سند حسابداری نمی‌سازد و
+            {sales ? t('quotes.quote') : t('quotes.order')} تعهد است نه رویداد مالی: سند حسابداری نمی‌سازد و
             موجودی را تغییر نمی‌دهد. اثر مالی فقط با تبدیل به فاکتور ایجاد می‌شود.
           </p>
         </div>
@@ -246,7 +248,7 @@ export function Quotes({ kind }: { kind: Kind }) {
             setFormOpen(true)
           }}
         >
-          <Icon name="plus" /> {sales ? 'پیش‌فاکتور جدید' : 'سفارش جدید'}
+          <Icon name="plus" /> {sales ? t('quotes.newQuote') : t('quotes.newOrder')}
         </button>
       </div>
 
@@ -255,44 +257,44 @@ export function Quotes({ kind }: { kind: Kind }) {
 
       <div className="metric-strip">
         <div>
-          <span>کل</span>
+          <span>{t('quotes.all')}</span>
           <b>{rows.length}</b>
-          <small>{sales ? 'پیش‌فاکتور' : 'سفارش'}</small>
+          <small>{sales ? t('quotes.quote') : t('quotes.orderShort')}</small>
         </div>
         <div>
-          <span>پذیرفته‌شده</span>
+          <span>{t('quotes.accepted')}</span>
           <b className="green-text">{accepted.length}</b>
-          <small>آماده‌ی تبدیل به فاکتور</small>
+          <small>{t('quotes.readyToConvert')}</small>
         </div>
         <div>
-          <span>ارزش پذیرفته‌شده‌ها</span>
+          <span>{t('quotes.acceptedValue')}</span>
           <b>{money(accepted.reduce((sum, r) => sum + r.total, 0))} ریال</b>
-          <small>تعهد، نه درآمد</small>
+          <small>{t('quotes.commitmentNote')}</small>
         </div>
         <div>
-          <span>منقضی</span>
+          <span>{t('quotes.expired')}</span>
           <b className={expiring.length > 0 ? 'red-text' : ''}>{expiring.length}</b>
-          <small>تاریخ اعتبار گذشته</small>
+          <small>{t('quotes.expiredValidity')}</small>
         </div>
       </div>
 
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>فهرست</h3>
+            <h3>{t('quotes.list')}</h3>
             <p>{sorted.length} مورد — برای جزئیات و تغییر وضعیت روی ردیف کلیک کنید.</p>
           </div>
           <div className="filter-actions">
             <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">همه‌ی وضعیت‌ها</option>
-              <option value="draft">پیش‌نویس</option>
-              <option value="sent">ارسال‌شده</option>
-              <option value="accepted">پذیرفته‌شده</option>
-              <option value="rejected">ردشده</option>
-              <option value="converted">تبدیل‌شده</option>
-              <option value="cancelled">باطل‌شده</option>
+              <option value="">{t('invoices.allDocStatuses')}</option>
+              <option value="draft">{t('quotes.status.draft')}</option>
+              <option value="sent">{t('quotes.status.sent')}</option>
+              <option value="accepted">{t('quotes.accepted')}</option>
+              <option value="rejected">{t('quotes.status.rejected')}</option>
+              <option value="converted">{t('quotes.status.converted')}</option>
+              <option value="cancelled">{t('quotes.status.void')}</option>
             </Select>
-            <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
+            <button className="icon-btn" onClick={load} aria-label={t('common.refresh')}>
               <Icon name="refresh" />
             </button>
           </div>
@@ -301,16 +303,16 @@ export function Quotes({ kind }: { kind: Kind }) {
           <table className="large-table">
             <thead>
               <tr>
-                <th {...sortProps('number')}>شماره</th>
-                <th {...sortProps('issue_date')}>تاریخ صدور</th>
-                <th {...sortProps('valid_until')}>اعتبار تا</th>
-                <th {...sortProps('contact_name')}>طرف حساب</th>
-                <th>اقلام</th>
-                <th {...sortProps('subtotal')}>مبلغ</th>
-                <th>تخفیف</th>
-                <th>مالیات</th>
-                <th {...sortProps('total')}>جمع کل</th>
-                <th {...sortProps('status')}>وضعیت</th>
+                <th {...sortProps('number')}>{t('common.number')}</th>
+                <th {...sortProps('issue_date')}>{t('quotes.issueDate')}</th>
+                <th {...sortProps('valid_until')}>{t('quotes.validUntil')}</th>
+                <th {...sortProps('contact_name')}>{t('common.party')}</th>
+                <th>{t('inv.items')}</th>
+                <th {...sortProps('subtotal')}>{t('common.amount')}</th>
+                <th>{t('invoiceForm.discount')}</th>
+                <th>{t('common.tax')}</th>
+                <th {...sortProps('total')}>{t('common.grandTotal')}</th>
+                <th {...sortProps('status')}>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -327,7 +329,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                   <td className="num">{money(row.total)}</td>
                   <td>
                     <span className={`status ${statusTone(row)}`}>
-                      {row.is_expired && row.status !== 'converted' ? 'منقضی' : row.status_label}
+                      {row.is_expired && row.status !== 'converted' ? t('quotes.expired') : row.status_label}
                     </span>
                   </td>
                 </tr>
@@ -335,7 +337,7 @@ export function Quotes({ kind }: { kind: Kind }) {
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={10} className="empty-row">
-                    موردی ثبت نشده است.
+                    {t('quotes.emptyRow')}
                   </td>
                 </tr>
               )}
@@ -349,10 +351,10 @@ export function Quotes({ kind }: { kind: Kind }) {
           <div className="modal party-modal">
             <div className="modal-head">
               <div>
-                <h2>{sales ? 'پیش‌فاکتور جدید' : 'سفارش خرید جدید'}</h2>
-                <p>مالیات روی مبلغ پس از تخفیف محاسبه می‌شود.</p>
+                <h2>{sales ? t('quotes.newQuote') : t('quotes.newOrderTitle')}</h2>
+                <p>{t('quotes.taxNote')}</p>
               </div>
-              <button aria-label="بستن" className="icon-btn" onClick={() => setFormOpen(false)}>
+              <button aria-label={t('common.close')} className="icon-btn" onClick={() => setFormOpen(false)}>
                 <Icon name="close" />
               </button>
             </div>
@@ -360,7 +362,7 @@ export function Quotes({ kind }: { kind: Kind }) {
             <div className="tab-body">
               <div className="filter-grid">
                 <label>
-                  <span>تاریخ صدور *</span>
+                  <span>{t('quotes.issueDateRequired')}</span>
                   <input
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
@@ -368,7 +370,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                   />
                 </label>
                 <label>
-                  <span>اعتبار تا</span>
+                  <span>{t('quotes.validUntil')}</span>
                   <input
                     value={validUntil}
                     onChange={(e) => setValidUntil(e.target.value)}
@@ -376,9 +378,9 @@ export function Quotes({ kind }: { kind: Kind }) {
                   />
                 </label>
                 <label className="grow">
-                  <span>{sales ? 'مشتری' : 'تأمین‌کننده'} *</span>
+                  <span>{sales ? t('partyForm.customer') : t('partyForm.supplier')} *</span>
                   <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
-                    <option value="">انتخاب کنید…</option>
+                    <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                     {parties.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -387,9 +389,9 @@ export function Quotes({ kind }: { kind: Kind }) {
                   </Select>
                 </label>
                 <label>
-                  <span>انبار</span>
+                  <span>{t('common.warehouse')}</span>
                   <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-                    <option value="">تعیین نشده</option>
+                    <option value="">{t('quotes.notSet')}</option>
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.name}
@@ -398,34 +400,34 @@ export function Quotes({ kind }: { kind: Kind }) {
                   </Select>
                 </label>
                 <label>
-                  <span>نرخ مالیات</span>
+                  <span>{t('quotes.taxRate')}</span>
                   <Select value={vat} onChange={(e) => setVat(Number(e.target.value))}>
-                    <option value={0}>معاف</option>
-                    <option value={900}>۹٪</option>
-                    <option value={1000}>۱۰٪</option>
+                    <option value={0}>{t('quotes.exempt')}</option>
+                    <option value={900}>{t('quotes.vat9')}</option>
+                    <option value={1000}>{t('quotes.vat10')}</option>
                   </Select>
                 </label>
                 <label className="grow">
-                  <span>توضیح</span>
+                  <span>{t('transfer.note')}</span>
                   <input value={description} onChange={(e) => setDescription(e.target.value)} />
                 </label>
               </div>
 
               <div className="repeat-head">
-                <h4 className="section-title">اقلام</h4>
+                <h4 className="section-title">{t('inv.items')}</h4>
                 <button className="ghost" onClick={() => setLines((c) => [...c, blankLine()])}>
-                  <Icon name="plus" /> افزودن قلم
+                  <Icon name="plus" /> {t('quotes.addLine')}
                 </button>
               </div>
               {lines.map((line) => (
                 <div className="line-row" key={line.key}>
                   <label className="grow">
-                    <span>کالا</span>
+                    <span>{t('invoiceForm.product')}</span>
                     <Select
                       value={line.product_id}
                       onChange={(e) => setLine(line.key, { product_id: e.target.value })}
                     >
-                      <option value="">انتخاب کنید…</option>
+                      <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name}
@@ -434,7 +436,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                     </Select>
                   </label>
                   <label>
-                    <span>مقدار</span>
+                    <span>{t('common.quantity')}</span>
                     <input
                       type="number"
                       min={0}
@@ -446,7 +448,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                     />
                   </label>
                   <label>
-                    <span>قیمت واحد</span>
+                    <span>{t('quotes.unitPrice')}</span>
                     <input
                       type="number"
                       min={0}
@@ -457,7 +459,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                     />
                   </label>
                   <label>
-                    <span>تخفیف سطر</span>
+                    <span>{t('quotes.lineDiscount')}</span>
                     <input
                       type="number"
                       min={0}
@@ -465,7 +467,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                       onChange={(e) => setLine(line.key, { discount: Number(e.target.value) || 0 })}
                     />
                   </label>
-                  <button aria-label="حذف قلم"
+                  <button aria-label={t('quotes.removeLine')}
                     className="icon-btn danger-icon"
                     disabled={lines.length === 1}
                     onClick={() =>
@@ -481,19 +483,19 @@ export function Quotes({ kind }: { kind: Kind }) {
               {preview && (
                 <div className="inline-summary">
                   <span>
-                    جمع: <b>{money(preview.subtotal)}</b>
+                    {t('quotes.sum')} <b>{money(preview.subtotal)}</b>
                   </span>
                   <span>
-                    تخفیف: <b>{money(preview.discount)}</b>
+                    {t('quotes.discount')} <b>{money(preview.discount)}</b>
                   </span>
                   <span>
-                    خالص: <b>{money(preview.net)}</b>
+                    {t('quotes.net')} <b>{money(preview.net)}</b>
                   </span>
                   <span>
-                    مالیات: <b>{money(preview.tax)}</b>
+                    {t('quotes.tax')} <b>{money(preview.tax)}</b>
                   </span>
                   <span>
-                    قابل پرداخت: <b>{money(preview.total)} ریال</b>
+                    {t('quotes.payable')} <b>{money(preview.total)} ریال</b>
                   </span>
                 </div>
               )}
@@ -501,10 +503,10 @@ export function Quotes({ kind }: { kind: Kind }) {
 
             <div className="modal-actions">
               <button className="primary" onClick={submit} disabled={!canSubmit}>
-                ثبت
+                {t('quotes.save')}
               </button>
               <button className="ghost" onClick={() => setFormOpen(false)}>
-                انصراف
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -520,11 +522,11 @@ export function Quotes({ kind }: { kind: Kind }) {
                   {detail.header.kind_label} شماره {detail.header.number}
                 </h2>
                 <p>
-                  {detail.header.issue_date} — {detail.header.contact_name ?? 'بدون طرف حساب'}
-                  {detail.header.is_expired && ' — تاریخ اعتبار گذشته است'}
+                  {detail.header.issue_date} — {detail.header.contact_name ?? t('invoices.noParty')}
+                  {detail.header.is_expired && t('quotes.expiredSuffix')}
                 </p>
               </div>
-              <button aria-label="بستن" className="icon-btn" onClick={() => setDetail(undefined)}>
+              <button aria-label={t('common.close')} className="icon-btn" onClick={() => setDetail(undefined)}>
                 <Icon name="close" />
               </button>
             </div>
@@ -532,12 +534,12 @@ export function Quotes({ kind }: { kind: Kind }) {
             <table className="mini-table">
               <thead>
                 <tr>
-                  <th>کالا</th>
-                  <th>مقدار</th>
-                  <th>قیمت واحد</th>
-                  <th>تخفیف</th>
-                  <th>مالیات</th>
-                  <th>جمع</th>
+                  <th>{t('invoiceForm.product')}</th>
+                  <th>{t('common.quantity')}</th>
+                  <th>{t('quotes.unitPrice')}</th>
+                  <th>{t('invoiceForm.discount')}</th>
+                  <th>{t('common.tax')}</th>
+                  <th>{t('common.total')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -554,7 +556,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                   </tr>
                 ))}
                 <tr className="total-row">
-                  <td colSpan={5}>جمع کل</td>
+                  <td colSpan={5}>{t('common.grandTotal')}</td>
                   <td className="num">{money(detail.header.total)}</td>
                 </tr>
               </tbody>
@@ -567,9 +569,9 @@ export function Quotes({ kind }: { kind: Kind }) {
               </p>
             ) : (
               <>
-                <h3 className="section-title">تغییر وضعیت</h3>
+                <h3 className="section-title">{t('quotes.changeStatus')}</h3>
                 {transitions.length === 0 ? (
-                  <p className="muted">این سند در وضعیت پایانی است.</p>
+                  <p className="muted">{t('quotes.finalStatus')}</p>
                 ) : (
                   <div className="transition-list">
                     {transitions.map((option) => (
@@ -587,19 +589,17 @@ export function Quotes({ kind }: { kind: Kind }) {
 
                 {detail.header.status === 'accepted' && (
                   <>
-                    <h3 className="section-title">تبدیل به فاکتور</h3>
+                    <h3 className="section-title">{t('quotes.convert')}</h3>
                     <div className="filter-grid">
                       <label>
-                        <span>تاریخ فاکتور</span>
+                        <span>{t('quotes.invoiceDate')}</span>
                         <input
                           value={convertDate}
                           onChange={(e) => setConvertDate(e.target.value)}
                         />
                       </label>
                       <p className="hint">
-                        فاکتور به‌صورت <b>پیش‌نویس</b> ساخته می‌شود، نه ثبت‌شده — چون ممکن است
-                        بین پیشنهاد و فروش، قیمت یا موجودی تغییر کرده باشد. اثر مالی فقط پس از
-                        ثبت قطعی فاکتور ایجاد می‌شود.
+                        {t('quotes.convertNotePrefix')} <b>{t('quotes.status.draft')}</b> {t('quotes.convertNote')}
                       </p>
                     </div>
                     <div className="modal-actions">
@@ -608,7 +608,7 @@ export function Quotes({ kind }: { kind: Kind }) {
                         onClick={doConvert}
                         disabled={busy || !convertDate.trim()}
                       >
-                        ساخت فاکتور پیش‌نویس
+                        {t('quotes.createDraftInvoice')}
                       </button>
                     </div>
                   </>

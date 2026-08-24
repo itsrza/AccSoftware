@@ -1,4 +1,5 @@
 import {Icon} from './Icon'
+import {useI18n} from '../lib/i18n'
 
 /**
  * صفحه‌ی «در دست ساخت».
@@ -19,11 +20,12 @@ export function UnderConstruction({
   reference?: string
   phase?: string
 }) {
+  const { t } = useI18n()
   return (
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">در دست ساخت</div>
+          <div className="eyebrow">{t('underConstruction.eyebrow')}</div>
           <h1>{title}</h1>
         </div>
       </div>
@@ -31,7 +33,7 @@ export function UnderConstruction({
         <div className="uc-icon">
           <Icon name="settings" size={24} />
         </div>
-        <h2>این بخش هنوز آماده نیست</h2>
+        <h2>{t('underConstruction.title')}</h2>
         <p>{description}</p>
         <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center'}}>
           {reference && <span className="uc-ref">مرجع طراحی: تصویر {reference}</span>}

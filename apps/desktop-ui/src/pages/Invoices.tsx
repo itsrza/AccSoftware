@@ -209,7 +209,7 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
           </button>
           {sale && (
             <button className="primary" onClick={() => onNavigate?.('invoice-form')}>
-              <Plus className="size-4" aria-hidden /> فاکتور جدید
+              <Plus className="size-4" aria-hidden /> {t('invoices.newInvoice')}
             </button>
           )}
         </div>
@@ -229,9 +229,9 @@ export function Invoices({ page, onNavigate }: { page: string; onNavigate?: (pag
             options: [
               { value: 'all', label: t('invoices.allDocStatuses') },
               { value: 'posted', label: t('invoices.status.posted') },
-              { value: 'draft', label: 'پیش‌نویس' },
-              { value: 'cancelled', label: 'باطل شده' },
-              { value: 'reversed', label: 'برگشت شده' },
+              { value: 'draft', label: t('invoices.status.draft') },
+              { value: 'cancelled', label: t('invoices.status.void') },
+              { value: 'reversed', label: t('invoices.status.returned') },
             ],
           },
           {

@@ -27,6 +27,7 @@ import {
 import { errorText } from '../lib/errors'
 import { ProductionFormulaDialogs, type FormulaDraft } from './ProductionFormulaDialogs'
 import { formatRials as money } from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import {Select} from '../components/Select'
 
 type Tab = 'receipt' | 'formulas'
@@ -47,6 +48,7 @@ const blankExpense = (): Expense => ({ key: nextKey++, account_id: '', title: ''
  * تغییر می‌کند. سود در لحظه‌ی فروش محقق می‌شود.
  */
 export function Production() {
+  const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('receipt')
   const [products, setProducts] = useState<Product[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -121,7 +123,7 @@ export function Production() {
         })),
       expenses: expenses
         .filter((line) => line.account_id && line.amount > 0)
-        .map((line) => ({ account_id: line.account_id, title: line.title || 'هزینه تولید', amount: line.amount })),
+        .map((line) => ({ account_id: line.account_id, title: line.title || t('prod.cost'), amount: line.amount })),
     }),
     [productionDate, warehouseId, formulaId, allocation, description, inputs, outputs, expenses],
   )
@@ -170,7 +172,7 @@ export function Production() {
       if (formula) {
         setOutputs([{ key: nextKey++, product_id: formula.product_id, quantity: formulaQuantity }])
       }
-      setNotice('مواد مصرفی از فرمول پر شد. مقدارها با احتساب ضایعات محاسبه شده‌اند.')
+      setNotice(t('prod.formulaApplied'))
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -207,7 +209,7 @@ export function Production() {
         output_quantity: formulaForm.output_quantity,
         components: formulaForm.components.map(({ key: _key, ...rest }) => rest),
       })
-      setNotice('فرمول تولید ذخیره شد.')
+      setNotice(t('prod.formulaSaved'))
       setFormulaForm(null)
       await load()
     } catch (e) {
@@ -232,11 +234,10 @@ export function Production() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">عملیات</div>
-          <h1>تولید</h1>
+          <div className="eyebrow">{t('common.actions')}</div>
+          <h1>{t('page.production')}</h1>
           <p>
-            مواد مصرفی + هزینه‌های تولید = بهای تمام‌شده‌ی محصولات. تولید سود نمی‌سازد؛ فقط شکل
-            دارایی عوض می‌شود — سود در لحظه‌ی فروش محقق می‌شود.
+            {t('prod.lead')}
           </p>
         </div>
       </div>
@@ -246,10 +247,10 @@ export function Production() {
 
       <div className="tab-bar">
         <button className={tab === 'receipt' ? 'active' : ''} onClick={() => setTab('receipt')}>
-          رسید تولید
+          {t('prod.receipt')}
         </button>
         <button className={tab === 'formulas' ? 'active' : ''} onClick={() => setTab('formulas')}>
-          فرمول‌های تولید
+          {t('prod.formulas')}
         </button>
       </div>
 
@@ -258,7 +259,7 @@ export function Production() {
           <div className="panel">
             <div className="filter-grid">
               <label>
-                <span>تاریخ تولید *</span>
+                <span>{t('prod.dateRequired')}</span>
                 <input
                   value={productionDate}
                   onChange={(e) => setProductionDate(e.target.value)}
@@ -266,9 +267,9 @@ export function Production() {
                 />
               </label>
               <label>
-                <span>انبار *</span>
+                <span>{t('prod.warehouseRequired')}</span>
                 <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-                  <option value="">انتخاب کنید…</option>
+                  <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
@@ -277,7 +278,7 @@ export function Production() {
                 </Select>
               </label>
               <label>
-                <span>روش تخصیص بها</span>
+                <span>{t('prod.allocationMethod')}</span>
                 <Select value={allocation} onChange={(e) => setAllocation(e.target.value)}>
                   {allocations.map((a) => (
                     <option key={a.value} value={a.value}>
@@ -287,7 +288,7 @@ export function Production() {
                 </Select>
               </label>
               <label className="grow">
-                <span>توضیح</span>
+                <span>{t('transfer.note')}</span>
                 <input value={description} onChange={(e) => setDescription(e.target.value)} />
               </label>
               {selectedAllocation && <p className="hint">{selectedAllocation.explanation}</p>}
@@ -297,15 +298,15 @@ export function Production() {
           <div className="panel">
             <div className="panel-head">
               <div>
-                <h3>استفاده از فرمول تولید</h3>
-                <p>مواد مصرفی خودکار و با احتساب ضایعات پر می‌شود.</p>
+                <h3>{t('prod.useFormula')}</h3>
+                <p>{t('prod.autoFillNote')}</p>
               </div>
             </div>
             <div className="filter-grid">
               <label className="grow">
-                <span>فرمول</span>
+                <span>{t('prod.formula')}</span>
                 <Select value={formulaId} onChange={(e) => setFormulaId(e.target.value)}>
-                  <option value="">بدون فرمول (ورود دستی)</option>
+                  <option value="">{t('prod.noFormula')}</option>
                   {formulas
                     .filter((f) => f.is_active)
                     .map((f) => (
@@ -316,7 +317,7 @@ export function Production() {
                 </Select>
               </label>
               <label>
-                <span>مقدار تولید</span>
+                <span>{t('prod.outputQuantity')}</span>
                 <input
                   type="number"
                   min={0}
@@ -331,7 +332,7 @@ export function Production() {
                   onClick={applyFormula}
                   disabled={busy || !formulaId || formulaQuantity <= 0}
                 >
-                  <Icon name="arrow" /> اعمال فرمول
+                  <Icon name="arrow" /> {t('prod.applyFormula')}
                 </button>
               </div>
             </div>
@@ -340,17 +341,17 @@ export function Production() {
           <div className="panel">
             <div className="panel-head">
               <div>
-                <h3>مواد مصرفی</h3>
-                <p>بهای هر ماده از بهای تمام‌شده‌ی همان کالا در انبار خوانده می‌شود.</p>
+                <h3>{t('prod.materials')}</h3>
+                <p>{t('prod.materialCostNote')}</p>
               </div>
               <button className="ghost" onClick={() => setInputs((c) => [...c, blankLine()])}>
-                <Icon name="plus" /> افزودن ماده
+                <Icon name="plus" /> {t('prod.addMaterial')}
               </button>
             </div>
             {inputs.map((line) => (
               <div className="line-row" key={line.key}>
                 <label className="grow">
-                  <span>ماده</span>
+                  <span>{t('prod.material')}</span>
                   <Select
                     value={line.product_id}
                     onChange={(e) =>
@@ -359,7 +360,7 @@ export function Production() {
                       )
                     }
                   >
-                    <option value="">انتخاب کنید…</option>
+                    <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -368,7 +369,7 @@ export function Production() {
                   </Select>
                 </label>
                 <label>
-                  <span>مقدار</span>
+                  <span>{t('common.quantity')}</span>
                   <input
                     type="number"
                     min={0}
@@ -383,7 +384,7 @@ export function Production() {
                     }
                   />
                 </label>
-                <button aria-label="حذف"
+                <button aria-label={t('partyForm.remove')}
                   className="icon-btn danger-icon"
                   disabled={inputs.length === 1}
                   onClick={() => setInputs((c) => c.filter((l) => l.key !== line.key))}
@@ -398,21 +399,21 @@ export function Production() {
           <div className="panel">
             <div className="panel-head">
               <div>
-                <h3>کالاهای تولید شده</h3>
+                <h3>{t('prod.outputs')}</h3>
                 <p>
                   {allocation === 'by_market_value'
-                    ? 'برای تخصیص بر اساس ارزش، قیمت بازار هر محصول را وارد کنید.'
-                    : 'بهای تمام‌شده به نسبت مقدار بین محصولات تقسیم می‌شود.'}
+                    ? t('prod.marketValueHint')
+                    : t('prod.quantityAllocation')}
                 </p>
               </div>
               <button className="ghost" onClick={() => setOutputs((c) => [...c, blankLine()])}>
-                <Icon name="plus" /> افزودن محصول
+                <Icon name="plus" /> {t('prod.addOutput')}
               </button>
             </div>
             {outputs.map((line) => (
               <div className="line-row" key={line.key}>
                 <label className="grow">
-                  <span>محصول</span>
+                  <span>{t('prod.product')}</span>
                   <Select
                     value={line.product_id}
                     onChange={(e) =>
@@ -421,7 +422,7 @@ export function Production() {
                       )
                     }
                   >
-                    <option value="">انتخاب کنید…</option>
+                    <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -430,7 +431,7 @@ export function Production() {
                   </Select>
                 </label>
                 <label>
-                  <span>مقدار</span>
+                  <span>{t('common.quantity')}</span>
                   <input
                     type="number"
                     min={0}
@@ -447,7 +448,7 @@ export function Production() {
                 </label>
                 {allocation === 'by_market_value' && (
                   <label>
-                    <span>قیمت بازار واحد</span>
+                    <span>{t('prod.marketUnitPrice')}</span>
                     <input
                       type="number"
                       min={0}
@@ -464,7 +465,7 @@ export function Production() {
                     />
                   </label>
                 )}
-                <button aria-label="حذف"
+                <button aria-label={t('partyForm.remove')}
                   className="icon-btn danger-icon"
                   disabled={outputs.length === 1}
                   onClick={() => setOutputs((c) => c.filter((l) => l.key !== line.key))}
@@ -479,17 +480,17 @@ export function Production() {
           <div className="panel">
             <div className="panel-head">
               <div>
-                <h3>هزینه‌های تولید</h3>
-                <p>دستمزد، سربار و انرژی — هر کدام به حساب هزینه‌ی خودش می‌نشیند.</p>
+                <h3>{t('prod.costs')}</h3>
+                <p>{t('prod.costsNote')}</p>
               </div>
               <button className="ghost" onClick={() => setExpenses((c) => [...c, blankExpense()])}>
-                <Icon name="plus" /> افزودن هزینه
+                <Icon name="plus" /> {t('prod.addCost')}
               </button>
             </div>
             {expenses.map((line) => (
               <div className="line-row" key={line.key}>
                 <label className="grow">
-                  <span>حساب هزینه</span>
+                  <span>{t('prod.expenseAccount')}</span>
                   <Select
                     value={line.account_id}
                     onChange={(e) =>
@@ -498,7 +499,7 @@ export function Production() {
                       )
                     }
                   >
-                    <option value="">انتخاب کنید…</option>
+                    <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.code} — {a.name}
@@ -507,7 +508,7 @@ export function Production() {
                   </Select>
                 </label>
                 <label className="grow">
-                  <span>شرح</span>
+                  <span>{t('common.description')}</span>
                   <input
                     value={line.title}
                     onChange={(e) =>
@@ -518,7 +519,7 @@ export function Production() {
                   />
                 </label>
                 <label>
-                  <span>مبلغ (ریال)</span>
+                  <span>{t('checks.amountWithUnit')}</span>
                   <input
                     type="number"
                     min={0}
@@ -532,7 +533,7 @@ export function Production() {
                     }
                   />
                 </label>
-                <button aria-label="حذف"
+                <button aria-label={t('partyForm.remove')}
                   className="icon-btn danger-icon"
                   onClick={() => setExpenses((c) => c.filter((l) => l.key !== line.key))}
                  
@@ -541,15 +542,15 @@ export function Production() {
                 </button>
               </div>
             ))}
-            {expenses.length === 0 && <p className="muted">هزینه‌ای ثبت نشده است.</p>}
+            {expenses.length === 0 && <p className="muted">{t('prod.noCost')}</p>}
           </div>
 
           {preview && (
             <div className="panel">
               <div className="panel-head">
                 <div>
-                  <h3>بهای تمام‌شده</h3>
-                  <p>این دقیقاً همان محاسبه‌ای است که هنگام ثبت اعمال می‌شود.</p>
+                  <h3>{t('prod.costTitle')}</h3>
+                  <p>{t('prod.costPreviewNote')}</p>
                 </div>
               </div>
 
@@ -563,24 +564,24 @@ export function Production() {
 
               <div className="inline-summary">
                 <span>
-                  مواد مصرفی: <b>{money(preview.materials_total)}</b>
+                  {t('prod.materialsLabel')} <b>{money(preview.materials_total)}</b>
                 </span>
                 <span>
-                  هزینه‌های تولید: <b>{money(preview.expenses_total)}</b>
+                  {t('prod.costsLabel')} <b>{money(preview.expenses_total)}</b>
                 </span>
                 <span>
-                  جمع بهای تمام‌شده: <b>{money(preview.total_cost)} ریال</b>
+                  {t('prod.totalCostLabel')} <b>{money(preview.total_cost)} ریال</b>
                 </span>
               </div>
 
               <table className="mini-table">
                 <thead>
                   <tr>
-                    <th>محصول</th>
-                    <th>مقدار</th>
-                    <th>سهم از بهای تمام‌شده</th>
-                    <th>بهای واحد جدید</th>
-                    <th>بهای واحد قبلی</th>
+                    <th>{t('prod.product')}</th>
+                    <th>{t('common.quantity')}</th>
+                    <th>{t('prod.costShare')}</th>
+                    <th>{t('prod.newUnitCost')}</th>
+                    <th>{t('prod.oldUnitCost')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -596,7 +597,7 @@ export function Production() {
                     </tr>
                   ))}
                   <tr className="total-row">
-                    <td colSpan={2}>جمع</td>
+                    <td colSpan={2}>{t('common.total')}</td>
                     <td className="num">
                       {money(preview.outputs.reduce((sum, r) => sum + r.allocated_cost, 0))}
                     </td>
@@ -607,7 +608,7 @@ export function Production() {
 
               <div className="modal-actions">
                 <button className="primary" onClick={submit} disabled={!canSubmit}>
-                  ثبت رسید تولید
+                  {t('prod.postReceipt')}
                 </button>
               </div>
             </div>
@@ -616,10 +617,10 @@ export function Production() {
           <div className="panel list-panel">
             <div className="panel-head">
               <div>
-                <h3>رسیدهای تولید</h3>
+                <h3>{t('prod.receipts')}</h3>
                 <p>{orders.length} مورد</p>
               </div>
-              <button className="icon-btn" onClick={load} aria-label="بروزرسانی">
+              <button className="icon-btn" onClick={load} aria-label={t('common.refresh')}>
                 <Icon name="refresh" />
               </button>
             </div>
@@ -627,14 +628,14 @@ export function Production() {
               <table className="large-table">
                 <thead>
                   <tr>
-                    <th>شماره</th>
-                    <th>تاریخ</th>
-                    <th>انبار</th>
-                    <th>مواد</th>
-                    <th>هزینه</th>
-                    <th>بهای تمام‌شده</th>
-                    <th>اقلام</th>
-                    <th>شرح</th>
+                    <th>{t('common.number')}</th>
+                    <th>{t('common.date')}</th>
+                    <th>{t('common.warehouse')}</th>
+                    <th>{t('prod.materialsShort')}</th>
+                    <th>{t('prod.costShort')}</th>
+                    <th>{t('prod.costTitle')}</th>
+                    <th>{t('inv.items')}</th>
+                    <th>{t('common.description')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -655,7 +656,7 @@ export function Production() {
                   {orders.length === 0 && (
                     <tr>
                       <td colSpan={8} className="empty-row">
-                        رسید تولیدی ثبت نشده است.
+                        {t('prod.emptyReceipts')}
                       </td>
                     </tr>
                   )}
@@ -670,7 +671,7 @@ export function Production() {
         <div className="panel list-panel">
           <div className="panel-head">
             <div>
-              <h3>فرمول‌های تولید</h3>
+              <h3>{t('prod.formulas')}</h3>
               <p>{formulas.length} فرمول — «قابل تولید» بر اساس موجودی فعلی مواد است.</p>
             </div>
             <button
@@ -684,20 +685,20 @@ export function Production() {
                 })
               }
             >
-              <Icon name="plus" /> فرمول جدید
+              <Icon name="plus" /> {t('prod.newFormula')}
             </button>
           </div>
           <div className="table-wrap">
             <table className="large-table">
               <thead>
                 <tr>
-                  <th>محصول</th>
-                  <th>عنوان فرمول</th>
-                  <th>مقدار تولید</th>
-                  <th>تعداد اجزا</th>
-                  <th>بهای برآوردی واحد</th>
-                  <th>قابل تولید با موجودی</th>
-                  <th>عملیات</th>
+                  <th>{t('prod.product')}</th>
+                  <th>{t('prod.formulaTitle')}</th>
+                  <th>{t('prod.outputQuantity')}</th>
+                  <th>{t('prod.componentCount')}</th>
+                  <th>{t('prod.estimatedUnitCost')}</th>
+                  <th>{t('prod.producibleWithStock')}</th>
+                  <th>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -722,7 +723,7 @@ export function Production() {
                           }
                         }}
                       >
-                        جزئیات
+                        {t('treasuryDoc.details')}
                       </button>
                       <button
                         className="table-action"
@@ -739,7 +740,7 @@ export function Production() {
                           }
                         }}
                       >
-                        حذف
+                        {t('partyForm.remove')}
                       </button>
                     </td>
                   </tr>
@@ -747,7 +748,7 @@ export function Production() {
                 {formulas.length === 0 && (
                   <tr>
                     <td colSpan={7} className="empty-row">
-                      فرمولی تعریف نشده است.
+                      {t('prod.noFormulaDefined')}
                     </td>
                   </tr>
                 )}
