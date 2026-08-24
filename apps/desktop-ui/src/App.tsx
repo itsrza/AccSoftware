@@ -35,6 +35,7 @@ import {Topbar, type NotificationItem, type SearchHit} from './components/Topbar
 import {isDesignPreview} from './lib/devPreview'
 import {errorText} from './lib/errors'
 import {useI18n, type TranslationKey} from './lib/i18n'
+import {shortcutTarget} from './lib/shortcuts'
 import {formatCount} from './lib/format'
 // styles.css و theme.css از داخل design-system.css و در لایه‌ی `legacy`
 // بارگذاری می‌شوند تا کلاس‌های تِیلویند بتوانند بر آن‌ها مقدم شوند.
@@ -308,6 +309,16 @@ export default function App() {
         setPalette(false)
         setSettings(false)
         setOpenMenu('')
+        return
+      }
+      // میانبرهای تک‌حرفی نوار کناری مرجع؛ حین تایپ در فرم غیرفعال‌اند.
+      const target = shortcutTarget(event)
+      if (target) {
+        event.preventDefault()
+        setSettings(false)
+        setPalette(false)
+        setOpenMenu('')
+        setPage(target)
       }
     }
     window.addEventListener('keydown', handler)

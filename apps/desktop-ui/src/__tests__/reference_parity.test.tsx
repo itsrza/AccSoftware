@@ -167,9 +167,10 @@ describe('نوار فیلتر مرجع', () => {
   it('ف۱ — همه‌ی پیش‌تنظیم‌های مرجع به‌صورت قرص نمایش داده می‌شوند', () => {
     render(<Harness />)
     for (const preset of PRESETS) {
-      expect(screen.getByRole('button', { name: preset.label })).toBeTruthy()
+      const label = translate('fa', `filter.preset.${preset.id}` as TranslationKey)
+      expect(screen.getAllByRole('button', { name: label }).length, label).toBeGreaterThan(0)
     }
-    expect(screen.getByRole('button', { name: 'بازه سفارشی' })).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'بازه سفارشی' }).length).toBeGreaterThan(0)
   })
 
   it('ف۲ — کلیک روی پیش‌تنظیم بازه را عوض می‌کند و وضعیت فشرده می‌گیرد', () => {

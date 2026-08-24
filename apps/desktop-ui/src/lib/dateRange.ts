@@ -29,16 +29,16 @@ export type PresetId =
 
 export type JalaliRange = { preset: PresetId; from: string; to: string }
 
-export const PRESETS: { id: PresetId; label: string }[] = [
-  { id: 'fiscalYear', label: 'سال مالی' },
-  { id: 'today', label: 'امروز' },
-  { id: 'yesterday', label: 'دیروز' },
-  { id: 'thisWeek', label: 'این هفته' },
-  { id: 'lastWeek', label: 'هفته گذشته' },
-  { id: 'thisMonth', label: 'این ماه' },
-  { id: 'lastMonth', label: 'ماه گذشته' },
-  { id: 'thisQuarter', label: 'این فصل' },
-  { id: 'thisYear', label: 'امسال' },
+export const PRESETS: { id: PresetId }[] = [
+  { id: 'fiscalYear' },
+  { id: 'today' },
+  { id: 'yesterday' },
+  { id: 'thisWeek' },
+  { id: 'lastWeek' },
+  { id: 'thisMonth' },
+  { id: 'lastMonth' },
+  { id: 'thisQuarter' },
+  { id: 'thisYear' },
 ]
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -207,12 +207,6 @@ export function previousRange(range: JalaliRange): { from: string; to: string } 
   const to = shiftJalali(range.from, -1)
   const from = shiftJalali(range.from, -length)
   return { from, to }
-}
-
-/** برچسب خوانا برای نمایش کنار نوار فیلتر. */
-export function rangeLabel(range: JalaliRange): string {
-  if (range.preset === 'custom') return 'بازه سفارشی'
-  return PRESETS.find((preset) => preset.id === range.preset)?.label ?? ''
 }
 
 /** آیا تاریخ داخل بازه است؟ مقایسه‌ی متنی چون قالب صفرپیشرو دارد. */
