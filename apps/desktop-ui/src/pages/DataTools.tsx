@@ -3,7 +3,7 @@ import {Icon} from '../components/Icon'
 import {Select} from '../components/Select'
 import {importData} from '../api'
 import {errorText} from '../lib/errors'
-import {formatRials as money} from '../lib/format'
+import {formatRials as money, formatCount} from '../lib/format'
 
 /**
  * ورود و خروج اطلاعات.
@@ -114,7 +114,7 @@ export function DataTools() {
           return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']))
         })
         setRows(parsed)
-        setMsg(`${parsed.length.toLocaleString('fa-IR')} ردیف برای بررسی آماده شد.`)
+        setMsg(`${formatCount(parsed.length)} ردیف برای بررسی آماده شد.`)
       } catch (e) {
         setRows([])
         setError(errorText(e))
@@ -139,7 +139,7 @@ export function DataTools() {
     setError('')
     try {
       await importData(entity, rows)
-      setMsg(`${rows.length.toLocaleString('fa-IR')} ردیف با موفقیت وارد شد.`)
+      setMsg(`${formatCount(rows.length)} ردیف با موفقیت وارد شد.`)
       setRows([])
       setFileName('')
     } catch (e) {
@@ -257,7 +257,7 @@ export function DataTools() {
               <tbody>
                 {schema.sample.map((row, index) => (
                   <tr key={index} className="row-muted">
-                    <td>{(index + 1).toLocaleString('fa-IR')}</td>
+                    <td>{formatCount(index + 1)}</td>
                     {schema.columns.map((column) => (
                       <td key={column.key}>{cell(column, row[column.key])}</td>
                     ))}
@@ -273,7 +273,7 @@ export function DataTools() {
             <div>
               <h3>پیش‌نمایش فایل {fileName}</h3>
               <p>
-                {rows.length.toLocaleString('fa-IR')} ردیف خوانده شد
+                {formatCount(rows.length)} ردیف خوانده شد
                 {rows.length > 50 ? ' — ۵۰ ردیف اول نمایش داده می‌شود.' : '.'}
               </p>
             </div>
@@ -296,7 +296,7 @@ export function DataTools() {
               <tbody>
                 {rows.slice(0, 50).map((row, index) => (
                   <tr key={index}>
-                    <td>{(index + 1).toLocaleString('fa-IR')}</td>
+                    <td>{formatCount(index + 1)}</td>
                     {Object.keys(rows[0]).map((key) => (
                       <td key={key}>
                         {cell(schema.columns.find((c) => c.key === key), String(row[key] ?? ''))}

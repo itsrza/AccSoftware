@@ -13,7 +13,7 @@ import {
   CodingSchemeInfo,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatRials as money } from '../lib/format'
+import { formatRials as money, formatCount} from '../lib/format'
 import {Select} from '../components/Select'
 
 type Draft = {
@@ -265,7 +265,7 @@ export function ChartOfAccounts() {
             <div key={title}>
               <span>{title}</span>
               <b>{scheme.code_lengths[index]} رقم</b>
-              <small>تا {scheme.capacities[index].toLocaleString('fa-IR')} حساب</small>
+              <small>تا {formatCount(scheme.capacities[index])} حساب</small>
             </div>
           ))}
           <div>

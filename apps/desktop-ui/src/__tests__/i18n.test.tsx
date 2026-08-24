@@ -180,3 +180,52 @@ describe('چندزبانی — رفتار زمان اجرا', () => {
     }
   })
 })
+
+describe('چندزبانی — پوشش صفحه‌ها', () => {
+  /* فهرست صفحه‌هایی که ترجمه‌شان تمام شده است.
+   *
+   * این فهرست فقط اجازه‌ی **رشد** دارد: اگر کسی `useI18n` را از یکی از این
+   * فایل‌ها بردارد، تست قرمز می‌شود. صفحه‌های نبوده در این فهرست، عمداً هنوز
+   * فارسی‌اند و در `docs/I18N.md` فهرست شده‌اند. */
+  const TRANSLATED = [
+    'components/Topbar.tsx',
+    'components/Sidebar.tsx',
+    'components/CommandPalette.tsx',
+    'components/FilterBar.tsx',
+    'components/DashboardPanels.tsx',
+    'components/ui.tsx',
+    'components/SettingsCenter.tsx',
+    'pages/Dashboard.tsx',
+    'pages/Products.tsx',
+    'pages/Checks.tsx',
+    'pages/Invoices.tsx',
+    'pages/Parties.tsx',
+    'pages/InvoiceForm.tsx',
+    'pages/Reports.tsx',
+  ]
+
+  it('ز۱۱ — صفحه‌های ترجمه‌شده از لایه‌ی i18n استفاده می‌کنند', () => {
+    const missing = TRANSLATED.filter((file) => !read(file).includes('useI18n'))
+    expect(missing).toEqual([])
+  })
+
+  it('ز۱۲ — هیچ عددی با محلیِ سخت‌کدشده‌ی فارسی قالب‌بندی نمی‌شود', () => {
+    // `x.toLocaleString('fa-IR')` در زبان انگلیسی هم ارقام فارسی می‌دهد.
+    const offenders: string[] = []
+    for (const file of [...TRANSLATED, 'App.tsx', 'pages/ChartOfAccounts.tsx', 'pages/DataTools.tsx']) {
+      if (read(file).includes("toLocaleString('fa-IR')")) offenders.push(file)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('ز۱۳ — تنظیم زبان در میزبان اعلام شده و رابط آن را می‌خواند', () => {
+    const settings = readFileSync(
+      resolve(SRC, '../../desktop-host/src-tauri/src/settings.rs'),
+      'utf8',
+    )
+    expect(settings).toContain('appearance.language')
+    for (const value of ['"fa"', '"en"', '"ar"']) expect(settings).toContain(value)
+    expect(read('App.tsx')).toContain("'appearance.language'")
+    expect(read('components/SettingsCenter.tsx')).toContain("'appearance.language'")
+  })
+})
