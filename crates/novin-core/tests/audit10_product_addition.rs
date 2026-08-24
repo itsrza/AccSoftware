@@ -144,7 +144,10 @@ fn k19_full_addition_pipeline_round_trip() {
         .unwrap();
     assert_eq!(kind, "simple");
     assert_eq!(sku, "A100");
-    assert_eq!(barcode, "690000000A100", "بارکد = 690 + sku با صفر تا عرض ۱۰");
+    assert_eq!(
+        barcode, "690000000A100",
+        "بارکد = 690 + sku با صفر تا عرض ۱۰"
+    );
     assert_eq!(name, "کالای A100");
     assert_eq!(unit, "عدد");
     assert_eq!(purchase, 1_200_000);
