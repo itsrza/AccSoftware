@@ -16,7 +16,8 @@ import {
   type ProductUnitRow,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatNumber, formatRials as money, parseAmount } from '../lib/format'
+import { formatNumber, formatRials as money, parseAmount, rialUnit } from '../lib/format'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import { Select } from '../components/Select'
 import { Badge } from '../components/ui'
 
@@ -37,21 +38,26 @@ import { Badge } from '../components/ui'
 
 type Tab = 'general' | 'prices' | 'units' | 'tax' | 'stock' | 'tiers' | 'gold'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'general', label: 'مشخصات عمومی' },
-  { id: 'prices', label: 'سطوح قیمت' },
-  { id: 'units', label: 'چند واحدی' },
-  { id: 'tax', label: 'اطلاعات مالیاتی' },
-  { id: 'stock', label: 'موجودی و سفارش' },
-  { id: 'tiers', label: 'تخفیف پلکانی' },
-  { id: 'gold', label: 'طلا و جواهر' },
+const TABS: { id: Tab; labelKey: TranslationKey }[] = [
+  { id: 'general', labelKey: 'productForm.tab.general' },
+  { id: 'prices', labelKey: 'productForm.tab.prices' },
+  { id: 'units', labelKey: 'productForm.tab.units' },
+  { id: 'tax', labelKey: 'productForm.tab.tax' },
+  { id: 'stock', labelKey: 'productForm.tab.stock' },
+  { id: 'tiers', labelKey: 'productForm.tab.tiers' },
+  { id: 'gold', labelKey: 'productForm.tab.gold' },
 ]
 
-const emptyInput = (kind: string, levels: PriceLevelOption[]): ProductInput => ({
+/** واحد پیش‌فرض کالای تازه؛ به زبان فعال، چون در فیلد قابل ویرایش می‌نشیند. */
+const emptyInput = (
+  kind: string,
+  levels: PriceLevelOption[],
+  defaultUnit: string,
+): ProductInput => ({
   kind,
   sku: '',
   name: '',
-  unit: 'عدد',
+  unit: defaultUnit,
   purchase_price: 0,
   min_stock: 0,
   max_stock: 0,
@@ -100,6 +106,7 @@ export function ProductForm({
   onClose: () => void
   onSaved: (id: string) => void
 }) {
+  const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('general')
   const [kinds, setKinds] = useState<ProductKindOption[]>([])
   const [levels, setLevels] = useState<PriceLevelOption[]>([])
@@ -149,7 +156,13 @@ export function ProductForm({
             gold: profile.gold,
           })
         } else {
-          setInput(emptyInput(options.kinds[0]?.value ?? 'simple', options.levels))
+          setInput(
+            emptyInput(
+              options.kinds[0]?.value ?? 'simple',
+              options.levels,
+              t('productForm.defaultUnit'),
+            ),
+          )
         }
       } catch (e) {
         setError(errorText(e))
@@ -206,7 +219,7 @@ export function ProductForm({
     return (
       <div className="modal-backdrop" role="presentation">
         <div className="modal form-modal">
-          <p className="empty-state">در حال بارگذاری…</p>
+          <p className="empty-state">{t('common.loading')}</p>
         </div>
       </div>
     )
@@ -217,11 +230,11 @@ export function ProductForm({
       <div className="modal party-modal">
         <div className="modal-head">
           <div>
-            <div className="eyebrow">کالا و خدمات</div>
-            <h2>{productId ? 'ویرایش کالا' : 'تعریف کالای جدید'}</h2>
-            <p>فیلدهای ستاره‌دار الزامی‌اند. همه‌ی زبانه‌ها با هم ذخیره می‌شوند.</p>
+            <div className="eyebrow">{t('productForm.eyebrow')}</div>
+            <h2>{productId ? t('productForm.editTitle') : t('productForm.newTitle')}</h2>
+            <p>{t('productForm.requiredNote')}</p>
           </div>
-          <button aria-label="بستن" type="button" className="icon-btn" onClick={onClose}>
+          <button aria-label={t('common.close')} type="button" className="icon-btn" onClick={onClose}>
             ✕
           </button>
         </div>
@@ -236,7 +249,7 @@ export function ProductForm({
               className={tab === item.id ? 'active' : undefined}
               onClick={() => setTab(item.id)}
             >
-              {item.label}
+              {t(item.labelKey)}
             </button>
           ))}
         </div>
@@ -246,10 +259,10 @@ export function ProductForm({
           {tab === 'general' && (
             <div className="form-grid">
               <label>
-                نوع کالا ★
+                {t('productForm.kindRequired')}
                 <Select
                   value={input.kind}
-                  aria-label="نوع کالا"
+                  aria-label={t('products.kind')}
                   onChange={(event) => patch({ kind: event.target.value })}
                 >
                   {kinds.map((item) => (
@@ -260,7 +273,7 @@ export function ProductForm({
                 </Select>
               </label>
               <label>
-                کد کالا ★
+                {t('productForm.skuRequired')}
                 <input
                   value={input.sku}
                   onChange={(event) => patch({ sku: event.target.value })}
@@ -268,41 +281,41 @@ export function ProductForm({
                 />
               </label>
               <label>
-                بارکد
+                {t('productForm.barcode')}
                 <input
                   value={input.barcode ?? ''}
                   onChange={(event) => patch({ barcode: event.target.value })}
                   dir="ltr"
-                  placeholder="با بارکدخوان هم می‌توانید پر کنید"
+                  placeholder={t('productForm.barcodeHint')}
                 />
               </label>
               <label>
-                نام کالا ★
+                {t('productForm.nameRequired')}
                 <input value={input.name} onChange={(event) => patch({ name: event.target.value })} />
               </label>
               <label>
-                نام نمایشی روی فاکتور
+                {t('productForm.displayName')}
                 <input
                   value={input.display_name ?? ''}
                   onChange={(event) => patch({ display_name: event.target.value })}
-                  placeholder="خالی یعنی همان نام کالا"
+                  placeholder={t('productForm.displayNameHint')}
                 />
               </label>
               <label>
-                برند
+                {t('productForm.brand')}
                 <input
                   value={input.brand ?? ''}
                   onChange={(event) => patch({ brand: event.target.value })}
                 />
               </label>
               <label>
-                گروه کالا
+                {t('products.group')}
                 <Select
                   value={input.group_id ?? ''}
-                  aria-label="گروه کالا"
+                  aria-label={t('products.group')}
                   onChange={(event) => patch({ group_id: event.target.value || undefined })}
                 >
-                  <option value="">بدون گروه</option>
+                  <option value="">{t('productForm.noGroup')}</option>
                   {groups.map((group) => (
                     <option key={group.id} value={group.id}>
                       {group.code} — {group.title}
@@ -311,11 +324,11 @@ export function ProductForm({
                 </Select>
               </label>
               <label>
-                واحد اصلی ★
+                {t('productForm.mainUnitRequired')}
                 <input value={input.unit} onChange={(event) => patch({ unit: event.target.value })} />
               </label>
               <label>
-                قیمت خرید (ریال)
+                {t('productForm.purchasePrice', { unit: rialUnit() })}
                 <MoneyInput
                   value={input.purchase_price}
                   onChange={(value) => patch({ purchase_price: value })}
@@ -323,8 +336,8 @@ export function ProductForm({
               </label>
               <p className="hint">
                 {tracksInventory
-                  ? 'این نوع کالا موجودی انبار دارد؛ فروش بیش از موجودی طبق تنظیمات کنترل می‌شود.'
-                  : 'خدمت موجودی انبار ندارد و در گزارش ارزش موجودی دیده نمی‌شود.'}
+                  ? t('productForm.tracksInventory')
+                  : t('productForm.serviceNote')}
               </p>
             </div>
           )}
@@ -333,8 +346,7 @@ export function ProductForm({
           {tab === 'prices' && (
             <>
               <p className="hint">
-                سطح خالی یعنی «تعریف نشده». هنگام فروش، اگر سطح مشتری قیمت نداشته باشد، موتور به
-                سطح بالاتر برمی‌گردد: همکار درجه۳ ← همکار درجه۲ ← همکار ← کلی ← جزئی.
+                {t('productForm.priceFallback')}
               </p>
               <div className="form-grid">
                 {input.prices.map((row, index) => (
@@ -358,7 +370,7 @@ export function ProductForm({
           {tab === 'units' && (
             <>
               <div className="repeat-head">
-                <h3 className="section-title">واحدهای فرعی</h3>
+                <h3 className="section-title">{t('productForm.subUnits')}</h3>
                 <button
                   type="button"
                   className="table-action"
@@ -371,17 +383,17 @@ export function ProductForm({
                     })
                   }
                 >
-                  <Plus className="size-3.5" aria-hidden /> افزودن واحد
+                  <Plus className="size-3.5" aria-hidden /> {t('productForm.addUnit')}
                 </button>
               </div>
               <p className="hint">
-                ضریب یعنی «چند واحد اصلی در یک واحد فرعی». کارتن ۱۲ عددی → ضریب ۱۲.
+                {t('productForm.unitFactorHint')}
               </p>
               <div className="line-editor">
                 {input.units.map((unit, index) => (
                   <div className="line-row" key={index}>
                     <label className="grow">
-                      نام واحد
+                      {t('productForm.unitName')}
                       <input
                         value={unit.unit_name}
                         onChange={(event) => {
@@ -392,7 +404,7 @@ export function ProductForm({
                       />
                     </label>
                     <label>
-                      ضریب تبدیل
+                      {t('productForm.unitFactor')}
                       <input
                         value={String(unit.factor)}
                         inputMode="decimal"
@@ -415,11 +427,11 @@ export function ProductForm({
                           patch({ units: next })
                         }}
                       />
-                      واحد پیش‌فرض فروش
+                      {t('productForm.defaultSalesUnit')}
                     </label>
                     <button
                       type="button"
-                      aria-label="حذف واحد"
+                      aria-label={t('productForm.removeUnit')}
                       className="icon-btn danger-icon"
                       onClick={() =>
                         patch({ units: input.units.filter((_, position) => position !== index) })
@@ -430,7 +442,7 @@ export function ProductForm({
                   </div>
                 ))}
                 {input.units.length === 0 && (
-                  <p className="empty-state">واحد فرعی تعریف نشده است.</p>
+                  <p className="empty-state">{t('productForm.noSubUnit')}</p>
                 )}
               </div>
             </>
@@ -445,23 +457,23 @@ export function ProductForm({
                   checked={input.tax_exempt}
                   onChange={(event) => patch({ tax_exempt: event.target.checked })}
                 />
-                کالای معاف از مالیات
+                {t('productForm.taxExemptItem')}
               </label>
               <label>
-                نرخ ارزش افزوده (درصد)
+                {t('productForm.vatRate')}
                 <Select
                   value={String(input.vat_basis_points)}
-                  aria-label="نرخ ارزش افزوده"
+                  aria-label={t('productForm.vatRateShort')}
                   disabled={input.tax_exempt}
                   onChange={(event) => patch({ vat_basis_points: Number(event.target.value) })}
                 >
-                  <option value="0">۰٪ — بدون مالیات</option>
-                  <option value="900">۹٪ — نرخ استاندارد</option>
-                  <option value="1000">۱۰٪</option>
+                  <option value="0">{t('productForm.vat0')}</option>
+                  <option value="900">{t('productForm.vat9')}</option>
+                  <option value="1000">{t('productForm.vat10')}</option>
                 </Select>
               </label>
               <label>
-                نرخ عوارض (درصد×۱۰۰)
+                {t('productForm.dutyRate')}
                 <input
                   value={String(input.duty_basis_points)}
                   inputMode="numeric"
@@ -472,7 +484,7 @@ export function ProductForm({
                 />
               </label>
               <label>
-                شناسه کالا در سامانه مؤدیان
+                {t('productForm.taxCode')}
                 <input
                   value={input.tax_code ?? ''}
                   onChange={(event) => patch({ tax_code: event.target.value })}
@@ -480,8 +492,7 @@ export function ProductForm({
                 />
               </label>
               <p className="hint">
-                عوارض پیش از ارزش افزوده محاسبه و وارد مأخذ آن می‌شود — مطابق صورتحساب رسمی.
-                مأخذ هم بهای پس از کسر تخفیف است، نه ناخالص.
+                {t('productForm.taxHint')}
               </p>
             </div>
           )}
@@ -491,7 +502,7 @@ export function ProductForm({
             <>
               <div className="form-grid">
                 <label>
-                  حداقل موجودی
+                  {t('productForm.minStock')}
                   <input
                     value={String(input.min_stock)}
                     inputMode="decimal"
@@ -499,7 +510,7 @@ export function ProductForm({
                   />
                 </label>
                 <label>
-                  حداکثر موجودی
+                  {t('productForm.maxStock')}
                   <input
                     value={String(input.max_stock)}
                     inputMode="decimal"
@@ -507,7 +518,7 @@ export function ProductForm({
                   />
                 </label>
                 <label>
-                  نقطه‌ی سفارش
+                  {t('productForm.reorderPoint')}
                   <input
                     value={String(input.reorder_point)}
                     inputMode="decimal"
@@ -515,19 +526,18 @@ export function ProductForm({
                   />
                 </label>
                 <p className="hint">
-                  کارت «نزدیک به اتمام موجودی» داشبورد، بزرگ‌ترین مقدار بین نقطه‌ی سفارش این کالا
-                  و آستانه‌ی عمومی تنظیمات را ملاک می‌گیرد تا هشدار زودتر برسد.
+                  {t('productForm.reorderHint')}
                 </p>
               </div>
 
               {detail && detail.stock.length > 0 && (
                 <>
-                  <h3 className="section-title">موجودی فعلی به تفکیک انبار</h3>
+                  <h3 className="section-title">{t('productForm.stockByWarehouse')}</h3>
                   <table className="mini-table">
                     <thead>
                       <tr>
-                        <th>انبار</th>
-                        <th className="num">موجودی</th>
+                        <th>{t('common.warehouse')}</th>
+                        <th className="num">{t('products.stock')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -538,7 +548,7 @@ export function ProductForm({
                         </tr>
                       ))}
                       <tr className="total-row">
-                        <td>جمع</td>
+                        <td>{t('common.total')}</td>
                         <td className="num">{formatNumber(detail.total_stock)}</td>
                       </tr>
                     </tbody>
@@ -552,7 +562,7 @@ export function ProductForm({
           {tab === 'tiers' && (
             <>
               <div className="repeat-head">
-                <h3 className="section-title">پله‌های تخفیف بر اساس مقدار</h3>
+                <h3 className="section-title">{t('productForm.tiersTitle')}</h3>
                 <button
                   type="button"
                   className="table-action"
@@ -562,18 +572,17 @@ export function ProductForm({
                     })
                   }
                 >
-                  <Plus className="size-3.5" aria-hidden /> افزودن پله
+                  <Plus className="size-3.5" aria-hidden /> {t('productForm.addTier')}
                 </button>
               </div>
               <p className="hint">
-                «از این مقدار به بالا، این درصد تخفیف». اگر چند پله بخورد، بزرگ‌ترین پله‌ی
-                منطبق اعمال می‌شود.
+                {t('productForm.tiersHint')}
               </p>
               <div className="line-editor">
                 {input.tiers.map((tier, index) => (
                   <div className="line-row" key={index}>
                     <label>
-                      از مقدار
+                      {t('productForm.fromQuantity')}
                       <input
                         value={String(tier.min_quantity)}
                         inputMode="decimal"
@@ -585,7 +594,7 @@ export function ProductForm({
                       />
                     </label>
                     <label>
-                      درصد تخفیف
+                      {t('productForm.discountPercent')}
                       <input
                         value={String(tier.discount_bp / 100)}
                         inputMode="decimal"
@@ -601,7 +610,7 @@ export function ProductForm({
                     </label>
                     <button
                       type="button"
-                      aria-label="حذف پله"
+                      aria-label={t('productForm.removeTier')}
                       className="icon-btn danger-icon"
                       onClick={() =>
                         patch({ tiers: input.tiers.filter((_, position) => position !== index) })
@@ -611,7 +620,7 @@ export function ProductForm({
                     </button>
                   </div>
                 ))}
-                {input.tiers.length === 0 && <p className="empty-state">پله‌ای تعریف نشده است.</p>}
+                {input.tiers.length === 0 && <p className="empty-state">{t('productForm.noTier')}</p>}
               </div>
             </>
           )}
@@ -621,7 +630,7 @@ export function ProductForm({
             <>
               <div className="form-grid">
                 <label>
-                  وزن (گرم) ★
+                  {t('productForm.weightRequired')}
                   <input
                     value={String(input.gold?.weight_grams ?? '')}
                     inputMode="decimal"
@@ -636,10 +645,10 @@ export function ProductForm({
                   />
                 </label>
                 <label>
-                  عیار
+                  {t('productForm.carat')}
                   <Select
                     value={String(input.gold?.carat ?? 18)}
-                    aria-label="عیار"
+                    aria-label={t('productForm.carat')}
                     onChange={(event) =>
                       patch({
                         gold: {
@@ -653,13 +662,13 @@ export function ProductForm({
                       })
                     }
                   >
-                    <option value="18">۱۸ عیار</option>
-                    <option value="21">۲۱ عیار</option>
-                    <option value="24">۲۴ عیار</option>
+                    <option value="18">{t('productForm.carat18')}</option>
+                    <option value="21">{t('productForm.carat21')}</option>
+                    <option value="24">{t('productForm.carat24')}</option>
                   </Select>
                 </label>
                 <label>
-                  اجرت ساخت (درصد)
+                  {t('productForm.makingCharge')}
                   <input
                     value={String((input.gold?.making_charge_bp ?? 0) / 100)}
                     inputMode="decimal"
@@ -674,7 +683,7 @@ export function ProductForm({
                   />
                 </label>
                 <label>
-                  سود فروشنده (درصد)
+                  {t('productForm.sellerProfit')}
                   <input
                     value={String((input.gold?.profit_bp ?? 0) / 100)}
                     inputMode="decimal"
@@ -692,10 +701,10 @@ export function ProductForm({
 
               {productId && (
                 <>
-                  <h3 className="section-title">محاسبه‌ی قیمت با نرخ روز</h3>
+                  <h3 className="section-title">{t('productForm.goldPricing')}</h3>
                   <div className="line-row">
                     <label className="grow">
-                      نرخ هر گرم (ریال)
+                      {t('productForm.goldRate', { unit: rialUnit() })}
                       <input
                         value={goldRate}
                         inputMode="numeric"
@@ -703,25 +712,25 @@ export function ProductForm({
                       />
                     </label>
                     <button type="button" className="table-action" onClick={runGoldPreview}>
-                      محاسبه
+                      {t('productForm.calculate')}
                     </button>
                   </div>
                   {goldPreview && (
                     <div className="inline-summary">
                       <span>
-                        ارزش فلز: <b>{money(goldPreview.metal_value)}</b>
+                        {t('productForm.metalValue')} <b>{money(goldPreview.metal_value)}</b>
                       </span>
                       <span>
-                        اجرت: <b>{money(goldPreview.making_charge)}</b>
+                        {t('productForm.makingValue')} <b>{money(goldPreview.making_charge)}</b>
                       </span>
                       <span>
-                        سود: <b>{money(goldPreview.profit)}</b>
+                        {t('productForm.profitValue')} <b>{money(goldPreview.profit)}</b>
                       </span>
                       <span>
-                        ارزش افزوده: <b>{money(goldPreview.vat)}</b>
+                        {t('productForm.vatValue')} <b>{money(goldPreview.vat)}</b>
                       </span>
                       <span>
-                        قابل پرداخت: <b>{money(goldPreview.total)} ریال</b>
+                        {t('productForm.payable')} <b>{money(goldPreview.total)} ریال</b>
                       </span>
                     </div>
                   )}
@@ -733,10 +742,10 @@ export function ProductForm({
 
         <div className="modal-actions">
           <button type="button" className="secondary" onClick={onClose}>
-            انصراف
+            {t('common.cancel')}
           </button>
           <button type="button" className="primary" disabled={saving} onClick={save}>
-            {saving ? 'در حال ذخیره…' : 'ذخیره کالا'}
+            {saving ? t('productForm.saving') : t('productForm.save')}
           </button>
           {detail && (
             <Badge tone="neutral" dot={false}>

@@ -9,6 +9,7 @@ import {
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
 import {formatRials, parseAmount} from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import {Select} from '../components/Select'
 
 /**
@@ -19,6 +20,7 @@ import {Select} from '../components/Select'
  * فروش، زنجیره‌ی جایگزینی هسته تصمیم می‌گیرد کدام قیمت اعمال شود.
  */
 export function ProductPricing() {
+  const {t} = useI18n()
   const [rows, setRows] = useState<ProductPriceRow[]>([])
   const [groups, setGroups] = useState<ProductGroupRow[]>([])
   const [groupFilter, setGroupFilter] = useState('')
@@ -65,7 +67,7 @@ export function ProductPricing() {
       const trimmed = raw.trim()
       const value = trimmed === '' ? null : parseAmount(trimmed)
       if (trimmed !== '' && value === null) {
-        setError('مبلغ واردشده معتبر نیست.')
+        setError(t('productPricing.invalidAmount'))
         return
       }
       await setProductPrice(productId, level, value)
@@ -93,9 +95,9 @@ export function ProductPricing() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">کالا و خدمات</div>
-          <h1>قیمت کالاها</h1>
-          <p>هفت سطح قیمت برای هر کالا. سطح خالی یعنی از سطح بالاتر استفاده می‌شود.</p>
+          <div className="eyebrow">{t('productForm.eyebrow')}</div>
+          <h1>{t('productPricing.title')}</h1>
+          <p>{t('productPricing.subtitle')}</p>
         </div>
       </div>
 
@@ -105,36 +107,36 @@ export function ProductPricing() {
         <div className="toolbar">
           <input
             className="search-input"
-            placeholder="جستجوی نام یا کد کالا…"
+            placeholder={t('productPricing.search')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
           <Select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
-            <option value="">همه‌ی گروه‌ها</option>
+            <option value="">{t('products.allGroups')}</option>
             {groups.map((group) => (
               <option key={group.id} value={group.title}>
                 {group.code} — {group.title} ({group.product_count})
               </option>
             ))}
           </Select>
-          <button aria-label="بروزرسانی" className="icon-btn" onClick={load} title="بارگذاری مجدد">
+          <button aria-label={t('common.refresh')} className="icon-btn" onClick={load} title={t('common.reload')}>
             <Icon name="refresh" />
           </button>
         </div>
 
         {loading ? (
-          <div className="empty-state">در حال بارگذاری…</div>
+          <div className="empty-state">{t('common.loading')}</div>
         ) : visible.length === 0 ? (
-          <div className="empty-state">کالایی یافت نشد.</div>
+          <div className="empty-state">{t('productPricing.empty')}</div>
         ) : (
           <div className="table-wrap">
             <table className="large-table price-table">
               <thead>
                 <tr>
-                  <th>کد</th>
-                  <th>نام کالا</th>
-                  <th>نوع</th>
-                  <th>گروه</th>
+                  <th>{t('common.code')}</th>
+                  <th>{t('products.name')}</th>
+                  <th>{t('common.type')}</th>
+                  <th>{t('common.group')}</th>
                   {levels.map((level) => (
                     <th key={level.level}>{level.label}</th>
                   ))}

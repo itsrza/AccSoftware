@@ -18,36 +18,28 @@ import {
   RouteRow,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatRials, formatTomans } from '../lib/format'
+import { formatRials, formatTomans, rialUnit } from '../lib/format'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import {Select} from '../components/Select'
 
 /** هفت زبانه، دقیقاً مطابق فرم مرجع. */
 const TABS = [
-  { id: 'general', label: 'مشخصات عمومی' },
-  { id: 'contact', label: 'مشخصات ارتباطی' },
-  { id: 'bank', label: 'حساب‌های بانکی' },
-  { id: 'images', label: 'تصاویر' },
-  { id: 'portal', label: 'مشخصات کاربری' },
-  { id: 'other', label: 'سایر مشخصات' },
-  { id: 'occasions', label: 'تقویم مناسبت‌ها' },
-] as const
+  { id: 'general', labelKey: 'partyForm.tab.general' },
+  { id: 'contact', labelKey: 'partyForm.tab.contact' },
+  { id: 'bank', labelKey: 'partyForm.tab.bank' },
+  { id: 'images', labelKey: 'partyForm.tab.images' },
+  { id: 'portal', labelKey: 'partyForm.tab.account' },
+  { id: 'other', labelKey: 'partyForm.tab.other' },
+  { id: 'occasions', labelKey: 'partyForm.tab.events' },
+] as const satisfies readonly { id: string; labelKey: TranslationKey }[]
 
 type TabId = (typeof TABS)[number]['id']
 
-const JALALI_MONTHS = [
-  'فروردین',
-  'اردیبهشت',
-  'خرداد',
-  'تیر',
-  'مرداد',
-  'شهریور',
-  'مهر',
-  'آبان',
-  'آذر',
-  'دی',
-  'بهمن',
-  'اسفند',
-]
+/** دوازده ماه شمسی؛ نام هر ماه از دیکشنری زبان فعال می‌آید. */
+const JALALI_MONTH_KEYS = Array.from(
+  { length: 12 },
+  (_, index) => `month.${index + 1}` as TranslationKey,
+)
 
 /** شش ماه اول سال شمسی ۳۱ روزه‌اند، شش ماه دوم ۳۰ روزه. */
 const daysInJalaliMonth = (month: number) => (month <= 6 ? 31 : 30)
@@ -74,6 +66,7 @@ export function PartyForm({
   onClose: () => void
   onSaved: (id: string) => void
 }) {
+  const { t } = useI18n()
   const [tab, setTab] = useState<TabId>('general')
   const [form, setForm] = useState<PartyInput>(emptyParty())
   const [options, setOptions] = useState<PartyOptions>()
@@ -204,14 +197,14 @@ export function PartyForm({
       <div className="modal party-modal">
         <div className="modal-head">
           <div>
-            <h2>{partyId ? 'ویرایش شخص' : 'افزودن شخص'}</h2>
+            <h2>{partyId ? t('partyForm.editTitle') : t('partyForm.newTitle')}</h2>
             <p>
               {isLegal
-                ? 'شخص حقوقی: نام شرکت و شناسه ملی الزامی است.'
-                : 'شخص حقیقی: نام و نام خانوادگی الزامی است.'}
+                ? t('partyForm.legalRequired')
+                : t('partyForm.naturalRequired')}
             </p>
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="بستن">
+          <button className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
             <Icon name="close" />
           </button>
         </div>
@@ -226,7 +219,7 @@ export function PartyForm({
               className={tab === item.id ? 'active' : ''}
               onClick={() => setTab(item.id)}
             >
-              {item.label}
+              {t(item.labelKey)}
             </button>
           ))}
         </div>
@@ -235,7 +228,7 @@ export function PartyForm({
           {tab === 'general' && (
             <div className="filter-grid">
               <label>
-                <span>نوع شخصیت *</span>
+                <span>{t('partyForm.personTypeRequired')}</span>
                 <Select
                   value={form.party_type}
                   onChange={(e) => set({ party_type: e.target.value })}
@@ -248,7 +241,7 @@ export function PartyForm({
                 </Select>
               </label>
               <label>
-                <span>نقش *</span>
+                <span>{t('partyForm.roleRequired')}</span>
                 <Select
                   value={form.party_function}
                   onChange={(e) => set({ party_function: e.target.value })}
@@ -261,15 +254,15 @@ export function PartyForm({
                 </Select>
               </label>
               <label>
-                <span>کد شخص</span>
+                <span>{t('partyForm.code')}</span>
                 <input
                   value={form.code ?? ''}
                   onChange={(e) => set({ code: e.target.value })}
-                  placeholder="خالی بگذارید تا خودکار ساخته شود"
+                  placeholder={t('partyForm.autoCode')}
                 />
               </label>
               <label>
-                <span>تاریخ افتتاح</span>
+                <span>{t('partyForm.openingDate')}</span>
                 <input
                   value={form.opening_date ?? ''}
                   onChange={(e) => set({ opening_date: e.target.value })}
@@ -279,22 +272,22 @@ export function PartyForm({
               {!isLegal && (
                 <>
                   <label>
-                    <span>عنوان</span>
+                    <span>{t('partyForm.titlePrefix')}</span>
                     <input
                       value={form.title_prefix ?? ''}
                       onChange={(e) => set({ title_prefix: e.target.value })}
-                      placeholder="آقای / خانم"
+                      placeholder={t('partyForm.salutation')}
                     />
                   </label>
                   <label>
-                    <span>نام *</span>
+                    <span>{t('partyForm.firstNameRequired')}</span>
                     <input
                       value={form.first_name ?? ''}
                       onChange={(e) => set({ first_name: e.target.value })}
                     />
                   </label>
                   <label>
-                    <span>نام خانوادگی *</span>
+                    <span>{t('partyForm.lastNameRequired')}</span>
                     <input
                       value={form.last_name ?? ''}
                       onChange={(e) => set({ last_name: e.target.value })}
@@ -304,7 +297,7 @@ export function PartyForm({
               )}
               {isLegal && (
                 <label className="grow">
-                  <span>نام شرکت *</span>
+                  <span>{t('partyForm.companyNameRequired')}</span>
                   <input
                     value={form.company_name ?? ''}
                     onChange={(e) => set({ company_name: e.target.value })}
@@ -312,7 +305,7 @@ export function PartyForm({
                 </label>
               )}
               <label>
-                <span>{isLegal ? 'شناسه ملی' : 'کد ملی'}</span>
+                <span>{isLegal ? t('partyForm.nationalId') : t('partyForm.personalId')}</span>
                 <input
                   value={form.national_id ?? ''}
                   onChange={(e) => set({ national_id: e.target.value })}
@@ -320,19 +313,19 @@ export function PartyForm({
                 />
               </label>
               <label>
-                <span>شماره اقتصادی</span>
+                <span>{t('partyForm.economicCode')}</span>
                 <input
                   value={form.economic_code ?? ''}
                   onChange={(e) => set({ economic_code: e.target.value })}
                 />
               </label>
               <label>
-                <span>گروه</span>
+                <span>{t('common.group')}</span>
                 <Select
                   value={form.group_id ?? ''}
                   onChange={(e) => set({ group_id: e.target.value })}
                 >
-                  <option value="">بدون گروه</option>
+                  <option value="">{t('partyForm.noGroup')}</option>
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.code} — {g.title}
@@ -341,12 +334,12 @@ export function PartyForm({
                 </Select>
               </label>
               <label>
-                <span>مسیر پخش</span>
+                <span>{t('partyForm.route')}</span>
                 <Select
                   value={form.route_id ?? ''}
                   onChange={(e) => set({ route_id: e.target.value })}
                 >
-                  <option value="">بدون مسیر</option>
+                  <option value="">{t('partyForm.noRoute')}</option>
                   {routes.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.code} — {r.title}
@@ -355,12 +348,12 @@ export function PartyForm({
                 </Select>
               </label>
               <label>
-                <span>بازاریاب</span>
+                <span>{t('partyForm.marketer')}</span>
                 <Select
                   value={form.marketer_id ?? ''}
                   onChange={(e) => set({ marketer_id: e.target.value })}
                 >
-                  <option value="">بدون بازاریاب</option>
+                  <option value="">{t('partyForm.noMarketer')}</option>
                   {marketers.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
@@ -375,7 +368,7 @@ export function PartyForm({
                     checked={form.is_customer}
                     onChange={(e) => set({ is_customer: e.target.checked })}
                   />
-                  <span>مشتری</span>
+                  <span>{t('partyForm.customer')}</span>
                 </label>
                 <label className="inline-check">
                   <input
@@ -383,7 +376,7 @@ export function PartyForm({
                     checked={form.is_supplier}
                     onChange={(e) => set({ is_supplier: e.target.checked })}
                   />
-                  <span>تأمین‌کننده</span>
+                  <span>{t('partyForm.supplier')}</span>
                 </label>
                 <label className="inline-check">
                   <input
@@ -391,13 +384,12 @@ export function PartyForm({
                     checked={form.is_active}
                     onChange={(e) => set({ is_active: e.target.checked })}
                   />
-                  <span>فعال</span>
+                  <span>{t('partyForm.active')}</span>
                 </label>
               </div>
               {form.party_function === 'person' && !form.is_customer && !form.is_supplier && (
                 <p className="hint">
-                  شخص با نقش «شخص» باید حداقل مشتری یا تأمین‌کننده باشد؛ وگرنه در هیچ فاکتوری
-                  قابل انتخاب نیست.
+                  {t('partyForm.roleHint')}
                 </p>
               )}
             </div>
@@ -407,7 +399,7 @@ export function PartyForm({
             <>
               <div className="filter-grid">
                 <label>
-                  <span>موبایل</span>
+                  <span>{t('partyForm.mobile')}</span>
                   <input
                     value={form.mobile ?? ''}
                     onChange={(e) => set({ mobile: e.target.value })}
@@ -416,40 +408,40 @@ export function PartyForm({
                   />
                 </label>
                 <label>
-                  <span>ایمیل</span>
+                  <span>{t('partyForm.email')}</span>
                   <input
                     value={form.email ?? ''}
                     onChange={(e) => set({ email: e.target.value })}
                   />
                 </label>
                 <label>
-                  <span>وب‌سایت</span>
+                  <span>{t('partyForm.website')}</span>
                   <input
                     value={form.website ?? ''}
                     onChange={(e) => set({ website: e.target.value })}
                   />
                 </label>
                 <label>
-                  <span>استان</span>
+                  <span>{t('partyForm.province')}</span>
                   <input
                     value={form.province ?? ''}
                     onChange={(e) => set({ province: e.target.value })}
                   />
                 </label>
                 <label>
-                  <span>شهر</span>
+                  <span>{t('partyForm.city')}</span>
                   <input value={form.city ?? ''} onChange={(e) => set({ city: e.target.value })} />
                 </label>
                 <label>
-                  <span>کد پستی</span>
+                  <span>{t('partyForm.postalCode')}</span>
                   <input
                     value={form.postal_code ?? ''}
                     onChange={(e) => set({ postal_code: e.target.value })}
-                    placeholder="۱۰ رقم"
+                    placeholder={t('partyForm.tenDigits')}
                   />
                 </label>
                 <label className="grow">
-                  <span>نشانی</span>
+                  <span>{t('partyForm.address')}</span>
                   <input
                     value={form.address ?? ''}
                     onChange={(e) => set({ address: e.target.value })}
@@ -458,23 +450,23 @@ export function PartyForm({
               </div>
 
               <div className="repeat-head">
-                <h4 className="section-title">تلفن‌ها</h4>
+                <h4 className="section-title">{t('partyForm.phones')}</h4>
                 <button className="ghost" onClick={addPhone}>
-                  <Icon name="plus" /> افزودن تلفن
+                  <Icon name="plus" /> {t('partyForm.addPhone')}
                 </button>
               </div>
               {form.phones.map((phone, index) => (
                 <div className="line-row" key={index}>
                   <label>
-                    <span>عنوان</span>
+                    <span>{t('partyForm.titlePrefix')}</span>
                     <input
                       value={phone.title ?? ''}
                       onChange={(e) => setPhone(index, { title: e.target.value })}
-                      placeholder="دفتر / منزل"
+                      placeholder={t('partyForm.officeHome')}
                     />
                   </label>
                   <label className="grow">
-                    <span>شماره</span>
+                    <span>{t('partyForm.phoneNumber')}</span>
                     <input
                       value={phone.number}
                       onChange={(e) => setPhone(index, { number: e.target.value })}
@@ -491,9 +483,9 @@ export function PartyForm({
                         })
                       }
                     />
-                    <span>پیش‌فرض</span>
+                    <span>{t('partyForm.default')}</span>
                   </label>
-                  <button aria-label="حذف"
+                  <button aria-label={t('partyForm.remove')}
                     className="icon-btn danger-icon"
                     onClick={() => removePhone(index)}
                    
@@ -502,47 +494,46 @@ export function PartyForm({
                   </button>
                 </div>
               ))}
-              {form.phones.length === 0 && <p className="muted">تلفنی ثبت نشده است.</p>}
+              {form.phones.length === 0 && <p className="muted">{t('partyForm.noPhone')}</p>}
             </>
           )}
 
           {tab === 'bank' && (
             <>
               <div className="repeat-head">
-                <h4 className="section-title">حساب‌های بانکی شخص</h4>
+                <h4 className="section-title">{t('partyForm.bankAccounts')}</h4>
                 <button className="ghost" onClick={addBank}>
-                  <Icon name="plus" /> افزودن حساب
+                  <Icon name="plus" /> {t('partyForm.addAccount')}
                 </button>
               </div>
               <p className="muted">
-                شبا و شماره کارت با الگوریتم رسمی بررسی می‌شوند؛ شماره‌ی نادرست هنگام ذخیره رد
-                می‌شود.
+                {t('partyForm.ibanHint')}
               </p>
               {form.bank_accounts.map((account, index) => (
                 <div className="line-row" key={index}>
                   <label>
-                    <span>بانک *</span>
+                    <span>{t('partyForm.bankRequired')}</span>
                     <input
                       value={account.bank_name}
                       onChange={(e) => setBank(index, { bank_name: e.target.value })}
                     />
                   </label>
                   <label>
-                    <span>شعبه</span>
+                    <span>{t('partyForm.branch')}</span>
                     <input
                       value={account.branch_name ?? ''}
                       onChange={(e) => setBank(index, { branch_name: e.target.value })}
                     />
                   </label>
                   <label>
-                    <span>شماره حساب</span>
+                    <span>{t('partyForm.accountNumber')}</span>
                     <input
                       value={account.account_number ?? ''}
                       onChange={(e) => setBank(index, { account_number: e.target.value })}
                     />
                   </label>
                   <label className="grow">
-                    <span>شبا</span>
+                    <span>{t('partyForm.iban')}</span>
                     <input
                       value={account.iban ?? ''}
                       onChange={(e) => setBank(index, { iban: e.target.value })}
@@ -550,14 +541,14 @@ export function PartyForm({
                     />
                   </label>
                   <label>
-                    <span>شماره کارت</span>
+                    <span>{t('partyForm.cardNumber')}</span>
                     <input
                       value={account.card_number ?? ''}
                       onChange={(e) => setBank(index, { card_number: e.target.value })}
                     />
                   </label>
                   <label>
-                    <span>صاحب حساب</span>
+                    <span>{t('partyForm.accountHolder')}</span>
                     <input
                       value={account.holder_name ?? ''}
                       onChange={(e) => setBank(index, { holder_name: e.target.value })}
@@ -577,9 +568,9 @@ export function PartyForm({
                         })
                       }
                     />
-                    <span>پیش‌فرض</span>
+                    <span>{t('partyForm.default')}</span>
                   </label>
-                  <button aria-label="حذف"
+                  <button aria-label={t('partyForm.remove')}
                     className="icon-btn danger-icon"
                     onClick={() => removeBank(index)}
                    
@@ -588,34 +579,33 @@ export function PartyForm({
                   </button>
                 </div>
               ))}
-              {form.bank_accounts.length === 0 && <p className="muted">حسابی ثبت نشده است.</p>}
+              {form.bank_accounts.length === 0 && <p className="muted">{t('partyForm.noAccount')}</p>}
             </>
           )}
 
           {tab === 'images' && (
             <>
               <div className="repeat-head">
-                <h4 className="section-title">تصاویر</h4>
+                <h4 className="section-title">{t('partyForm.tab.images')}</h4>
                 <button className="ghost" onClick={addImage}>
-                  <Icon name="plus" /> افزودن تصویر
+                  <Icon name="plus" /> {t('partyForm.addImage')}
                 </button>
               </div>
               <p className="muted">
-                فقط مسیر فایل ذخیره می‌شود، نه خود تصویر — تا حجم پایگاه داده و زمان پشتیبان‌گیری
-                کنترل‌شده بماند.
+                {t('partyForm.imageHint')}
               </p>
               {form.images.map((image, index) => (
                 <div className="line-row" key={index}>
                   <label>
-                    <span>عنوان</span>
+                    <span>{t('partyForm.titlePrefix')}</span>
                     <input
                       value={image.title ?? ''}
                       onChange={(e) => setImage(index, { title: e.target.value })}
-                      placeholder="کارت ملی / لوگو"
+                      placeholder={t('partyForm.idCardLogo')}
                     />
                   </label>
                   <label className="grow">
-                    <span>مسیر فایل *</span>
+                    <span>{t('partyForm.filePathRequired')}</span>
                     <input
                       value={image.file_path}
                       onChange={(e) => setImage(index, { file_path: e.target.value })}
@@ -633,9 +623,9 @@ export function PartyForm({
                         })
                       }
                     />
-                    <span>اصلی</span>
+                    <span>{t('partyForm.primary')}</span>
                   </label>
-                  <button aria-label="حذف"
+                  <button aria-label={t('partyForm.remove')}
                     className="icon-btn danger-icon"
                     onClick={() => removeImage(index)}
                    
@@ -644,31 +634,31 @@ export function PartyForm({
                   </button>
                 </div>
               ))}
-              {form.images.length === 0 && <p className="muted">تصویری ثبت نشده است.</p>}
+              {form.images.length === 0 && <p className="muted">{t('partyForm.noImage')}</p>}
             </>
           )}
 
           {tab === 'portal' && (
             <div className="filter-grid">
               <label>
-                <span>نام کاربری فروشگاه اینترنتی</span>
+                <span>{t('partyForm.username')}</span>
                 <input
                   value={form.portal_username ?? ''}
                   onChange={(e) => set({ portal_username: e.target.value })}
-                  placeholder="حداقل چهار نویسه"
+                  placeholder={t('partyForm.minFour')}
                 />
               </label>
               <label>
-                <span>رمز عبور</span>
+                <span>{t('partyForm.password')}</span>
                 <input
                   type="password"
                   value={form.portal_password ?? ''}
                   onChange={(e) => set({ portal_password: e.target.value })}
-                  placeholder={partyId ? 'برای تغییر، رمز تازه وارد کنید' : 'حداقل هشت نویسه'}
+                  placeholder={partyId ? t('partyForm.passwordHint') : t('partyForm.minEight')}
                 />
               </label>
               <p className="hint">
-                رمز عبور هرگز به‌صورت خام ذخیره یا نمایش داده نمی‌شود؛ فقط هش آن نگهداری می‌شود.
+                {t('partyForm.passwordNote')}
               </p>
             </div>
           )}
@@ -676,28 +666,28 @@ export function PartyForm({
           {tab === 'other' && (
             <div className="filter-grid">
               <label>
-                <span>شغل</span>
+                <span>{t('partyForm.job')}</span>
                 <input
                   value={form.job_title ?? ''}
                   onChange={(e) => set({ job_title: e.target.value })}
                 />
               </label>
               <label>
-                <span>نحوه آشنایی</span>
+                <span>{t('partyForm.referral')}</span>
                 <input
                   value={form.introduction ?? ''}
                   onChange={(e) => set({ introduction: e.target.value })}
-                  placeholder="معرفی همکار / تبلیغات / …"
+                  placeholder={t('partyForm.referralHint')}
                 />
               </label>
               <label>
-                <span>سقف اعتبار (ریال)</span>
+                <span>{t('partyForm.creditLimit', { unit: rialUnit() })}</span>
                 <input
                   type="number"
                   min={0}
                   value={form.credit_limit || ''}
                   onChange={(e) => set({ credit_limit: Number(e.target.value) || 0 })}
-                  placeholder="صفر یعنی بدون محدودیت"
+                  placeholder={t('partyForm.zeroNoLimit')}
                 />
                 {form.credit_limit > 0 && (
                   <small className="field-hint">
@@ -706,11 +696,11 @@ export function PartyForm({
                 )}
               </label>
               <label className="grow">
-                <span>یادداشت</span>
+                <span>{t('partyForm.note')}</span>
                 <input value={form.note ?? ''} onChange={(e) => set({ note: e.target.value })} />
               </label>
               <p className="hint">
-                سقف اعتبار هنگام ثبت فاکتور نسیه بررسی می‌شود؛ صفر یعنی محدودیتی اعمال نمی‌شود.
+                {t('partyForm.creditHint')}
               </p>
             </div>
           )}
@@ -718,27 +708,26 @@ export function PartyForm({
           {tab === 'occasions' && (
             <>
               <div className="repeat-head">
-                <h4 className="section-title">مناسبت‌های تکرارشونده</h4>
+                <h4 className="section-title">{t('partyForm.recurringEvents')}</h4>
                 <button className="ghost" onClick={addOccasion}>
-                  <Icon name="plus" /> افزودن مناسبت
+                  <Icon name="plus" /> {t('partyForm.addEvent')}
                 </button>
               </div>
               <p className="muted">
-                تاریخ شمسی بدون سال ثبت می‌شود چون مناسبت هر سال تکرار می‌شود. شش ماه دوم سال
-                ۳۰ روزه است.
+                {t('partyForm.eventNote')}
               </p>
               {form.occasions.map((occasion, index) => (
                 <div className="line-row" key={index}>
                   <label className="grow">
-                    <span>عنوان *</span>
+                    <span>{t('partyForm.eventTitleRequired')}</span>
                     <input
                       value={occasion.title}
                       onChange={(e) => setOccasion(index, { title: e.target.value })}
-                      placeholder="تولد / سالگرد تأسیس"
+                      placeholder={t('partyForm.eventHint')}
                     />
                   </label>
                   <label>
-                    <span>ماه</span>
+                    <span>{t('partyForm.month')}</span>
                     <Select
                       value={occasion.jalali_month}
                       onChange={(e) => {
@@ -749,15 +738,15 @@ export function PartyForm({
                         })
                       }}
                     >
-                      {JALALI_MONTHS.map((name, i) => (
-                        <option key={name} value={i + 1}>
-                          {name}
+                      {JALALI_MONTH_KEYS.map((key, i) => (
+                        <option key={key} value={i + 1}>
+                          {t(key)}
                         </option>
                       ))}
                     </Select>
                   </label>
                   <label>
-                    <span>روز</span>
+                    <span>{t('partyForm.day')}</span>
                     <Select
                       value={occasion.jalali_day}
                       onChange={(e) => setOccasion(index, { jalali_day: Number(e.target.value) })}
@@ -773,7 +762,7 @@ export function PartyForm({
                     </Select>
                   </label>
                   <label>
-                    <span>یادآوری (روز قبل)</span>
+                    <span>{t('partyForm.remindDaysBefore')}</span>
                     <input
                       type="number"
                       min={0}
@@ -784,7 +773,7 @@ export function PartyForm({
                       }
                     />
                   </label>
-                  <button aria-label="حذف"
+                  <button aria-label={t('partyForm.remove')}
                     className="icon-btn danger-icon"
                     onClick={() => removeOccasion(index)}
                    
@@ -793,17 +782,17 @@ export function PartyForm({
                   </button>
                 </div>
               ))}
-              {form.occasions.length === 0 && <p className="muted">مناسبتی ثبت نشده است.</p>}
+              {form.occasions.length === 0 && <p className="muted">{t('partyForm.noEvent')}</p>}
             </>
           )}
         </div>
 
         <div className="modal-actions">
           <button className="primary" onClick={submit} disabled={busy}>
-            {partyId ? 'ذخیره تغییرات' : 'ثبت شخص'}
+            {partyId ? t('partyForm.saveChanges') : t('partyForm.savePerson')}
           </button>
           <button className="ghost" onClick={onClose}>
-            انصراف
+            {t('common.cancel')}
           </button>
         </div>
       </div>

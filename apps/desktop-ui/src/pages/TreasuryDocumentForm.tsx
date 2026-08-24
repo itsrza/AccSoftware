@@ -17,6 +17,7 @@ import {
 } from '../api'
 import { errorText } from '../lib/errors'
 import { formatRials as money } from '../lib/format'
+import { useI18n } from '../lib/i18n'
 import { useSort } from '../lib/useSort'
 import {Select} from '../components/Select'
 
@@ -35,6 +36,7 @@ const blankLine = (): EditableLine => ({ key: nextKey++, method: 'cash', amount:
  * پیش‌نمایش دقیقاً همان چیزی است که ثبت خواهد شد.
  */
 export function TreasuryDocumentForm() {
+  const { t } = useI18n()
   const [kind, setKind] = useState<Kind>('receipt')
   const [documentDate, setDocumentDate] = useState('')
   const [partyId, setPartyId] = useState('')
@@ -150,12 +152,12 @@ export function TreasuryDocumentForm() {
   const summaryRows = useMemo(() => {
     if (!preview) return []
     return [
-      ['نقد', preview.cash],
-      ['چک', preview.check],
-      ['حواله بانکی', preview.bank_transfer],
-      ['کارتخوان', preview.card_terminal],
-      ['تخفیف نقدی', preview.discount],
-      ['تهاتر', preview.offset],
+      [t('treasury.method.cash'), preview.cash],
+      [t('treasury.method.check'), preview.check],
+      [t('treasury.method.transfer'), preview.bank_transfer],
+      [t('treasury.method.pos'), preview.card_terminal],
+      [t('treasury.method.discount'), preview.discount],
+      [t('treasury.method.offset'), preview.offset],
     ].filter(([, value]) => (value as number) > 0) as [string, number][]
   }, [preview])
 
@@ -163,19 +165,18 @@ export function TreasuryDocumentForm() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">خزانه‌داری</div>
-          <h1>سند دریافت و پرداخت</h1>
+          <div className="eyebrow">{t('treasuryDoc.eyebrow')}</div>
+          <h1>{t('page.treasury-document')}</h1>
           <p>
-            یک سند می‌تواند هم‌زمان نقد، چک، حواله، کارتخوان، تخفیف و تهاتر داشته باشد. چک به صندوق
-            نمی‌رود؛ تا وصول نشود در «اسناد دریافتنی» می‌ماند.
+            {t('treasuryDoc.lead')}
           </p>
         </div>
         <div className="kind-switch">
           <button className={kind === 'receipt' ? 'active' : ''} onClick={() => setKind('receipt')}>
-            سند دریافت
+            {t('treasuryDoc.receipt')}
           </button>
           <button className={kind === 'payment' ? 'active' : ''} onClick={() => setKind('payment')}>
-            سند پرداخت
+            {t('treasuryDoc.payment')}
           </button>
         </div>
       </div>
@@ -186,7 +187,7 @@ export function TreasuryDocumentForm() {
       <div className="panel">
         <div className="filter-grid">
           <label>
-            <span>تاریخ سند</span>
+            <span>{t('treasuryDoc.date')}</span>
             <input
               value={documentDate}
               onChange={(e) => setDocumentDate(e.target.value)}
@@ -194,9 +195,9 @@ export function TreasuryDocumentForm() {
             />
           </label>
           <label className="grow">
-            <span>طرف حساب</span>
+            <span>{t('common.party')}</span>
             <Select value={partyId} onChange={(e) => setPartyId(e.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {parties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -205,11 +206,11 @@ export function TreasuryDocumentForm() {
             </Select>
           </label>
           <label className="grow">
-            <span>شرح سند</span>
+            <span>{t('treasuryDoc.description')}</span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="بابت تسویه فاکتور…"
+              placeholder={t('treasuryDoc.descriptionHint')}
             />
           </label>
         </div>
@@ -218,11 +219,11 @@ export function TreasuryDocumentForm() {
       <div className="panel">
         <div className="panel-head">
           <div>
-            <h3>سطرهای تسویه</h3>
-            <p>هر سطر یک روش تسویه است. فیلدهای اجباری هر روش را خود موتور تعیین می‌کند.</p>
+            <h3>{t('treasuryDoc.lines')}</h3>
+            <p>{t('treasuryDoc.linesHint')}</p>
           </div>
           <button className="ghost" onClick={() => setLines((c) => [...c, blankLine()])}>
-            <Icon name="plus" /> افزودن سطر
+            <Icon name="plus" /> {t('treasuryDoc.addLine')}
           </button>
         </div>
 
@@ -232,7 +233,7 @@ export function TreasuryDocumentForm() {
             return (
               <div className="line-row" key={line.key}>
                 <label>
-                  <span>روش</span>
+                  <span>{t('treasuryDoc.method')}</span>
                   <Select
                     value={line.method}
                     onChange={(e) => updateLine(line.key, { method: e.target.value })}
@@ -245,7 +246,7 @@ export function TreasuryDocumentForm() {
                   </Select>
                 </label>
                 <label>
-                  <span>مبلغ (ریال)</span>
+                  <span>{t('checks.amountWithUnit')}</span>
                   <input
                     type="number"
                     min={0}
@@ -255,12 +256,12 @@ export function TreasuryDocumentForm() {
                 </label>
                 {info?.requires_treasury_account && (
                   <label>
-                    <span>صندوق / بانک</span>
+                    <span>{t('treasuryDoc.account')}</span>
                     <Select
                       value={line.treasury_account_id ?? ''}
                       onChange={(e) => updateLine(line.key, { treasury_account_id: e.target.value })}
                     >
-                      <option value="">انتخاب کنید…</option>
+                      <option value="">{t('invoiceForm.selectPlaceholder')}</option>
                       {accounts.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name}
@@ -271,7 +272,7 @@ export function TreasuryDocumentForm() {
                 )}
                 {info?.requires_terminal && (
                   <label>
-                    <span>شناسه پایانه</span>
+                    <span>{t('treasuryDoc.terminalId')}</span>
                     <input
                       value={line.terminal_id ?? ''}
                       onChange={(e) => updateLine(line.key, { terminal_id: e.target.value })}
@@ -281,14 +282,14 @@ export function TreasuryDocumentForm() {
                 {info?.requires_check_details && (
                   <>
                     <label>
-                      <span>شماره چک</span>
+                      <span>{t('treasuryDoc.checkNumber')}</span>
                       <input
                         value={line.check_serial ?? ''}
                         onChange={(e) => updateLine(line.key, { check_serial: e.target.value })}
                       />
                     </label>
                     <label>
-                      <span>سررسید چک</span>
+                      <span>{t('treasuryDoc.checkDue')}</span>
                       <input
                         value={line.check_due_date ?? ''}
                         onChange={(e) => updateLine(line.key, { check_due_date: e.target.value })}
@@ -296,14 +297,14 @@ export function TreasuryDocumentForm() {
                       />
                     </label>
                     <label>
-                      <span>بانک</span>
+                      <span>{t('checks.bank')}</span>
                       <input
                         value={line.check_bank_name ?? ''}
                         onChange={(e) => updateLine(line.key, { check_bank_name: e.target.value })}
                       />
                     </label>
                     <label>
-                      <span>شناسه صیادی</span>
+                      <span>{t('treasuryDoc.sayadId')}</span>
                       <input
                         value={line.sayad_id ?? ''}
                         onChange={(e) => updateLine(line.key, { sayad_id: e.target.value })}
@@ -312,13 +313,13 @@ export function TreasuryDocumentForm() {
                   </>
                 )}
                 <label className="grow">
-                  <span>توضیح سطر</span>
+                  <span>{t('treasuryDoc.lineNote')}</span>
                   <input
                     value={line.description ?? ''}
                     onChange={(e) => updateLine(line.key, { description: e.target.value })}
                   />
                 </label>
-                <button aria-label="حذف سطر"
+                <button aria-label={t('treasuryDoc.removeLine')}
                   className="icon-btn danger-icon"
                   onClick={() => removeLine(line.key)}
                   disabled={lines.length === 1}
@@ -336,13 +337,13 @@ export function TreasuryDocumentForm() {
         <div className="panel">
           <div className="panel-head">
             <div>
-              <h3>پیش‌نمایش سند</h3>
-              <p>این دقیقاً همان سندی است که ثبت خواهد شد.</p>
+              <h3>{t('treasuryDoc.preview')}</h3>
+              <p>{t('treasuryDoc.previewNote')}</p>
             </div>
           </div>
           <div className="preview-split">
             <div>
-              <h4 className="section-title">تفکیک روش‌ها</h4>
+              <h4 className="section-title">{t('treasuryDoc.methodBreakdown')}</h4>
               <table className="mini-table">
                 <tbody>
                   {summaryRows.map(([label, value]) => (
@@ -352,24 +353,24 @@ export function TreasuryDocumentForm() {
                     </tr>
                   ))}
                   <tr className="total-row">
-                    <td>جمع سند</td>
+                    <td>{t('treasuryDoc.voucherTotal')}</td>
                     <td className="num">{money(preview.total)}</td>
                   </tr>
                   <tr>
-                    <td>جابه‌جایی واقعی خزانه</td>
+                    <td>{t('treasuryDoc.realMovement')}</td>
                     <td className="num">{money(preview.treasury_movement)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div>
-              <h4 className="section-title">سند حسابداری</h4>
+              <h4 className="section-title">{t('treasuryDoc.journal')}</h4>
               <table className="mini-table">
                 <thead>
                   <tr>
-                    <th>حساب</th>
-                    <th>بدهکار</th>
-                    <th>بستانکار</th>
+                    <th>{t('reports.account')}</th>
+                    <th>{t('reports.debit')}</th>
+                    <th>{t('reports.credit')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,7 +387,7 @@ export function TreasuryDocumentForm() {
           </div>
           <div className="modal-actions">
             <button className="primary" onClick={submit} disabled={!canSubmit}>
-              ثبت نهایی سند
+              {t('treasuryDoc.post')}
             </button>
           </div>
         </div>
@@ -395,10 +396,10 @@ export function TreasuryDocumentForm() {
       <div className="panel list-panel">
         <div className="panel-head">
           <div>
-            <h3>اسناد ثبت‌شده</h3>
+            <h3>{t('treasuryDoc.postedList')}</h3>
             <p>{sorted.length} سند — برای دیدن سطرها روی ردیف کلیک کنید.</p>
           </div>
-          <button className="icon-btn" onClick={loadDocuments} aria-label="بروزرسانی">
+          <button className="icon-btn" onClick={loadDocuments} aria-label={t('common.refresh')}>
             <Icon name="refresh" />
           </button>
         </div>
@@ -406,13 +407,13 @@ export function TreasuryDocumentForm() {
           <table className="large-table">
             <thead>
               <tr>
-                <th {...sortProps('number')}>شماره</th>
-                <th {...sortProps('document_date')}>تاریخ</th>
-                <th {...sortProps('party_name')}>طرف حساب</th>
-                <th>شرح</th>
-                <th {...sortProps('total')}>مبلغ (ریال)</th>
-                <th>تعداد سطر</th>
-                <th {...sortProps('status')}>وضعیت</th>
+                <th {...sortProps('number')}>{t('common.number')}</th>
+                <th {...sortProps('document_date')}>{t('common.date')}</th>
+                <th {...sortProps('party_name')}>{t('common.party')}</th>
+                <th>{t('common.description')}</th>
+                <th {...sortProps('total')}>{t('checks.amountWithUnit')}</th>
+                <th>{t('treasuryDoc.lineCount')}</th>
+                <th {...sortProps('status')}>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -444,7 +445,7 @@ export function TreasuryDocumentForm() {
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={7} className="empty-row">
-                    هنوز سندی از این نوع ثبت نشده است.
+                    {t('treasuryDoc.emptyList')}
                   </td>
                 </tr>
               )}
@@ -462,20 +463,20 @@ export function TreasuryDocumentForm() {
                   {detail.header.kind_label} شماره {detail.header.number}
                 </h2>
                 <p>
-                  {detail.header.document_date} — {detail.header.party_name ?? 'بدون طرف حساب'}
+                  {detail.header.document_date} — {detail.header.party_name ?? t('treasuryDoc.noParty')}
                 </p>
               </div>
-              <button aria-label="بستن" className="icon-btn" onClick={() => setDetail(undefined)}>
+              <button aria-label={t('common.close')} className="icon-btn" onClick={() => setDetail(undefined)}>
                 <Icon name="close" />
               </button>
             </div>
             <table className="mini-table">
               <thead>
                 <tr>
-                  <th>روش</th>
-                  <th>مبلغ</th>
-                  <th>صندوق / بانک</th>
-                  <th>جزئیات</th>
+                  <th>{t('treasuryDoc.method')}</th>
+                  <th>{t('common.amount')}</th>
+                  <th>{t('treasuryDoc.account')}</th>
+                  <th>{t('treasuryDoc.details')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -494,7 +495,7 @@ export function TreasuryDocumentForm() {
                   </tr>
                 ))}
                 <tr className="total-row">
-                  <td>جمع</td>
+                  <td>{t('common.total')}</td>
                   <td className="num">{money(detail.header.total)}</td>
                   <td colSpan={2} />
                 </tr>
