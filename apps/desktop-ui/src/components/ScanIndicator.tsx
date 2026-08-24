@@ -1,4 +1,5 @@
 import { Barcode, CheckCircle2, XCircle } from 'lucide-react'
+import { useI18n } from '../lib/i18n'
 import { cn } from '../lib/cn'
 
 /**
@@ -15,11 +16,12 @@ export function ScanIndicator({
   enabled: boolean
   last: { code: string; name: string; ok: boolean } | null
 }) {
+  const { t } = useI18n()
   if (!enabled) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-dashed border-border-strong bg-card-soft px-3 py-2 text-[11.5px] text-muted">
         <Barcode className="size-4 text-faint" aria-hidden />
-        بارکدخوان خاموش است — از مرکز تنظیمات ← سخت‌افزار روشنش کنید.
+        {t('scan.off')}
       </div>
     )
   }
@@ -37,7 +39,7 @@ export function ScanIndicator({
       {last === null ? (
         <>
           <Barcode className="size-4 text-accent" aria-hidden />
-          بارکدخوان آماده است — بارکد کالا را اسکن کنید تا خودکار به فاکتور اضافه شود.
+          {t('scan.ready')}
         </>
       ) : last.ok ? (
         <>
@@ -46,7 +48,7 @@ export function ScanIndicator({
             {last.code}
           </span>
           <span className="font-bold">{last.name}</span>
-          به فاکتور اضافه شد.
+          {t('scan.added')}
         </>
       ) : (
         <>

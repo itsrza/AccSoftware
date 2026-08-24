@@ -3,7 +3,8 @@ import {Icon} from '../components/Icon'
 import {Select} from '../components/Select'
 import {importData} from '../api'
 import {errorText} from '../lib/errors'
-import {formatRials as money, formatCount} from '../lib/format'
+import {formatRials as money, formatCount, rialUnit} from '../lib/format'
+import {useI18n, type TranslationKey} from '../lib/i18n'
 
 /**
  * ورود و خروج اطلاعات.
@@ -18,44 +19,47 @@ type Entity = 'contacts' | 'products'
 
 type Column = {key: string; label: string; hint: string; required?: boolean; money?: boolean}
 
-const SCHEMA: Record<Entity, {title: string; columns: Column[]; sample: Record<string, string>[]}> = {
+type Schema = Record<Entity, {title: string; columns: Column[]; sample: Record<string, string>[]}>
+
+/** ساختار فایل ورودی به زبان فعال — عنوان ستون‌ها همان چیزی است که کاربر می‌بیند. */
+const schemaFor = (t: (key: TranslationKey) => string): Schema => ({
   contacts: {
-    title: 'اشخاص',
+    title: t('page.parties'),
     columns: [
-      {key: 'name', label: 'نام / عنوان', hint: 'نام شخص حقیقی یا عنوان شرکت', required: true},
-      {key: 'kind', label: 'نوع', hint: 'person برای حقیقی، company برای حقوقی', required: true},
-      {key: 'mobile', label: 'موبایل', hint: 'با صفر ابتدایی، بدون فاصله'},
-      {key: 'is_customer', label: 'مشتری', hint: '1 یا 0'},
-      {key: 'is_supplier', label: 'تأمین‌کننده', hint: '1 یا 0'},
+      {key: 'name', label: t('dt.nameOrTitle'), hint: t('dt.nameHint'), required: true},
+      {key: 'kind', label: t('common.type'), hint: t('dt.typeHint'), required: true},
+      {key: 'mobile', label: t('partyForm.mobile'), hint: t('dt.mobileHint')},
+      {key: 'is_customer', label: t('partyForm.customer'), hint: t('dt.oneOrZero')},
+      {key: 'is_supplier', label: t('partyForm.supplier'), hint: t('dt.oneOrZero')},
     ],
     sample: [
-      {name: 'شرکت آریا صنعت پارس', kind: 'company', mobile: '02188776655', is_customer: '1', is_supplier: '0'},
-      {name: 'مهدی رضایی', kind: 'person', mobile: '09121234567', is_customer: '1', is_supplier: '0'},
-      {name: 'بازرگانی نیک‌آور', kind: 'company', mobile: '02177001122', is_customer: '0', is_supplier: '1'},
+      {name: t('print.sample.company'), kind: 'company', mobile: '02188776655', is_customer: '1', is_supplier: '0'},
+      {name: t('dt.samplePerson'), kind: 'person', mobile: '09121234567', is_customer: '1', is_supplier: '0'},
+      {name: t('dt.sampleCompany'), kind: 'company', mobile: '02177001122', is_customer: '0', is_supplier: '1'},
     ],
   },
   products: {
-    title: 'کالاها',
+    title: t('page.products'),
     columns: [
-      {key: 'sku', label: 'کد کالا', hint: 'یکتا؛ تکراری رد می‌شود', required: true},
-      {key: 'barcode', label: 'بارکد', hint: 'اختیاری'},
-      {key: 'name', label: 'نام کالا', hint: 'نام نمایشی در فاکتور', required: true},
-      {key: 'unit', label: 'واحد', hint: 'عدد، کیلوگرم، متر…', required: true},
-      {key: 'sale_price', label: 'قیمت فروش', hint: 'به ریال، بدون جداکننده', money: true},
-      {key: 'purchase_price', label: 'قیمت خرید', hint: 'به ریال، مبنای بهای تمام‌شده', money: true},
-      {key: 'min_stock', label: 'حداقل موجودی', hint: 'مبنای هشدار «نزدیک به اتمام»'},
+      {key: 'sku', label: t('productForm.skuRequired'), hint: t('dt.skuHint'), required: true},
+      {key: 'barcode', label: t('productForm.barcode'), hint: t('dt.optional')},
+      {key: 'name', label: t('products.name'), hint: t('dt.displayNameHint'), required: true},
+      {key: 'unit', label: t('common.unit'), hint: t('dt.unitHint'), required: true},
+      {key: 'sale_price', label: t('dataPage.salePrice'), hint: t('dt.rialNoSeparator'), money: true},
+      {key: 'purchase_price', label: t('dataPage.purchasePrice'), hint: t('dt.costBasis'), money: true},
+      {key: 'min_stock', label: t('productForm.minStock'), hint: t('dt.lowStockBasis')},
     ],
     sample: [
-      {sku: 'P-1001', barcode: '6260100100015', name: 'روغن موتور ۴ لیتری', unit: 'عدد', sale_price: '4850000', purchase_price: '3900000', min_stock: '12'},
-      {sku: 'P-1002', barcode: '6260100100022', name: 'فیلتر هوا پراید', unit: 'عدد', sale_price: '620000', purchase_price: '430000', min_stock: '40'},
-      {sku: 'P-2010', barcode: '', name: 'سیم برق افشان ۱.۵', unit: 'متر', sale_price: '78000', purchase_price: '61000', min_stock: '500'},
+      {sku: 'P-1001', barcode: '6260100100015', name: t('print.sample.item1'), unit: t('productForm.defaultUnit'), sale_price: '4850000', purchase_price: '3900000', min_stock: '12'},
+      {sku: 'P-1002', barcode: '6260100100022', name: t('print.sample.item2'), unit: t('productForm.defaultUnit'), sale_price: '620000', purchase_price: '430000', min_stock: '40'},
+      {sku: 'P-2010', barcode: '', name: t('print.sample.item3'), unit: t('print.unit.metre'), sale_price: '78000', purchase_price: '61000', min_stock: '500'},
     ],
   },
-}
+})
 
 /** نمونه‌ی CSV با همان ستون‌هایی که وارد‌کننده انتظار دارد. */
-function sampleCsv(entity: Entity): string {
-  const {columns, sample} = SCHEMA[entity]
+function sampleCsv(entity: Entity, schema: Schema): string {
+  const {columns, sample} = schema[entity]
   const head = columns.map((c) => c.key).join(',')
   const body = sample.map((row) => columns.map((c) => row[c.key] ?? '').join(','))
   return ['\ufeff' + head, ...body].join('\r\n')
@@ -75,13 +79,14 @@ function cell(column: Column | undefined, raw: string | undefined) {
     <>
       <span dir="ltr">{value}</span>
       <small className="field-hint" style={{display: 'block'}}>
-        {money(numeric)} ریال
+        {money(numeric)} {rialUnit()}
       </small>
     </>
   )
 }
 
 export function DataTools() {
+  const { t } = useI18n()
   const [entity, setEntity] = useState<Entity>('contacts')
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [fileName, setFileName] = useState('')
@@ -89,7 +94,7 @@ export function DataTools() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
 
-  const schema = SCHEMA[entity]
+  const schema = schemaFor(t)[entity]
 
   /** ستون‌های اجباری که در فایل انتخاب‌شده پیدا نشدند. */
   const missing = useMemo(() => {
@@ -107,14 +112,14 @@ export function DataTools() {
       try {
         const text = String(reader.result || '')
         const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean)
-        if (lines.length < 2) throw new Error('فایل باید حداقل یک ردیف داده داشته باشد.')
+        if (lines.length < 2) throw new Error(t('dt.errEmptyFile'))
         const headers = lines[0].split(',').map((x) => x.trim().replace(/^"|"$/g, ''))
         const parsed = lines.slice(1).map((line) => {
           const values = line.split(',').map((x) => x.trim().replace(/^"|"$/g, ''))
           return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']))
         })
         setRows(parsed)
-        setMsg(`${formatCount(parsed.length)} ردیف برای بررسی آماده شد.`)
+        setMsg(t('dt.rowsReady', {count: formatCount(parsed.length)}))
       } catch (e) {
         setRows([])
         setError(errorText(e))
@@ -124,7 +129,7 @@ export function DataTools() {
   }
 
   const downloadSample = () => {
-    const blob = new Blob([sampleCsv(entity)], {type: 'text/csv;charset=utf-8'})
+    const blob = new Blob([sampleCsv(entity, schemaFor(t))], {type: 'text/csv;charset=utf-8'})
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -139,7 +144,7 @@ export function DataTools() {
     setError('')
     try {
       await importData(entity, rows)
-      setMsg(`${formatCount(rows.length)} ردیف با موفقیت وارد شد.`)
+      setMsg(t('dt.rowsImported', {count: formatCount(rows.length)}))
       setRows([])
       setFileName('')
     } catch (e) {
@@ -153,15 +158,14 @@ export function DataTools() {
     <section className="page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">ابزار داده</div>
-          <h1>ورود و خروج اطلاعات</h1>
+          <div className="eyebrow">{t('dt.eyebrow')}</div>
+          <h1>{t('page.data-tools')}</h1>
           <p>
-            پیش از ثبت، داده‌ها را بررسی کنید. عملیات ورود در یک تراکنش انجام می‌شود؛ اگر یک ردیف
-            خطا داشته باشد هیچ ردیفی ثبت نمی‌شود.
+            {t('dt.subtitle')}
           </p>
         </div>
         <button className="ghost" onClick={downloadSample}>
-          <Icon name="download" /> دریافت فایل نمونه
+          <Icon name="download" /> {t('dt.downloadSample')}
         </button>
       </div>
 
@@ -171,10 +175,10 @@ export function DataTools() {
       <div className="panel">
         <div className="filter-grid">
           <label>
-            <span>نوع داده</span>
+            <span>{t('dt.dataKind')}</span>
             <Select
               value={entity}
-              aria-label="نوع داده"
+              aria-label={t('dt.dataKind')}
               onChange={(e) => {
                 setEntity(e.target.value as Entity)
                 setRows([])
@@ -183,12 +187,12 @@ export function DataTools() {
                 setError('')
               }}
             >
-              <option value="contacts">اشخاص</option>
-              <option value="products">کالاها</option>
+              <option value="contacts">{t('page.parties')}</option>
+              <option value="products">{t('page.products')}</option>
             </Select>
           </label>
           <label className="grow">
-            <span>فایل CSV با کدگذاری UTF-8</span>
+            <span>{t('dt.csvUtf8')}</span>
             <input
               type="file"
               accept=".csv,text/csv"
@@ -202,17 +206,17 @@ export function DataTools() {
         <div className="panel-head">
           <div>
             <h3>ستون‌های مورد انتظار — {schema.title}</h3>
-            <p>ترتیب ستون‌ها مهم نیست؛ نام ستون در سطر اول باید دقیقاً همین باشد.</p>
+            <p>{t('dt.columnOrderNote')}</p>
           </div>
         </div>
         <div className="table-wrap">
           <table className="large-table">
             <thead>
               <tr>
-                <th>نام ستون در فایل</th>
-                <th>معنی</th>
-                <th>الزامی</th>
-                <th>توضیح</th>
+                <th>{t('dt.columnName')}</th>
+                <th>{t('dt.meaning')}</th>
+                <th>{t('dt.required')}</th>
+                <th>{t('transfer.note')}</th>
               </tr>
             </thead>
             <tbody>
@@ -224,7 +228,7 @@ export function DataTools() {
                   <td>{column.label}</td>
                   <td>
                     <span className={column.required ? 'status danger' : 'status neutral'}>
-                      {column.required ? 'بله' : 'اختیاری'}
+                      {column.required ? t('dt.yes') : t('dt.optional')}
                     </span>
                   </td>
                   <td>{column.hint}</td>
@@ -239,10 +243,10 @@ export function DataTools() {
         <div className="panel">
           <div className="panel-head">
             <div>
-              <h3>نمونه‌ی نمایشی — پس از انتخاب فایل، چنین چیزی می‌بینید</h3>
-              <p>این ردیف‌ها فقط برای نمایش ساختار هستند و هرگز ثبت نمی‌شوند.</p>
+              <h3>{t('dt.previewNote')}</h3>
+              <p>{t('dt.previewOnly')}</p>
             </div>
-            <span className="chip">نمونه</span>
+            <span className="chip">{t('dt.sample')}</span>
           </div>
           <div className="table-wrap">
             <table className="large-table">
@@ -273,14 +277,14 @@ export function DataTools() {
             <div>
               <h3>پیش‌نمایش فایل {fileName}</h3>
               <p>
-                {formatCount(rows.length)} ردیف خوانده شد
-                {rows.length > 50 ? ' — ۵۰ ردیف اول نمایش داده می‌شود.' : '.'}
+                {t('dt.rowsRead', {count: formatCount(rows.length)})}
+                {rows.length > 50 ? t('dt.first50') : '.'}
               </p>
             </div>
           </div>
           {missing.length > 0 && (
             <div className="error-box">
-              ستون‌های اجباری در فایل نیستند: {missing.join('، ')} — ورود اطلاعات مسدود است.
+              {t('dt.missingColumns', {list: missing.join(t('dt.listSeparator'))})}
             </div>
           )}
           <div className="table-wrap">
@@ -316,10 +320,10 @@ export function DataTools() {
                 setMsg('')
               }}
             >
-              انصراف
+              {t('common.cancel')}
             </button>
             <button className="primary" disabled={busy || missing.length > 0} onClick={commit}>
-              {busy ? 'در حال ورود…' : 'تأیید و ورود اطلاعات'}
+              {busy ? t('dt.importing') : t('dt.confirmImport')}
             </button>
           </div>
         </div>

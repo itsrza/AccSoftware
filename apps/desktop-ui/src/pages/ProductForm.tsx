@@ -16,7 +16,7 @@ import {
   type ProductUnitRow,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatNumber, formatRials as money, parseAmount, rialUnit } from '../lib/format'
+import { formatCount, formatNumber, formatRials as money, parseAmount, rialUnit } from '../lib/format'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { Select } from '../components/Select'
 import { Badge } from '../components/ui'
@@ -86,7 +86,7 @@ function MoneyInput({
       defaultValue={value ? money(value) : ''}
       disabled={disabled}
       inputMode="numeric"
-      placeholder="۰"
+      placeholder={formatCount(0)}
       onFocus={(event) => {
         event.currentTarget.value = value ? String(value) : ''
         event.currentTarget.select()

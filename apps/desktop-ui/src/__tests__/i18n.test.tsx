@@ -194,14 +194,38 @@ describe('چندزبانی — پوشش صفحه‌ها', () => {
     'components/FilterBar.tsx',
     'components/DashboardPanels.tsx',
     'components/ui.tsx',
+    'components/Select.tsx',
+    'components/ScanIndicator.tsx',
+    'components/UnderConstruction.tsx',
     'components/SettingsCenter.tsx',
     'pages/Dashboard.tsx',
     'pages/Products.tsx',
+    'pages/ProductForm.tsx',
+    'pages/ProductPricing.tsx',
     'pages/Checks.tsx',
     'pages/Invoices.tsx',
-    'pages/Parties.tsx',
     'pages/InvoiceForm.tsx',
+    'pages/Parties.tsx',
+    'pages/PartyForm.tsx',
     'pages/Reports.tsx',
+    'pages/ReportBuilder.tsx',
+    'pages/Treasury.tsx',
+    'pages/TreasuryAccounts.tsx',
+    'pages/TreasuryDocumentForm.tsx',
+    'pages/Operations.tsx',
+    'pages/SingleLineJournal.tsx',
+    'pages/ChartOfAccounts.tsx',
+    'pages/AdvancedInventory.tsx',
+    'pages/Stocktaking.tsx',
+    'pages/InventoryTransfer.tsx',
+    'pages/Quotes.tsx',
+    'pages/Returns.tsx',
+    'pages/Production.tsx',
+    'pages/ProductionFormulaDialogs.tsx',
+    'pages/DataPage.tsx',
+    'pages/DataTools.tsx',
+    'pages/PrintTemplates.tsx',
+    'pages/Integrations.tsx',
   ]
 
   it('ز۱۱ — صفحه‌های ترجمه‌شده از لایه‌ی i18n استفاده می‌کنند', () => {
@@ -214,6 +238,28 @@ describe('چندزبانی — پوشش صفحه‌ها', () => {
     const offenders: string[] = []
     for (const file of [...TRANSLATED, 'App.tsx', 'pages/ChartOfAccounts.tsx', 'pages/DataTools.tsx']) {
       if (read(file).includes("toLocaleString('fa-IR')")) offenders.push(file)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('ز۱۴ — هیچ صفحه‌ای متن فارسی سخت‌کدشده ندارد', () => {
+    /* آخرین دیوارِ دفاعی: اگر کسی متن فارسی تازه‌ای مستقیم در JSX بنویسد،
+     * آن متن در انگلیسی و عربی هم فارسی می‌ماند. این تست همان را می‌گیرد. */
+    const persian = /[\u0600-\u06FF]/
+    const offenders: string[] = []
+    for (const file of TRANSLATED) {
+      const code = read(file)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+      for (const match of code.matchAll(/'([^'\n]*)'|"([^"\n]*)"/g)) {
+        const value = match[1] ?? match[2] ?? ''
+        // کلیدواژه‌های جستجوی چندزبانه‌ی پالت فرمان عمداً هر سه زبان را دارند.
+        if (persian.test(value) && !value.includes(' ')) offenders.push(`${file}: ${value}`)
+      }
+      for (const match of code.matchAll(/>\s*([^<>{}]*?)\s*</g)) {
+        const value = match[1].trim()
+        if (value && persian.test(value)) offenders.push(`${file}: ${value}`)
+      }
     }
     expect(offenders).toEqual([])
   })

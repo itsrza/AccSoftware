@@ -8,6 +8,7 @@
  * موتور تشخیص اسکن زمان را از بیرون می‌گیرد و موتور چاپ فقط رشته‌ی HTML
  * برمی‌گرداند.
  */
+import { translate } from '../lib/i18n'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
@@ -292,7 +293,7 @@ describe('طراح بصری قالب چاپ', () => {
 
   it('ط۲ — پیش‌نمایش با همان موتور چاپ رسم می‌شود', () => {
     // اگر پیش‌نمایش کد جدا داشته باشد، دیر یا زود با چاپگر فرق می‌کند.
-    expect(page).toContain('renderBody(design, company, SAMPLE)')
+    expect(page).toContain('renderBody(design, company, sampleDocument(t))')
     expect(page).toContain('printStyles(design)')
   })
 
@@ -306,8 +307,9 @@ describe('طراح بصری قالب چاپ', () => {
   })
 
   it('ط۵ — چاپ آزمایشی وجود دارد', () => {
-    expect(page).toContain('چاپ آزمایشی')
-    expect(page).toContain('renderDocument(design, company, SAMPLE, 1)')
+    expect(page).toContain("t('print.testPrint')")
+    expect(translate('fa', 'print.testPrint')).toBe('چاپ آزمایشی')
+    expect(page).toContain('renderDocument(design, company, sampleDocument(t), 1)')
   })
 
   it('ط۶ — پیش‌نمایش در عرض واقعی کاغذ رسم می‌شود', () => {

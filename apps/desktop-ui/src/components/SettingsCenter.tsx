@@ -36,7 +36,7 @@ export function SettingsCenter({
   /** رفتن به صفحه‌ی ابزارهای راه‌اندازی که از منوی کناری برداشته شده‌اند. */
   navigate: (page: string) => void
 }) {
-  const { setLocale } = useI18n()
+  const { t, setLocale } = useI18n()
   const [settings, setSettings] = useState<SettingWithValue[]>([])
   const [activeGroup, setActiveGroup] = useState('')
   const [search, setSearch] = useState('')
@@ -106,7 +106,7 @@ export function SettingsCenter({
       // اثرش تا اجرای بعدی دیده نشود، برای کاربر «کار نکرد» معنی می‌دهد.
       if (item.key === 'appearance.dark_mode') setDark(saved === 'true')
       if (item.key === 'appearance.language') setLocale(saved as Locale)
-      setNotice(`«${item.label}» ذخیره شد.`)
+      setNotice(t('settingsCenter.savedToast', { name: item.label }))
       setError('')
     } catch (e) {
       setError(errorText(e))
@@ -136,11 +136,11 @@ export function SettingsCenter({
   }
 
   const removeDemo = async () => {
-    if (!confirm('تمام داده‌های نمونه حذف می‌شوند. ادامه می‌دهید؟')) return
+    if (!confirm(t('demo.deleteConfirm'))) return
     setDemoBusy(true)
     try {
       await deleteDemo()
-      setNotice('داده‌های نمونه حذف شد.')
+      setNotice(t('settingsCenter.demoDeleted'))
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -149,11 +149,11 @@ export function SettingsCenter({
   }
 
   const closeYear = async () => {
-    if (!confirm('بستن سال مالی برگشت‌پذیر نیست. ادامه می‌دهید؟')) return
+    if (!confirm(t('settingsCenter.confirmClose'))) return
     setFiscalBusy(true)
     try {
       await closeFiscalYear()
-      setNotice('سال مالی بسته شد.')
+      setNotice(t('settingsCenter.yearClosed'))
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -173,7 +173,7 @@ export function SettingsCenter({
               checked={item.value === 'true'}
               onChange={(e) => apply(item, e.target.checked ? 'true' : 'false')}
             />
-            <span>{item.value === 'true' ? 'فعال' : 'غیرفعال'}</span>
+            <span>{item.value === 'true' ? t('settingsCenter.enabled') : t('settingsCenter.disabled')}</span>
           </label>
         )
       case 'choice':
@@ -201,11 +201,11 @@ export function SettingsCenter({
               />
             ) : (
               <span className="grid h-10 w-16 place-items-center rounded-lg border border-dashed border-border-strong text-[10px] text-faint">
-                بدون تصویر
+                {t('settingsCenter.noImage')}
               </span>
             )}
             <label className="table-action cursor-pointer">
-              انتخاب تصویر
+              {t('settingsCenter.pickImage')}
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/svg+xml"
@@ -215,7 +215,7 @@ export function SettingsCenter({
                   const file = e.target.files?.[0]
                   if (!file) return
                   if (file.size > 900_000) {
-                    setError('حجم تصویر باید کمتر از حدود ۹۰۰ کیلوبایت باشد.')
+                    setError(t('settingsCenter.imageTooBig'))
                     return
                   }
                   const reader = new FileReader()
@@ -226,7 +226,7 @@ export function SettingsCenter({
             </label>
             {item.value && (
               <button type="button" className="table-action" onClick={() => apply(item, '')}>
-                حذف
+                {t('partyForm.remove')}
               </button>
             )}
           </div>
@@ -263,11 +263,11 @@ export function SettingsCenter({
     <div className="settings-overlay">
       <aside className="settings-nav">
         <div className="settings-brand">
-          <button className="icon-btn" onClick={onClose} aria-label="بستن">
+          <button className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
             <Icon name="close" />
           </button>
           <div>
-            <b>مرکز تنظیمات</b>
+            <b>{t('page.settings')}</b>
             <span>
               {settings.length} تنظیم — {changedCount} مورد تغییر یافته
             </span>
@@ -276,7 +276,7 @@ export function SettingsCenter({
 
         <div className="settings-search">
           <input
-            placeholder="جستجو در تنظیمات…"
+            placeholder={t('settings.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -310,8 +310,8 @@ export function SettingsCenter({
           }}
         >
           <span>
-            <b>ابزارهای پیشرفته</b>
-            <small>قالب چاپ و اتصالات</small>
+            <b>{t('settingsCenter.advancedTools')}</b>
+            <small>{t('settingsCenter.printAndApi')}</small>
           </span>
           <Icon name="chevron" size={14} />
         </button>
@@ -324,8 +324,8 @@ export function SettingsCenter({
           }}
         >
           <span>
-            <b>عملیات مدیریتی</b>
-            <small>داده‌ی نمونه و سال مالی</small>
+            <b>{t('settingsCenter.adminActions')}</b>
+            <small>{t('settingsCenter.demoAndYear')}</small>
           </span>
           <Icon name="chevron" size={14} />
         </button>
@@ -334,23 +334,23 @@ export function SettingsCenter({
       <section className="settings-content">
         <header>
           <div>
-            <div className="eyebrow">تنظیمات</div>
+            <div className="eyebrow">{t('settingsCenter.settings')}</div>
             <h1>
               {search
                 ? `نتیجه‌ی جستجو (${visible.length})`
                 : activeGroup === '__actions'
-                  ? 'عملیات مدیریتی'
+                  ? t('settingsCenter.adminActions')
                   : activeGroup === '__tools'
-                    ? 'ابزارهای پیشرفته'
+                    ? t('settingsCenter.advancedTools')
                     : (groups.find((g) => g.group === activeGroup)?.label ?? '')}
             </h1>
-            <p>هر تنظیم می‌گوید دقیقاً کجای برنامه اثر می‌گذارد.</p>
+            <p>{t('settings.subtitle')}</p>
           </div>
           <div className="filter-actions">
             <button className="ghost" onClick={() => setDark(!dark)}>
-              <Icon name={dark ? 'sun' : 'moon'} /> {dark ? 'تم روشن' : 'تم تاریک'}
+              <Icon name={dark ? 'sun' : 'moon'} /> {dark ? t('topbar.lightTheme') : t('topbar.darkTheme')}
             </button>
-            <button className="icon-btn" onClick={onClose} aria-label="بستن">
+            <button className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
               <Icon name="close" />
             </button>
           </div>
@@ -363,27 +363,26 @@ export function SettingsCenter({
           <div className="settings-stack">
             <div className="setting-row">
               <div className="setting-info">
-                <b>قالب‌های چاپ</b>
+                <b>{t('page.print-templates')}</b>
                 <span>
-                  قالب فاکتور، رسید، سند و برچسب. یک‌بار تنظیم می‌شود و در همه‌ی چاپ‌های برنامه
-                  استفاده می‌شود.
+                  {t('settingsCenter.printDesc')}
                 </span>
-                <small className="effect">اثر: خروجی چاپ فاکتور، رسید خزانه و سند حسابداری</small>
+                <small className="effect">{t('settingsCenter.printEffect')}</small>
               </div>
               <button className="primary" onClick={() => navigate('print-templates')}>
-                باز کردن
+                {t('settingsCenter.open')}
               </button>
             </div>
             <div className="setting-row">
               <div className="setting-info">
-                <b>اتصالات و افزونه‌ها</b>
+                <b>{t('page.integrations')}</b>
                 <span>
-                  تعریف اتصال‌های API و فعال/غیرفعال کردن افزونه‌ها با کنترل دسترسی دامنه.
+                  {t('settingsCenter.apiDesc')}
                 </span>
-                <small className="effect">اثر: سرویس‌های بیرونی و Native Workerها</small>
+                <small className="effect">{t('settingsCenter.apiEffect')}</small>
               </div>
               <button className="primary" onClick={() => navigate('integrations')}>
-                باز کردن
+                {t('settingsCenter.open')}
               </button>
             </div>
           </div>
@@ -391,28 +390,26 @@ export function SettingsCenter({
           <div className="settings-stack">
             <div className="setting-row danger-card">
               <div className="setting-info">
-                <b>حذف داده‌های نمونه</b>
+                <b>{t('settingsCenter.deleteDemo')}</b>
                 <span>
-                  فقط رکوردهایی که با پیشوند نمونه ساخته شده‌اند حذف می‌شوند. داده‌ی واقعی شما
-                  دست نمی‌خورد.
+                  {t('settingsCenter.demoDesc')}
                 </span>
-                <small className="effect">اثر: پاک‌سازی کالاها، اشخاص، فاکتورها و اسناد نمونه</small>
+                <small className="effect">{t('settingsCenter.demoEffect')}</small>
               </div>
               <button className="danger" disabled={demoBusy} onClick={removeDemo}>
-                {demoBusy ? 'در حال انجام…' : 'حذف داده‌های نمونه'}
+                {demoBusy ? t('settingsCenter.working') : t('settingsCenter.deleteDemo')}
               </button>
             </div>
             <div className="setting-row">
               <div className="setting-info">
-                <b>بستن سال مالی</b>
+                <b>{t('settingsCenter.closeYear')}</b>
                 <span>
-                  پس از بستن، هیچ سندی با تاریخ داخل این سال مالی ثبت نمی‌شود. این عمل
-                  برگشت‌پذیر نیست.
+                  {t('settingsCenter.closeDesc')}
                 </span>
-                <small className="effect">اثر: اعتبارسنجی تاریخ در همه‌ی فرم‌های مالی</small>
+                <small className="effect">{t('settingsCenter.closeEffect')}</small>
               </div>
               <button className="ghost" disabled={fiscalBusy} onClick={closeYear}>
-                {fiscalBusy ? 'در حال بررسی…' : 'بستن سال مالی'}
+                {fiscalBusy ? t('settingsCenter.checking') : t('settingsCenter.closeYear')}
               </button>
             </div>
           </div>
@@ -423,8 +420,8 @@ export function SettingsCenter({
                 <div className="setting-info">
                   <b>
                     {item.label}
-                    {item.sensitive && <span className="chip">نیازمند مجوز مدیریتی</span>}
-                    {item.is_customized && <span className="chip">تغییر یافته</span>}
+                    {item.sensitive && <span className="chip">{t('settingsCenter.adminPermission')}</span>}
+                    {item.is_customized && <span className="chip">{t('settingsCenter.changed')}</span>}
                   </b>
                   <span>{item.description}</span>
                   <small className="effect">اثر: {item.effect}</small>
@@ -437,14 +434,14 @@ export function SettingsCenter({
                       disabled={busyKey === item.key}
                       onClick={() => reset(item)}
                     >
-                      بازگردانی
+                      {t('settingsCenter.restore')}
                     </button>
                   )}
                 </div>
               </div>
             ))}
             {visible.length === 0 && (
-              <div className="empty-state">تنظیمی با این جستجو یافت نشد.</div>
+              <div className="empty-state">{t('settingsCenter.noMatch')}</div>
             )}
           </div>
         )}

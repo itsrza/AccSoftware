@@ -351,11 +351,13 @@ describe('ورود و خروج اطلاعات', () => {
   })
 
   it('و۲ — نمونه صریحاً «ثبت نمی‌شود» علامت خورده است', () => {
-    expect(page).toContain('هرگز ثبت نمی‌شوند')
+    expect(page).toContain("t('dt.previewOnly')")
+    expect(faDictionary['dt.previewOnly']).toContain('هرگز ثبت نمی‌شوند')
   })
 
   it('و۳ — دریافت فایل CSV نمونه ممکن است', () => {
-    expect(page).toContain('دریافت فایل نمونه')
+    expect(page).toContain("t('dt.downloadSample')")
+    expect(faDictionary['dt.downloadSample']).toBe('دریافت فایل نمونه')
     expect(page).toMatch(/function sampleCsv/)
   })
 
