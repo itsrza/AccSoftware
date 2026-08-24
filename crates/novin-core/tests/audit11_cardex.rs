@@ -35,9 +35,11 @@ fn company(conn: &Connection) -> String {
 }
 
 fn fiscal(conn: &Connection) -> String {
-    conn.query_row("SELECT id FROM fiscal_years ORDER BY id LIMIT 1", [], |row| {
-        row.get(0)
-    })
+    conn.query_row(
+        "SELECT id FROM fiscal_years ORDER BY id LIMIT 1",
+        [],
+        |row| row.get(0),
+    )
     .expect("سال مالی پایه")
 }
 
@@ -89,14 +91,86 @@ fn scenario() -> Connection {
 
     let movements: &[(&str, &str, f64, i64, &str, &str, &str, &str)] = &[
         // (id, نوع, مقدار, بهای واحد, نوع مرجع, شناسه مرجع, یادداشت, تاریخ)
-        ("m1", "receipt", 10.0, 1_000_000, "opening", "", "موجودی اول دوره", "2025-08-20 09:00"),
-        ("m2", "issue", 3.0, 0, "invoice", "audit11-inv-s", "فروش", "2025-09-01 10:00"),
-        ("m3", "receipt", 5.0, 1_000_000, "invoice", "audit11-inv-p", "خرید", "2025-09-02 10:00"),
-        ("m4", "receipt", 1.0, 0, "invoice_return", "audit11-ret-s", "برگشت از فروش", "2025-09-05 10:00"),
-        ("m5", "issue", 2.0, 1_000_000, "invoice_return", "audit11-ret-p", "برگشت از خرید", "2025-09-06 10:00"),
-        ("m6", "adjustment", 4.0, 0, "inventory_count", "sess", "variance:-4", "2025-09-07 10:00"),
-        ("m8", "transfer_out", 2.0, 0, "transfer", "tr-1", "", "2025-09-09 10:00"),
-        ("m9", "issue", 1.0, 0, "sales_invoice", "audit11-inv-s", "نوع قدیمی", "2025-09-10 10:00"),
+        (
+            "m1",
+            "receipt",
+            10.0,
+            1_000_000,
+            "opening",
+            "",
+            "موجودی اول دوره",
+            "2025-08-20 09:00",
+        ),
+        (
+            "m2",
+            "issue",
+            3.0,
+            0,
+            "invoice",
+            "audit11-inv-s",
+            "فروش",
+            "2025-09-01 10:00",
+        ),
+        (
+            "m3",
+            "receipt",
+            5.0,
+            1_000_000,
+            "invoice",
+            "audit11-inv-p",
+            "خرید",
+            "2025-09-02 10:00",
+        ),
+        (
+            "m4",
+            "receipt",
+            1.0,
+            0,
+            "invoice_return",
+            "audit11-ret-s",
+            "برگشت از فروش",
+            "2025-09-05 10:00",
+        ),
+        (
+            "m5",
+            "issue",
+            2.0,
+            1_000_000,
+            "invoice_return",
+            "audit11-ret-p",
+            "برگشت از خرید",
+            "2025-09-06 10:00",
+        ),
+        (
+            "m6",
+            "adjustment",
+            4.0,
+            0,
+            "inventory_count",
+            "sess",
+            "variance:-4",
+            "2025-09-07 10:00",
+        ),
+        (
+            "m8",
+            "transfer_out",
+            2.0,
+            0,
+            "transfer",
+            "tr-1",
+            "",
+            "2025-09-09 10:00",
+        ),
+        (
+            "m9",
+            "issue",
+            1.0,
+            0,
+            "sales_invoice",
+            "audit11-inv-s",
+            "نوع قدیمی",
+            "2025-09-10 10:00",
+        ),
     ];
     for (id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created) in
         movements
@@ -168,7 +242,10 @@ fn k40_movement_flow_and_sign() {
 
     assert_eq!(signed_quantity(3.0, "issue", None), -3.0);
     assert_eq!(signed_quantity(3.0, "receipt", None), 3.0);
-    assert_eq!(signed_quantity(4.0, "adjustment", Some("variance:-4")), -4.0);
+    assert_eq!(
+        signed_quantity(4.0, "adjustment", Some("variance:-4")),
+        -4.0
+    );
 }
 
 /// ک۴۱ — تفکیک کانال فروش/خرید از جدول مقصد سند.
@@ -193,14 +270,35 @@ fn k41_channel_classification() {
     assert_eq!(channel_of(Some("invoice"), &sales), Channel::Sales);
     assert_eq!(channel_of(Some("invoice"), &purchase), Channel::Purchase);
     // سند گم‌شده → داخلی، نه این‌که حدس بزند
-    assert_eq!(channel_of(Some("invoice"), &DocLinks::default()), Channel::Internal);
-    assert_eq!(channel_of(Some("invoice_return"), &sales_return), Channel::Sales);
-    assert_eq!(channel_of(Some("invoice_return"), &purchase_return), Channel::Purchase);
+    assert_eq!(
+        channel_of(Some("invoice"), &DocLinks::default()),
+        Channel::Internal
+    );
+    assert_eq!(
+        channel_of(Some("invoice_return"), &sales_return),
+        Channel::Sales
+    );
+    assert_eq!(
+        channel_of(Some("invoice_return"), &purchase_return),
+        Channel::Purchase
+    );
     // نوع‌های قدیمی seed و دمو
-    assert_eq!(channel_of(Some("sales_invoice"), &DocLinks::default()), Channel::Sales);
-    assert_eq!(channel_of(Some("purchase_invoice"), &DocLinks::default()), Channel::Purchase);
-    assert_eq!(channel_of(Some("opening"), &DocLinks::default()), Channel::Internal);
-    assert_eq!(channel_of(Some("transfer"), &DocLinks::default()), Channel::Internal);
+    assert_eq!(
+        channel_of(Some("sales_invoice"), &DocLinks::default()),
+        Channel::Sales
+    );
+    assert_eq!(
+        channel_of(Some("purchase_invoice"), &DocLinks::default()),
+        Channel::Purchase
+    );
+    assert_eq!(
+        channel_of(Some("opening"), &DocLinks::default()),
+        Channel::Internal
+    );
+    assert_eq!(
+        channel_of(Some("transfer"), &DocLinks::default()),
+        Channel::Internal
+    );
     assert_eq!(channel_of(None, &DocLinks::default()), Channel::Internal);
 }
 
@@ -214,7 +312,12 @@ fn k42_all_cardex_report() {
     let conn = scenario();
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::All, date_of(2025, 9, 1), date_of(2025, 9, 30)),
+        &filter_for(
+            &conn,
+            CardexKind::All,
+            date_of(2025, 9, 1),
+            date_of(2025, 9, 30),
+        ),
     )
     .expect("گزارش");
 
@@ -223,7 +326,10 @@ fn k42_all_cardex_report() {
     assert_eq!(report.kind, "all");
     assert_eq!(report.opening_balance, 10.0, "افتتاحیه = رسید قبل از بازه");
     assert_eq!(report.total_in, 12.0, "۵ خرید + ۱ برگشت فروش + ۶ شعبه");
-    assert_eq!(report.total_out, 12.0, "۳ فروش + ۲ برگشت خرید + ۴ تعدیل + ۲ انتقال + ۱ قدیمی");
+    assert_eq!(
+        report.total_out, 12.0,
+        "۳ فروش + ۲ برگشت خرید + ۴ تعدیل + ۲ انتقال + ۱ قدیمی"
+    );
     assert_eq!(report.closing_balance, 10.0);
     assert_eq!(report.entries.len(), 8);
 
@@ -239,7 +345,10 @@ fn k42_all_cardex_report() {
     assert_eq!(report.entries[0].quantity, 3.0);
     assert_eq!(report.entries[0].doc_kind, "sales_invoice");
     assert_eq!(report.entries[0].doc_number, Some(7));
-    assert_eq!(report.entries[0].date_jalali, "1404/06/10", "2025-09-01 شمسی");
+    assert_eq!(
+        report.entries[0].date_jalali, "1404/06/10",
+        "2025-09-01 شمسی"
+    );
 }
 
 /// ک۴۳ — کاردکس فروش: فقط فاکتور فروش، برگشت از فروش و نوع قدیمی.
@@ -248,17 +357,33 @@ fn k43_sales_cardex_report() {
     let conn = scenario();
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::Sales, date_of(2025, 9, 1), date_of(2025, 9, 30)),
+        &filter_for(
+            &conn,
+            CardexKind::Sales,
+            date_of(2025, 9, 1),
+            date_of(2025, 9, 30),
+        ),
     )
     .expect("گزارش");
 
-    let docs: Vec<&str> = report.entries.iter().map(|entry| entry.doc_kind.as_str()).collect();
+    let docs: Vec<&str> = report
+        .entries
+        .iter()
+        .map(|entry| entry.doc_kind.as_str())
+        .collect();
     assert_eq!(docs, vec!["sales_invoice", "sales_return", "sales_invoice"]);
     let flows: Vec<&str> = report.entries.iter().map(|entry| entry.flow).collect();
-    assert_eq!(flows, vec!["out", "in", "out"], "برگشت از فروش به انبار برمی‌گردد");
+    assert_eq!(
+        flows,
+        vec!["out", "in", "out"],
+        "برگشت از فروش به انبار برمی‌گردد"
+    );
     assert_eq!(report.total_in, 1.0);
     assert_eq!(report.total_out, 4.0);
-    assert_eq!(report.closing_balance, -3.0, "خالص فروش مثبت = ماند منفی انبار");
+    assert_eq!(
+        report.closing_balance, -3.0,
+        "خالص فروش مثبت = ماند منفی انبار"
+    );
 }
 
 /// ک۴۴ — کاردکس خرید: فاکتور خرید + برگشت از خرید با شماره سند.
@@ -267,7 +392,12 @@ fn k44_purchase_cardex_report() {
     let conn = scenario();
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::Purchase, date_of(2025, 9, 1), date_of(2025, 9, 30)),
+        &filter_for(
+            &conn,
+            CardexKind::Purchase,
+            date_of(2025, 9, 1),
+            date_of(2025, 9, 30),
+        ),
     )
     .expect("گزارش");
 
@@ -285,16 +415,27 @@ fn k44_purchase_cardex_report() {
 #[test]
 fn k45_warehouse_filter() {
     let conn = scenario();
-    let mut filter = filter_for(&conn, CardexKind::All, date_of(2025, 9, 1), date_of(2025, 9, 30));
+    let mut filter = filter_for(
+        &conn,
+        CardexKind::All,
+        date_of(2025, 9, 1),
+        date_of(2025, 9, 30),
+    );
     filter.warehouse_id = Some("wh-main".into());
     let report = cardex(&conn, &filter).expect("گزارش");
 
     assert_eq!(report.entries.len(), 7, "حرکت شعبه حذف می‌شود");
     assert!(
-        report.entries.iter().all(|entry| entry.warehouse_name == "انبار مرکزی"),
+        report
+            .entries
+            .iter()
+            .all(|entry| entry.warehouse_name == "انبار مرکزی"),
         "هیچ ردیف انبار دیگر نباشد"
     );
-    assert_eq!(report.closing_balance, 4.0, "۱۰ + ۵ + ۱ − ۳ − ۲ − ۴ − ۲ − ۱ = ۴");
+    assert_eq!(
+        report.closing_balance, 4.0,
+        "۱۰ + ۵ + ۱ − ۳ − ۲ − ۴ − ۲ − ۱ = ۴"
+    );
 }
 
 /// ک۴۶ — جابه‌جایی بازه: ماند قبلی تبدیل به افتتاحیه می‌شود و سطری نشان داده نمی‌شود.
@@ -303,11 +444,19 @@ fn k46_opening_balance_when_range_moves() {
     let conn = scenario();
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::All, date_of(2025, 9, 8), date_of(2025, 9, 30)),
+        &filter_for(
+            &conn,
+            CardexKind::All,
+            date_of(2025, 9, 8),
+            date_of(2025, 9, 30),
+        ),
     )
     .expect("گزارش");
 
-    assert_eq!(report.opening_balance, 7.0, "جمع علامت‌دار همه‌ی حرکات قبل از ۱۴۰۴/۰۶/۱۷");
+    assert_eq!(
+        report.opening_balance, 7.0,
+        "جمع علامت‌دار همه‌ی حرکات قبل از ۱۴۰۴/۰۶/۱۷"
+    );
     assert_eq!(report.entries.len(), 3, "فروشِ قدیمی، انتقال و شعبه");
     assert_eq!(report.closing_balance, 10.0, "افتتاحیه + ۶ − ۲ − ۱");
 }
@@ -318,7 +467,12 @@ fn k47_value_lines() {
     let conn = scenario();
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::All, date_of(2025, 9, 1), date_of(2025, 9, 30)),
+        &filter_for(
+            &conn,
+            CardexKind::All,
+            date_of(2025, 9, 1),
+            date_of(2025, 9, 30),
+        ),
     )
     .expect("گزارش");
 
@@ -336,7 +490,12 @@ fn k48_negative_stocktaking_variance() {
     let conn = scenario();
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::All, date_of(2025, 9, 7), date_of(2025, 9, 7)),
+        &filter_for(
+            &conn,
+            CardexKind::All,
+            date_of(2025, 9, 7),
+            date_of(2025, 9, 7),
+        ),
     )
     .expect("گزارش");
 
@@ -386,7 +545,12 @@ fn k49_demo_data_consistency() {
 #[test]
 fn k50_missing_product_errors() {
     let conn = scenario();
-    let mut filter = filter_for(&conn, CardexKind::All, date_of(2025, 9, 1), date_of(2025, 9, 30));
+    let mut filter = filter_for(
+        &conn,
+        CardexKind::All,
+        date_of(2025, 9, 1),
+        date_of(2025, 9, 30),
+    );
     filter.product_id = "   ".into();
     assert_eq!(
         cardex(&conn, &filter),
@@ -394,7 +558,12 @@ fn k50_missing_product_errors() {
         "شناسه‌ی خالی"
     );
 
-    let mut filter = filter_for(&conn, CardexKind::All, date_of(2025, 9, 1), date_of(2025, 9, 30));
+    let mut filter = filter_for(
+        &conn,
+        CardexKind::All,
+        date_of(2025, 9, 1),
+        date_of(2025, 9, 30),
+    );
     filter.product_id = "ghost-404".into();
     assert_eq!(
         cardex(&conn, &filter),
@@ -407,7 +576,12 @@ fn k50_missing_product_errors() {
 #[test]
 fn k51_invalid_range_rejected() {
     let conn = scenario();
-    let filter = filter_for(&conn, CardexKind::All, date_of(2025, 9, 30), date_of(2025, 9, 1));
+    let filter = filter_for(
+        &conn,
+        CardexKind::All,
+        date_of(2025, 9, 30),
+        date_of(2025, 9, 1),
+    );
     assert_eq!(cardex(&conn, &filter), Err(CardexError::InvalidRange));
 }
 
@@ -427,13 +601,21 @@ fn k52_same_date_ordering_is_stable() {
     }
     let report = cardex(
         &conn,
-        &filter_for(&conn, CardexKind::All, date_of(2025, 9, 15), date_of(2025, 9, 15)),
+        &filter_for(
+            &conn,
+            CardexKind::All,
+            date_of(2025, 9, 15),
+            date_of(2025, 9, 15),
+        ),
     )
     .expect("گزارش");
     // افتتاحیه = جمع علامت‌دار همه‌ی حرکات قبلی = ۱۰
     assert_eq!(report.opening_balance, 10.0);
     assert_eq!(report.entries.len(), 2);
-    assert_eq!(report.entries[0].flow, "in", "ترتیب درج همان ترتیب خواندن است");
+    assert_eq!(
+        report.entries[0].flow, "in",
+        "ترتیب درج همان ترتیب خواندن است"
+    );
     assert_eq!(report.entries[1].flow, "out");
     assert_eq!(report.entries[0].balance, 110.0, "افتتاحیه ۱۰ + رسید ۱۰۰");
     assert_eq!(report.entries[1].balance, 109.0);

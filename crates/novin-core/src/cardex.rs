@@ -281,8 +281,10 @@ pub fn cardex(conn: &Connection, filter: &CardexFilter) -> Result<CardexReport, 
         WHERE m.product_id = ?1 AND m.company_id = ?2 AND date(m.created_at) <= ?3";
 
     let mut statement = if filter.warehouse_id.is_some() {
-        conn.prepare(&format!("{sql} AND m.warehouse_id = ?4 ORDER BY m.created_at, m.rowid"))
-            .map_err(|error| CardexError::Database(error.to_string()))?
+        conn.prepare(&format!(
+            "{sql} AND m.warehouse_id = ?4 ORDER BY m.created_at, m.rowid"
+        ))
+        .map_err(|error| CardexError::Database(error.to_string()))?
     } else {
         conn.prepare(&format!("{sql} ORDER BY m.created_at, m.rowid"))
             .map_err(|error| CardexError::Database(error.to_string()))?
@@ -290,17 +292,17 @@ pub fn cardex(conn: &Connection, filter: &CardexFilter) -> Result<CardexReport, 
 
     let map_row = |row: &rusqlite::Row<'_>| -> rusqlite::Result<_> {
         Ok((
-            row.get::<_, String>(0)?,          // created_at
-            row.get::<_, String>(1)?,          // movement_type
-            row.get::<_, f64>(2)?,             // quantity
-            row.get::<_, i64>(3)?,             // unit_cost
-            row.get::<_, Option<String>>(4)?,  // note
-            row.get::<_, String>(6)?,          // warehouse name
-            row.get::<_, Option<String>>(7)?,  // reference_type
-            row.get::<_, Option<i64>>(8)?,     // sales invoice number
-            row.get::<_, Option<i64>>(9)?,     // purchase invoice number
-            row.get::<_, Option<i64>>(10)?,    // sales return number
-            row.get::<_, Option<i64>>(11)?,    // purchase return number
+            row.get::<_, String>(0)?,         // created_at
+            row.get::<_, String>(1)?,         // movement_type
+            row.get::<_, f64>(2)?,            // quantity
+            row.get::<_, i64>(3)?,            // unit_cost
+            row.get::<_, Option<String>>(4)?, // note
+            row.get::<_, String>(6)?,         // warehouse name
+            row.get::<_, Option<String>>(7)?, // reference_type
+            row.get::<_, Option<i64>>(8)?,    // sales invoice number
+            row.get::<_, Option<i64>>(9)?,    // purchase invoice number
+            row.get::<_, Option<i64>>(10)?,   // sales return number
+            row.get::<_, Option<i64>>(11)?,   // purchase return number
         ))
     };
 
@@ -319,7 +321,11 @@ pub fn cardex(conn: &Connection, filter: &CardexFilter) -> Result<CardexReport, 
     } else {
         statement
             .query_map(
-                params![filter.product_id, filter.company_id, jalali::iso_string(filter.to)],
+                params![
+                    filter.product_id,
+                    filter.company_id,
+                    jalali::iso_string(filter.to)
+                ],
                 map_row,
             )
             .map_err(|error| CardexError::Database(error.to_string()))?
