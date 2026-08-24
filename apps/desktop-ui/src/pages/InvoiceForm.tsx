@@ -16,7 +16,16 @@ import {
 import {getSettings, getPrintTemplates, type PrintTemplate, type SettingWithValue} from '../api'
 import {Icon} from '../components/Icon'
 import {errorText} from '../lib/errors'
-import {formatNumber, formatRials, parseAmount, todayJalali} from '../lib/format'
+import {
+  formatCount,
+  formatNumber,
+  formatRials,
+  parseAmount,
+  percentText,
+  rialUnit,
+  todayJalali,
+} from '../lib/format'
+import {useI18n} from '../lib/i18n'
 import {Select} from '../components/Select'
 import {DEFAULT_SCANNER, scannerOptionsFrom, useBarcodeScanner} from '../lib/barcode'
 import {companyFrom, printWithTemplate} from '../lib/printing'
@@ -62,6 +71,7 @@ const emptyLine = (): Line => ({
  * نهایی اجرا می‌شود. هیچ محاسبه‌ی مالی در لایه‌ی React انجام نمی‌شود.
  */
 export function InvoiceForm() {
+  const {t} = useI18n()
   const [products, setProducts] = useState<Product[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -251,17 +261,17 @@ export function InvoiceForm() {
   // ------------------------------------------------------------------- چاپ
   const printInvoice = async (kind: TemplateKind) => {
     if (!preview) return
-    const company = companyFrom(settings, 'شرکت نوین پرداز')
+    const company = companyFrom(settings, t('app.company'))
     const template =
       templates.find((item) => item.template_type === kind && item.is_default) ??
       templates.find((item) => item.template_type === kind)
     const copies = Number(settings.find((item) => item.key === 'printing.copies')?.value ?? '1') || 1
 
     const document_: PrintDocument = {
-      title: kind === 'receipt' ? 'رسید فروش' : 'فاکتور فروش',
+      title: kind === 'receipt' ? t('invoiceForm.salesReceipt') : t('invoiceForm.salesInvoice'),
       number: String(preview.lines.length ? Date.now() % 100000 : 0),
       date,
-      partyName: contacts.find((item) => item.id === contactId)?.name ?? 'مشتری نقدی',
+      partyName: contacts.find((item) => item.id === contactId)?.name ?? t('invoiceForm.walkInCustomer'),
       partyPhone: contacts.find((item) => item.id === contactId)?.mobile,
       lines: lines.map((line, index) => {
         const computed = preview.lines[index]
@@ -295,7 +305,7 @@ export function InvoiceForm() {
 
   const save = async () => {
     if (!preview || lines.length === 0) {
-      setError('فاکتور بدون سطر قابل ثبت نیست.')
+      setError(t('invoiceForm.noLineError'))
       return
     }
     setSaving(true)
@@ -316,7 +326,7 @@ export function InvoiceForm() {
       })
       const id = await createSalesInvoice(date, contactId || undefined, warehouseId || undefined, payload)
       await postSalesInvoice(id)
-      setMessage(`فاکتور با موفقیت ثبت و سند آن صادر شد. شناسه: ${id}`)
+      setMessage(t('invoiceForm.savedMessage', {id}))
       setLines([])
       setSettlement({cash: '0', check: '0', transfer: '0', card: '0'})
       setInstallments([])
@@ -346,9 +356,9 @@ export function InvoiceForm() {
     <section className="page invoice-page">
       <div className="page-head">
         <div>
-          <div className="eyebrow">فروش</div>
-          <h1>صدور فاکتور فروش</h1>
-          <p>Insert افزودن سطر · F7 ویرایش · Delete حذف — همه‌ی محاسبات از موتور مالی می‌آید.</p>
+          <div className="eyebrow">{t('invoiceForm.eyebrow')}</div>
+          <h1>{t('page.invoice-form')}</h1>
+          <p>{t('invoiceForm.hint')}</p>
         </div>
       </div>
 
@@ -358,13 +368,13 @@ export function InvoiceForm() {
       <div className="panel">
         <div className="form-row">
           <label>
-            <span>تاریخ</span>
+            <span>{t('common.date')}</span>
             <input value={date} onChange={(event) => setDate(event.target.value)} />
           </label>
           <label className="grow">
-            <span>طرف حساب</span>
+            <span>{t('common.party')}</span>
             <Select value={contactId} onChange={(event) => setContactId(event.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {contacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
                   {contact.name}
@@ -373,9 +383,9 @@ export function InvoiceForm() {
             </Select>
           </label>
           <label>
-            <span>انبار</span>
+            <span>{t('common.warehouse')}</span>
             <Select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {warehouses.map((warehouse) => (
                 <option key={warehouse.id} value={warehouse.id}>
                   {warehouse.name}
@@ -392,9 +402,9 @@ export function InvoiceForm() {
 
       <div className="panel list-panel">
         <div className="toolbar">
-          <strong>اقلام فاکتور</strong>
+          <strong>{t('invoiceForm.lines')}</strong>
           <button className="table-action" onClick={openNewLine}>
-            افزودن کالا (Ins)
+            {t('invoiceForm.addLine')}
           </button>
           <button
             className="table-action"
@@ -404,35 +414,40 @@ export function InvoiceForm() {
               if (line) setEditing({...line})
             }}
           >
-            ویرایش (F7)
+            {t('invoiceForm.editLine')}
           </button>
           <button
             className="table-action"
             disabled={!selectedKey}
             onClick={() => removeLine(selectedKey)}
           >
-            حذف (Delete)
+            {t('invoiceForm.deleteLine')}
           </button>
-          <button className="icon-btn" aria-label="محاسبه مجدد" onClick={refreshPreview} title="محاسبه مجدد">
+          <button
+            className="icon-btn"
+            aria-label={t('invoiceForm.recalculate')}
+            onClick={refreshPreview}
+            title={t('invoiceForm.recalculate')}
+          >
             <Icon name="refresh" />
           </button>
         </div>
 
         {lines.length === 0 ? (
-          <div className="empty-state">سطری اضافه نشده است. کلید Insert را بزنید.</div>
+          <div className="empty-state">{t('invoiceForm.noLines')}</div>
         ) : (
           <div className="table-wrap">
             <table className="large-table">
               <thead>
                 <tr>
-                  <th>ردیف</th>
-                  <th>کالا</th>
-                  <th>مقدار</th>
-                  <th>فی واحد</th>
-                  <th>تخفیف</th>
-                  <th>عوارض</th>
-                  <th>ارزش افزوده</th>
-                  <th>جمع</th>
+                  <th>{t('invoiceForm.rowNo')}</th>
+                  <th>{t('invoiceForm.product')}</th>
+                  <th>{t('common.quantity')}</th>
+                  <th>{t('invoiceForm.unitPrice')}</th>
+                  <th>{t('invoiceForm.discount')}</th>
+                  <th>{t('invoiceForm.duty')}</th>
+                  <th>{t('common.vat')}</th>
+                  <th>{t('invoiceForm.lineTotal')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -446,7 +461,7 @@ export function InvoiceForm() {
                       onClick={() => setSelectedKey(line.key)}
                       onDoubleClick={() => setEditing({...line})}
                     >
-                      <td>{index + 1}</td>
+                      <td>{formatCount(index + 1)}</td>
                       <td>{product ? `${product.sku} — ${product.name}` : '—'}</td>
                       <td>{formatNumber(line.quantity)}</td>
                       <td>{formatRials(line.unit_price)}</td>
@@ -467,10 +482,10 @@ export function InvoiceForm() {
 
       <div className="invoice-bottom">
         <div className="panel">
-          <h3>تخفیف و هزینه</h3>
+          <h3>{t('invoiceForm.discountAndCost')}</h3>
           <div className="form-row">
             <label>
-              <span>تخفیف سرجمع</span>
+              <span>{t('invoiceForm.headerDiscount')}</span>
               <input
                 value={headerDiscount}
                 onChange={(event) => setHeaderDiscount(event.target.value)}
@@ -478,7 +493,7 @@ export function InvoiceForm() {
               />
             </label>
             <label>
-              <span>کرایه حمل</span>
+              <span>{t('invoiceForm.freight')}</span>
               <input
                 value={freight}
                 onChange={(event) => setFreight(event.target.value)}
@@ -492,21 +507,21 @@ export function InvoiceForm() {
               checked={freightAllocated}
               onChange={(event) => setFreightAllocated(event.target.checked)}
             />
-            <span>کرایه روی سطرها سرشکن شود (ورود به بهای تمام‌شده)</span>
+            <span>{t('invoiceForm.allocateFreight')}</span>
           </label>
 
-          <h3>تسویه</h3>
+          <h3>{t('invoiceForm.settlement')}</h3>
           <div className="form-row">
             {(
               [
-                ['cash', 'نقد'],
-                ['check', 'چک'],
-                ['transfer', 'حواله'],
-                ['card', 'کارتخوان'],
+                ['cash', 'invoiceForm.cash'],
+                ['check', 'invoiceForm.cheque'],
+                ['transfer', 'invoiceForm.transfer'],
+                ['card', 'invoiceForm.card'],
               ] as const
-            ).map(([field, label]) => (
+            ).map(([field, labelKey]) => (
               <label key={field}>
-                <span>{label}</span>
+                <span>{t(labelKey)}</span>
                 <input
                   value={settlement[field]}
                   onChange={(event) => setSettlement({...settlement, [field]: event.target.value})}
@@ -515,56 +530,58 @@ export function InvoiceForm() {
               </label>
             ))}
           </div>
-          <div className="side-summary">جمع دریافتی: {formatRials(received)} ریال</div>
+          <div className="side-summary">
+            {t('invoiceForm.receivedTotal', {amount: formatRials(received), unit: rialUnit()})}
+          </div>
         </div>
 
         <div className="panel totals-panel">
-          <h3>جمع فاکتور</h3>
+          <h3>{t('invoiceForm.totals')}</h3>
           {preview ? (
             <table className="totals-table">
               <tbody>
                 <tr>
-                  <td>جمع</td>
+                  <td>{t('invoiceForm.subtotal')}</td>
                   <td>{formatRials(preview.subtotal)}</td>
                 </tr>
                 <tr>
-                  <td>تخفیف</td>
+                  <td>{t('invoiceForm.discount')}</td>
                   <td className="red-text">−{formatRials(preview.discount_total)}</td>
                 </tr>
                 <tr>
-                  <td>خالص</td>
+                  <td>{t('invoiceForm.netTotal')}</td>
                   <td>{formatRials(preview.net_total)}</td>
                 </tr>
                 <tr>
-                  <td>عوارض</td>
+                  <td>{t('invoiceForm.duty')}</td>
                   <td>{formatRials(preview.duty_total)}</td>
                 </tr>
                 <tr>
-                  <td>ارزش افزوده</td>
+                  <td>{t('common.vat')}</td>
                   <td>{formatRials(preview.vat_total)}</td>
                 </tr>
                 <tr>
-                  <td>کرایه حمل</td>
+                  <td>{t('invoiceForm.freight')}</td>
                   <td>{formatRials(preview.freight)}</td>
                 </tr>
                 <tr className="grand">
-                  <td>جمع کل فاکتور</td>
+                  <td>{t('invoiceForm.grandTotal')}</td>
                   <td>{formatRials(preview.total)}</td>
                 </tr>
                 <tr>
-                  <td>مانده فاکتور</td>
+                  <td>{t('invoiceForm.remainder')}</td>
                   <td>{formatRials(preview.invoice_remainder)}</td>
                 </tr>
               </tbody>
             </table>
           ) : (
-            <div className="empty-state">در انتظار سطر معتبر…</div>
+            <div className="empty-state">{t('invoiceForm.waiting')}</div>
           )}
 
           {preview && (
             <div className="balance-bar">
-              <span>مانده قبل: {formatRials(preview.balance_before)}</span>
-              <span>مانده پس از فاکتور: {formatRials(preview.balance_after)}</span>
+              <span>{t('invoiceForm.balanceBefore', {amount: formatRials(preview.balance_before)})}</span>
+              <span>{t('invoiceForm.balanceAfter', {amount: formatRials(preview.balance_after)})}</span>
             </div>
           )}
 
@@ -574,39 +591,39 @@ export function InvoiceForm() {
               onClick={() => void printInvoice('receipt')}
               disabled={!preview || lines.length === 0}
             >
-              <Icon name="print" /> رسید فروشگاهی
+              <Icon name="print" /> {t('invoiceForm.printReceipt')}
             </button>
             <button
               className="ghost"
               onClick={() => void printInvoice('invoice')}
               disabled={!preview || lines.length === 0}
             >
-              <Icon name="print" /> چاپ فاکتور
+              <Icon name="print" /> {t('invoiceForm.printInvoice')}
             </button>
             <button className="primary" onClick={save} disabled={saving || !preview}>
-              {saving ? 'در حال ثبت…' : 'ذخیره و صدور سند'}
+              {saving ? t('invoiceForm.saving') : t('invoiceForm.save')}
             </button>
             <button onClick={() => setShowProfit((value) => !value)} disabled={!preview}>
-              محاسبه سود فاکتور
+              {t('invoiceForm.profitToggle')}
             </button>
           </div>
 
           {showProfit && preview && (
             <div className="profit-box">
               <div>
-                بهای تمام‌شده: <b>{formatRials(preview.cost_total)}</b>
+                {t('invoiceForm.cost')}: <b>{formatRials(preview.cost_total)}</b>
               </div>
               <div>
-                پورسانت: <b>{formatRials(preview.commission_total)}</b>
+                {t('invoiceForm.commission')}: <b>{formatRials(preview.commission_total)}</b>
               </div>
               <div>
-                سود ناخالص:{' '}
+                {t('invoiceForm.grossProfit')}:{' '}
                 <b className={preview.profit >= 0 ? 'green-text' : 'red-text'}>
                   {formatRials(preview.profit)}
                 </b>
               </div>
               <div>
-                حاشیه سود: <b>{(preview.profit_margin_bp / 100).toFixed(2)}٪</b>
+                {t('invoiceForm.margin')}: <b>{percentText(preview.profit_margin_bp / 100, 2)}</b>
               </div>
             </div>
           )}
@@ -615,9 +632,9 @@ export function InvoiceForm() {
 
       <div className="panel">
         <div className="toolbar">
-          <strong>اقساط</strong>
+          <strong>{t('invoiceForm.installments')}</strong>
           <label className="inline-label">
-            <span>تعداد</span>
+            <span>{t('invoiceForm.installmentCount')}</span>
             <input
               value={installmentCount}
               onChange={(event) => setInstallmentCount(event.target.value)}
@@ -626,7 +643,7 @@ export function InvoiceForm() {
             />
           </label>
           <button className="table-action" onClick={generateInstallments} disabled={!preview}>
-            تولید جدول اقساط
+            {t('invoiceForm.generateInstallments')}
           </button>
         </div>
         {installments.length > 0 && (
@@ -634,15 +651,15 @@ export function InvoiceForm() {
             <table className="large-table">
               <thead>
                 <tr>
-                  <th>قسط</th>
-                  <th>سررسید</th>
-                  <th>مبلغ</th>
+                  <th>{t('invoiceForm.installmentNo')}</th>
+                  <th>{t('checks.dueDate')}</th>
+                  <th>{t('common.amount')}</th>
                 </tr>
               </thead>
               <tbody>
                 {installments.map((item) => (
                   <tr key={item.number}>
-                    <td>{item.number}</td>
+                    <td>{formatCount(item.number)}</td>
                     <td className="code">{item.due_date_jalali}</td>
                     <td>{formatRials(item.amount)}</td>
                   </tr>
@@ -677,6 +694,7 @@ function LineEditor({
   onCancel: () => void
   onSave: (line: Line) => void
 }) {
+  const {t} = useI18n()
   const [draft, setDraft] = useState<Line>(line)
   const product = products.find((item) => item.id === draft.product_id)
 
@@ -698,19 +716,19 @@ function LineEditor({
       <div className="modal form-modal">
         <div className="modal-head">
           <div>
-            <div className="eyebrow">سطر فاکتور</div>
-            <h2>افزودن کالا به فاکتور</h2>
+            <div className="eyebrow">{t('invoiceForm.lineEditorEyebrow')}</div>
+            <h2>{t('invoiceForm.lineEditorTitle')}</h2>
           </div>
-          <button aria-label="بستن" type="button" className="icon-btn" onClick={onCancel}>
+          <button aria-label={t('common.close')} type="button" className="icon-btn" onClick={onCancel}>
             <Icon name="close" />
           </button>
         </div>
 
         <div className="form-row">
           <label className="grow">
-            <span>کالا</span>
+            <span>{t('invoiceForm.product')}</span>
             <Select value={draft.product_id} onChange={(event) => pick(event.target.value)}>
-              <option value="">انتخاب کنید…</option>
+              <option value="">{t('invoiceForm.selectPlaceholder')}</option>
               {products.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.sku} — {item.name}
@@ -719,7 +737,7 @@ function LineEditor({
             </Select>
           </label>
           <label>
-            <span>مقدار</span>
+            <span>{t('common.quantity')}</span>
             <input
               value={String(draft.quantity)}
               onChange={(event) =>
@@ -729,14 +747,14 @@ function LineEditor({
             />
           </label>
           <label>
-            <span>فی واحد {product ? `(${product.unit})` : ''}</span>
+            <span>{t('invoiceForm.unitPriceWith', {unit: product ? `(${product.unit})` : ''})}</span>
             <input value={String(draft.unit_price)} onChange={numeric('unit_price')} inputMode="numeric" />
           </label>
         </div>
 
         <div className="form-row">
           <label>
-            <span>تخفیف (مبلغ)</span>
+            <span>{t('invoiceForm.discountAmount')}</span>
             <input
               value={String(draft.discount_amount)}
               onChange={numeric('discount_amount')}
@@ -744,19 +762,19 @@ function LineEditor({
             />
           </label>
           <label>
-            <span>تخفیف (درصد×۱۰۰)</span>
+            <span>{t('invoiceForm.discountBp')}</span>
             <input value={String(draft.discount_bp)} onChange={numeric('discount_bp')} inputMode="numeric" />
           </label>
           <label>
-            <span>ارزش افزوده (درصد×۱۰۰)</span>
+            <span>{t('invoiceForm.vatBp')}</span>
             <input value={String(draft.vat_bp)} onChange={numeric('vat_bp')} inputMode="numeric" />
           </label>
           <label>
-            <span>عوارض (درصد×۱۰۰)</span>
+            <span>{t('invoiceForm.dutyBp')}</span>
             <input value={String(draft.duty_bp)} onChange={numeric('duty_bp')} inputMode="numeric" />
           </label>
           <label>
-            <span>پورسانت (درصد×۱۰۰)</span>
+            <span>{t('invoiceForm.commissionBp')}</span>
             <input
               value={String(draft.commission_bp)}
               onChange={numeric('commission_bp')}
@@ -771,11 +789,11 @@ function LineEditor({
             checked={draft.serial_tracked}
             onChange={(event) => setDraft({...draft, serial_tracked: event.target.checked})}
           />
-          <span>کالای سریال‌دار</span>
+          <span>{t('invoiceForm.serialTracked')}</span>
         </label>
         {draft.serial_tracked && (
           <label>
-            <span>سریال‌ها (با کاما جدا شوند — باید {draft.quantity} مورد باشد)</span>
+            <span>{t('invoiceForm.serials', {count: formatCount(draft.quantity)})}</span>
             <input
               value={draft.serials.join(',')}
               onChange={(event) =>
@@ -793,10 +811,10 @@ function LineEditor({
 
         <div className="modal-actions">
           <button type="button" className="secondary" onClick={onCancel}>
-            انصراف
+            {t('common.cancel')}
           </button>
           <button className="primary" onClick={() => onSave(draft)} disabled={!draft.product_id}>
-            تأیید و افزودن
+            {t('invoiceForm.confirmAdd')}
           </button>
         </div>
       </div>

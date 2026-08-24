@@ -106,6 +106,20 @@ export function percentSign(): string {
   return activeLocale === 'en' ? '%' : '٪'
 }
 
+/**
+ * درصد با تعداد رقم اعشار مشخص، به ارقام و نشانه‌ی زبان فعال.
+ *
+ * `toFixed` ارقام لاتین می‌دهد؛ در صفحه‌ی فارسی «12.50٪» کنار «۱۲٬۵۰۰ ریال»
+ * ناهماهنگ دیده می‌شود.
+ */
+export function percentText(value: number, digits = 2): string {
+  const formatter = new Intl.NumberFormat(INTL_TAG[activeLocale], {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+  return `${formatter.format(value)}${percentSign()}`
+}
+
 /** تبدیل ارقام فارسی/عربی ورودی کاربر به لاتین. */
 export function normalizeDigits(input: string): string {
   return input.replace(/[۰-۹٠-٩]/g, (digit) => {

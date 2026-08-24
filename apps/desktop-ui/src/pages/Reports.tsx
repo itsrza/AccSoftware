@@ -26,7 +26,8 @@ import {
   TrialBalance,
 } from '../api'
 import { errorText } from '../lib/errors'
-import { formatRials as money } from '../lib/format'
+import { formatRials as money, percentSign, rialUnit } from '../lib/format'
+import { useI18n, type TranslationKey } from '../lib/i18n'
 import { Card, CardHeader, EmptyState, ErrorState, Skeleton } from '../components/ui'
 import { FilterBar } from '../components/FilterBar'
 import { defaultRange, useFiscalRange } from './invoiceListData'
@@ -61,64 +62,62 @@ type Kind =
   | 'agingReceivable'
   | 'agingPayable'
 
-const GROUPS: { label: string; items: [Kind, string][] }[] = [
+const GROUPS: { labelKey: TranslationKey; items: [Kind, TranslationKey][] }[] = [
   {
-    label: 'فروش و خرید',
+    labelKey: 'reports.group.salesPurchase',
     items: [
-      ['sales', 'گزارش فروش'],
-      ['purchase', 'گزارش خرید'],
+      ['sales', 'reports.salesReport'],
+      ['purchase', 'reports.purchaseReport'],
     ],
   },
   {
-    label: 'انبار',
-    items: [['inventory', 'ارزش موجودی انبار']],
+    labelKey: 'reports.group.inventory',
+    items: [['inventory', 'reports.inventoryValue']],
   },
   {
-    label: 'دفاتر قانونی',
+    labelKey: 'reports.group.statutory',
     items: [
-      ['journal', 'دفتر روزنامه'],
-      ['ledger', 'گردش حساب‌ها'],
-      ['trial', 'تراز آزمایشی'],
+      ['journal', 'reports.journal'],
+      ['ledger', 'reports.ledger'],
+      ['trial', 'reports.trialBalance'],
     ],
   },
   {
-    label: 'صورت‌های مالی',
+    labelKey: 'reports.group.statements',
     items: [
-      ['balance', 'ترازنامه'],
-      ['income', 'صورت سود و زیان'],
-      ['profit', 'خلاصه‌ی سود ناخالص'],
+      ['balance', 'reports.balanceSheet'],
+      ['income', 'reports.incomeStatement'],
+      ['profit', 'reports.grossProfitSummary'],
     ],
   },
   {
-    label: 'طرف حساب‌ها',
+    labelKey: 'reports.group.parties',
     items: [
-      ['receivable', 'مطالبات'],
-      ['payable', 'بدهی‌ها'],
-      ['agingReceivable', 'سنی‌سازی مطالبات'],
-      ['agingPayable', 'سنی‌سازی بدهی‌ها'],
+      ['receivable', 'reports.receivables'],
+      ['payable', 'reports.payables'],
+      ['agingReceivable', 'reports.receivableAging'],
+      ['agingPayable', 'reports.payableAging'],
     ],
   },
   {
-    label: 'خزانه',
-    items: [['cash', 'وضعیت نقدینگی']],
+    labelKey: 'reports.group.treasury',
+    items: [['cash', 'reports.liquidity']],
   },
 ]
 
-const TITLE: Record<Kind, string> = Object.fromEntries(
+const TITLE_KEY: Record<Kind, TranslationKey> = Object.fromEntries(
   GROUPS.flatMap((group) => group.items),
-) as Record<Kind, string>
+) as Record<Kind, TranslationKey>
 
 /** گزارش‌هایی که بازه‌ی زمانی روی آن‌ها اثر دارد. بقیه «در لحظه»اند. */
 const PERIODIC: Kind[] = ['sales', 'purchase', 'ledger', 'journal']
 /** گزارش‌هایی که فقط «تا تاریخ» می‌گیرند. */
 const AS_OF: Kind[] = ['balance', 'income', 'agingReceivable', 'agingPayable']
 
-const paymentLabel = (value: string) =>
-  value === 'paid' ? 'تسویه شده' : value === 'partial' ? 'تسویه جزئی' : 'تسویه نشده'
-
 function Table({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
+  const { t } = useI18n()
   if (rows.length === 0) {
-    return <EmptyState title="داده‌ای برای این گزارش نیست." hint="بازه یا نوع گزارش را عوض کنید." />
+    return <EmptyState title={t('reports.empty')} hint={t('reports.emptyHint')} />
   }
   return (
     <div className="table-wrap">
@@ -144,7 +143,8 @@ function Table({ headers, rows }: { headers: string[]; rows: (string | number)[]
   )
 }
 
-function Stat({ title, value, unit = 'ریال' }: { title: string; value: number; unit?: string }) {
+function Stat({ title, value, unit }: { title: string; value: number; unit?: string }) {
+  const label = unit ?? rialUnit()
   return (
     <article
       data-card
@@ -153,13 +153,21 @@ function Stat({ title, value, unit = 'ریال' }: { title: string; value: numbe
       <p className="text-[11px] font-semibold text-muted">{title}</p>
       <p className="tnum mt-1.5 truncate text-[17px] font-extrabold text-text">
         {money(value)}
-        <span className="ms-1 text-[10px] font-semibold text-faint">{unit}</span>
+        <span className="ms-1 text-[10px] font-semibold text-faint">{label}</span>
       </p>
     </article>
   )
 }
 
 export function Reports() {
+  const { t } = useI18n()
+  /** برچسب وضعیت تسویه در سطرهای گزارش. */
+  const paymentLabel = (value: string) =>
+    value === 'paid'
+      ? t('invoices.settled')
+      : value === 'partial'
+        ? t('invoices.partial')
+        : t('invoices.unsettled')
   const [kind, setKind] = useState<Kind>('sales')
   const fiscalRange = useFiscalRange()
   const [range, setRange] = useState<JalaliRange>(() => defaultRange())
@@ -252,21 +260,21 @@ export function Reports() {
   }, [kind, range.from, range.to])
 
   const scope = useMemo(() => {
-    if (PERIODIC.includes(kind)) return `بازه: ${range.from} تا ${range.to}`
-    if (AS_OF.includes(kind)) return `تا تاریخ ${range.to}`
-    return 'مانده در لحظه — مستقل از بازه'
-  }, [kind, range])
+    if (PERIODIC.includes(kind)) return t('reports.rangeNote', { from: range.from, to: range.to })
+    if (AS_OF.includes(kind)) return t('reports.asOf', { date: range.to })
+    return t('reports.liveBalance')
+  }, [kind, range, t])
 
   return (
     <section className="page flex flex-col gap-4">
       <div className="page-head">
         <div>
-          <div className="eyebrow">گزارش‌های واقعی</div>
-          <h1>مرکز گزارشات</h1>
-          <p>تمام ارقام از اسناد ثبت‌شده خوانده می‌شوند؛ هیچ عددی تخمینی نیست.</p>
+          <div className="eyebrow">{t('reports.eyebrow')}</div>
+          <h1>{t('reports.title')}</h1>
+          <p>{t('reports.subtitle')}</p>
         </div>
         <button className="ghost" onClick={() => void load()}>
-          <RefreshCw className="size-4" aria-hidden /> بروزرسانی
+          <RefreshCw className="size-4" aria-hidden /> {t('common.refresh')}
         </button>
       </div>
 
@@ -277,12 +285,15 @@ export function Reports() {
         filters={[
           {
             key: 'kind',
-            label: 'نوع گزارش',
+            label: t('reports.kind'),
             value: kind,
             width: 'xl:w-64',
             onChange: (value) => setKind(value as Kind),
             options: GROUPS.flatMap((group) =>
-              group.items.map(([value, label]) => ({ value, label: `${group.label} — ${label}` })),
+              group.items.map(([value, labelKey]) => ({
+                value,
+                label: `${t(group.labelKey)} — ${t(labelKey)}`,
+              })),
             ),
           },
         ]}
@@ -298,7 +309,7 @@ export function Reports() {
 
       <Card pad={false}>
         <div className="p-4 sm:p-5">
-          <CardHeader title={TITLE[kind]} subtitle={scope} />
+          <CardHeader title={t(TITLE_KEY[kind])} subtitle={scope} />
         </div>
 
         {loading ? (
@@ -309,11 +320,19 @@ export function Reports() {
           <div className="px-2 pb-4 sm:px-3">
             {kind === 'sales' && (
               <Table
-                headers={['تاریخ', 'شماره', 'مشتری', 'خالص', 'مالیات', 'مبلغ', 'تسویه']}
+                headers={[
+                  t('common.date'),
+                  t('common.number'),
+                  t('reports.customer'),
+                  t('common.net'),
+                  t('common.tax'),
+                  t('common.amount'),
+                  t('invoices.settlementShort'),
+                ]}
                 rows={sales.map((row) => [
                   row.date,
                   row.invoice_number,
-                  row.contact_name || 'بدون شخص',
+                  row.contact_name || t('reports.noParty'),
                   money(row.subtotal - row.discount),
                   money(row.tax),
                   money(row.total),
@@ -323,11 +342,19 @@ export function Reports() {
             )}
             {kind === 'purchase' && (
               <Table
-                headers={['تاریخ', 'شماره', 'تأمین‌کننده', 'خالص', 'مالیات', 'مبلغ', 'تسویه']}
+                headers={[
+                  t('common.date'),
+                  t('common.number'),
+                  t('reports.supplier'),
+                  t('common.net'),
+                  t('common.tax'),
+                  t('common.amount'),
+                  t('invoices.settlementShort'),
+                ]}
                 rows={purchase.map((row) => [
                   row.date,
                   row.invoice_number,
-                  row.contact_name || 'بدون شخص',
+                  row.contact_name || t('reports.noParty'),
                   money(row.subtotal - row.discount),
                   money(row.tax),
                   money(row.total),
@@ -337,7 +364,13 @@ export function Reports() {
             )}
             {kind === 'inventory' && (
               <Table
-                headers={['کالا', 'انبار', 'موجودی', 'میانگین بها', 'ارزش']}
+                headers={[
+                  t('invoiceForm.product'),
+                  t('common.warehouse'),
+                  t('products.stock'),
+                  t('reports.averageCost'),
+                  t('reports.value'),
+                ]}
                 rows={inventory.map((row) => [
                   row.product_name,
                   row.warehouse_name,
@@ -349,37 +382,53 @@ export function Reports() {
             )}
             {kind === 'ledger' && (
               <Table
-                headers={['کد', 'حساب', 'بدهکار', 'بستانکار', 'مانده']}
+                headers={[
+                  t('common.code'),
+                  t('reports.account'),
+                  t('reports.debit'),
+                  t('reports.credit'),
+                  t('reports.balance'),
+                ]}
                 rows={ledger.map((row) => [
                   row.code,
                   row.name,
                   money(row.debit),
                   money(row.credit),
-                  `${money(Math.abs(row.balance))} ${row.balance >= 0 ? 'بدهکار' : 'بستانکار'}`,
+                  `${money(Math.abs(row.balance))} ${
+                    row.balance >= 0 ? t('reports.debit') : t('reports.credit')
+                  }`,
                 ])}
               />
             )}
             {kind === 'trial' && trial && (
               <>
                 <div className="mb-3 grid grid-cols-1 gap-3 px-2 sm:grid-cols-3">
-                  <Stat title="جمع بدهکار" value={trial.total_debit} />
-                  <Stat title="جمع بستانکار" value={trial.total_credit} />
+                  <Stat title={t('reports.totalDebit')} value={trial.total_debit} />
+                  <Stat title={t('reports.totalCredit')} value={trial.total_credit} />
                   <article
                     data-card
                     className="rounded-[var(--radius)] border border-border bg-card p-3.5"
                   >
-                    <p className="text-[11px] font-semibold text-muted">کنترل توازن</p>
+                    <p className="text-[11px] font-semibold text-muted">{t('reports.balanceCheck')}</p>
                     <p
                       className={`mt-1.5 text-[17px] font-extrabold ${
                         trial.total_debit === trial.total_credit ? 'text-success' : 'text-danger'
                       }`}
                     >
-                      {trial.total_debit === trial.total_credit ? 'متوازن' : 'نامتوازن'}
+                      {trial.total_debit === trial.total_credit
+                        ? t('reports.balanced')
+                        : t('reports.unbalanced')}
                     </p>
                   </article>
                 </div>
                 <Table
-                  headers={['کد', 'حساب', 'بدهکار', 'بستانکار', 'مانده']}
+                  headers={[
+                  t('common.code'),
+                  t('reports.account'),
+                  t('reports.debit'),
+                  t('reports.credit'),
+                  t('reports.balance'),
+                ]}
                   rows={trial.accounts.map((row) => [
                     row.code,
                     row.name,
@@ -392,17 +441,27 @@ export function Reports() {
             )}
             {kind === 'profit' && profit && (
               <div className="grid grid-cols-2 gap-3 px-2 sm:grid-cols-3 xl:grid-cols-6">
-                <Stat title="درآمد فروش" value={profit.revenue} />
-                <Stat title="برگشت از فروش" value={profit.sales_returns} />
-                <Stat title="درآمد خالص" value={profit.net_revenue} />
-                <Stat title="بهای تمام‌شده" value={profit.cogs} />
-                <Stat title="سود ناخالص" value={profit.gross_profit} />
-                <Stat title="حاشیه سود" value={profit.gross_margin_percent} unit="٪" />
+                <Stat title={t('reports.salesRevenue')} value={profit.revenue} />
+                <Stat title={t('reports.salesReturns')} value={profit.sales_returns} />
+                <Stat title={t('reports.netRevenue')} value={profit.net_revenue} />
+                <Stat title={t('reports.cogs')} value={profit.cogs} />
+                <Stat title={t('reports.grossProfit')} value={profit.gross_profit} />
+                <Stat
+                  title={t('reports.margin')}
+                  value={profit.gross_margin_percent}
+                  unit={percentSign()}
+                />
               </div>
             )}
             {kind === 'receivable' && (
               <Table
-                headers={['مشتری', 'تعداد فاکتور', 'فروش', 'تسویه', 'مانده']}
+                headers={[
+                  t('reports.customer'),
+                  t('reports.invoiceCount'),
+                  t('dashboard.chart.sales'),
+                  t('invoices.settlementShort'),
+                  t('reports.balance'),
+                ]}
                 rows={receivable.map((row) => [
                   row.contact_name,
                   row.invoice_count,
@@ -414,7 +473,13 @@ export function Reports() {
             )}
             {kind === 'payable' && (
               <Table
-                headers={['تأمین‌کننده', 'تعداد فاکتور', 'خرید', 'تسویه', 'مانده']}
+                headers={[
+                  t('reports.supplier'),
+                  t('reports.invoiceCount'),
+                  t('dashboard.chart.purchases'),
+                  t('invoices.settlementShort'),
+                  t('reports.balance'),
+                ]}
                 rows={payable.map((row) => [
                   row.contact_name,
                   row.invoice_count,
@@ -427,17 +492,17 @@ export function Reports() {
             {kind === 'cash' && cash && (
               <>
                 <div className="mb-3 px-2">
-                  <Stat title="نقدینگی کل" value={cash.total} />
+                  <Stat title={t('reports.totalLiquidity')} value={cash.total} />
                 </div>
                 <Table
-                  headers={['حساب', 'نوع', 'مانده']}
+                  headers={[t('reports.account'), t('common.type'), t('reports.balance')]}
                   rows={cash.accounts.map((row) => [
                     row.name,
                     row.account_type === 'bank'
-                      ? 'بانک'
+                      ? t('reports.bank')
                       : row.account_type === 'cash'
-                        ? 'صندوق'
-                        : 'تنخواه',
+                        ? t('reports.cashbox')
+                        : t('reports.pettyCash'),
                     money(row.balance),
                   ])}
                 />
@@ -445,7 +510,15 @@ export function Reports() {
             )}
             {kind === 'journal' && (
               <Table
-                headers={['تاریخ', 'شماره', 'شرح', 'کد حساب', 'حساب', 'بدهکار', 'بستانکار']}
+                headers={[
+                  t('common.date'),
+                  t('common.number'),
+                  t('common.description'),
+                  t('reports.accountCode'),
+                  t('reports.account'),
+                  t('reports.debit'),
+                  t('reports.credit'),
+                ]}
                 rows={journal.map((row) => [
                   row.date,
                   row.number,
@@ -459,22 +532,32 @@ export function Reports() {
             )}
             {kind === 'balance' && balance && (
               <Table
-                headers={['کد', 'حساب', 'ماهیت', 'مبلغ']}
+                headers={[
+                  t('common.code'),
+                  t('reports.account'),
+                  t('reports.nature'),
+                  t('common.amount'),
+                ]}
                 rows={balance.lines.map((row) => [
                   row.code,
                   row.name,
-                  row.nature === 'debit' ? 'بدهکار' : 'بستانکار',
+                  row.nature === 'debit' ? t('reports.debit') : t('reports.credit'),
                   money(Math.abs(row.amount)),
                 ])}
               />
             )}
             {kind === 'income' && income && (
               <Table
-                headers={['کد', 'حساب', 'ماهیت', 'مبلغ']}
+                headers={[
+                  t('common.code'),
+                  t('reports.account'),
+                  t('reports.nature'),
+                  t('common.amount'),
+                ]}
                 rows={income.lines.map((row) => [
                   row.code,
                   row.name,
-                  row.nature === 'debit' ? 'بدهکار' : 'بستانکار',
+                  row.nature === 'debit' ? t('reports.debit') : t('reports.credit'),
                   money(Math.abs(row.amount)),
                 ])}
               />
@@ -482,13 +565,13 @@ export function Reports() {
             {(kind === 'agingReceivable' || kind === 'agingPayable') && (
               <Table
                 headers={[
-                  kind === 'agingReceivable' ? 'مشتری' : 'تأمین‌کننده',
-                  'سررسید نشده',
-                  '۱ تا ۳۰',
-                  '۳۱ تا ۶۰',
-                  '۶۱ تا ۹۰',
-                  'بیش از ۹۰',
-                  'جمع',
+                  kind === 'agingReceivable' ? t('reports.customer') : t('reports.supplier'),
+                  t('reports.bucket.current'),
+                  t('reports.bucket.1_30'),
+                  t('reports.bucket.31_60'),
+                  t('reports.bucket.61_90'),
+                  t('reports.bucket.over90'),
+                  t('reports.total'),
                 ]}
                 rows={(kind === 'agingReceivable' ? agingR : agingP).map((row) => [
                   row.contact_name,

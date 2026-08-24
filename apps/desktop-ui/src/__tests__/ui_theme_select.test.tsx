@@ -392,8 +392,9 @@ describe('رفتار بستن پاپ‌آپ‌ها', () => {
     expect(code).toContain('<div className="modal-backdrop" role="presentation">')
     expect(code).not.toMatch(/modal-backdrop"\s+onClick/)
     // ولی راه بستن باید وجود داشته باشد: هم دکمه‌ی بستن، هم انصراف.
-    expect(code).toContain('aria-label="بستن"')
-    expect(code).toMatch(/>\s*انصراف\s*</)
+    // پس از چندزبانی‌شدن، هر دو با کلید ترجمه نوشته می‌شوند.
+    expect(code).toMatch(/aria-label=(\{t\('common\.close'\)\}|"بستن")/)
+    expect(code).toMatch(/(>\s*انصراف\s*<|t\('common\.cancel'\))/)
   })
 
   it('پ۲ — هیچ فرم ورود داده‌ای با کلیک روی پس‌زمینه بسته نمی‌شود', () => {
@@ -419,7 +420,10 @@ describe('رفتار بستن پاپ‌آپ‌ها', () => {
   it('پ۳ — هر فرم ورود داده راه بستن صریح دارد', () => {
     const offenders = DATA_ENTRY.filter((file) => {
       const code = src(file)
-      return !/انصراف/.test(code) && !/aria-label="بستن"/.test(code)
+      const hasCancel = /انصراف/.test(code) || /t\('common\.cancel'\)/.test(code)
+      const hasClose =
+        /aria-label="بستن"/.test(code) || /aria-label=\{t\('common\.close'\)\}/.test(code)
+      return !hasCancel && !hasClose
     })
     expect(offenders).toEqual([])
   })
