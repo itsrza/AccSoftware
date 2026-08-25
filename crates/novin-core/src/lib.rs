@@ -15,12 +15,12 @@ pub mod catalog;
 pub mod checks;
 pub mod coding;
 pub mod db;
-pub mod hijri;
+// pub mod hijri; // تشخیصی: موقتاً خاموش
 pub mod inventory;
 pub mod invoicing;
 pub mod jalali;
 pub mod money;
-pub mod occasions;
+// pub mod occasions; // تشخیصی: موقتاً خاموش
 pub mod parties;
 pub mod production;
 pub mod stocktaking;
