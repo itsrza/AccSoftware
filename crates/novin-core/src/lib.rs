@@ -20,7 +20,7 @@ pub mod inventory;
 pub mod invoicing;
 pub mod jalali;
 pub mod money;
-// pub mod occasions; // تشخیصی دور ۴
+pub mod occasions;
 pub mod parties;
 pub mod production;
 pub mod stocktaking;
