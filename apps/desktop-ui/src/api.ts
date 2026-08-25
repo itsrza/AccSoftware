@@ -1148,3 +1148,37 @@ export const getProductCardex = (
     toJalali: to,
     warehouseId,
   })
+
+// ---------------------------------------------------------------------------
+// تقویم سه‌گانه — شمسی/میلادی/قمری با مناسبت‌ها
+// ---------------------------------------------------------------------------
+
+export type CalendarOccasion = {
+  date: string
+  jalali: string
+  hijri: string
+  title: string
+  calendar: 'jalali' | 'hijri'
+  holiday: boolean
+}
+
+export type CalendarOverview = {
+  today: {
+    iso: string
+    jalali: string
+    jalali_year: number
+    jalali_month: number
+    jalali_day: number
+    hijri: string
+    hijri_year: number
+    hijri_month: number
+    hijri_day: number
+    gregorian: string
+    weekday: number
+    occasions: CalendarOccasion[]
+  }
+  occasions: CalendarOccasion[]
+}
+
+export const getCalendarOverview = (from?: string, to?: string) =>
+  api<CalendarOverview>('calendar_overview', {fromJalali: from, toJalali: to})

@@ -24,6 +24,7 @@ use serde::Serialize;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 
+mod calendar;
 mod cardex;
 mod chart_of_accounts;
 mod parties_form;
@@ -7399,6 +7400,7 @@ fn main() {
             products_form::list_products_detailed,
             products_form::preview_gold_price,
             cardex::product_cardex,
+            calendar::calendar_overview,
             get_company,
             list_accounts,
             list_contacts,

@@ -195,6 +195,7 @@ describe('چندزبانی — پوشش صفحه‌ها', () => {
     'components/DashboardPanels.tsx',
     'components/ui.tsx',
     'components/Select.tsx',
+    'components/CalendarPopover.tsx',
     'components/ScanIndicator.tsx',
     'components/UnderConstruction.tsx',
     'components/SettingsCenter.tsx',

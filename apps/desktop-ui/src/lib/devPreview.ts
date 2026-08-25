@@ -14,6 +14,7 @@
  */
 
 import { buildExtraResponses } from './preview/extras'
+import { calendarOverviewResponse } from './preview/calendar'
 
 export const isTauriRuntime = () =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -1346,6 +1347,7 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
  * غول‌پیکر نشود و منطق «داده» از منطق «گزارش» جدا بماند. */
 const allResponses: Record<string, (args: Record<string, unknown>) => unknown> = {
   ...responses,
+  calendar_overview: calendarOverviewResponse,
   ...buildExtraResponses({
     products,
     contacts,

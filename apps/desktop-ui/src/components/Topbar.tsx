@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { Avatar } from './Avatar'
-import { todayJalali, formatCount } from '../lib/format'
+import { CalendarMenu } from './CalendarPopover'
+import { formatCount } from '../lib/format'
 import { LOCALES, useI18n } from '../lib/i18n'
 
 /**
@@ -361,9 +362,7 @@ export function Topbar({
 
         <div className="flex shrink-0 items-center gap-2">
           <GlobalSearch search={search} navigate={navigate} />
-          <span className="hidden rounded-xl border border-border bg-card px-3 py-2 text-[11px] font-semibold text-muted whitespace-nowrap xl:inline-block">
-            {todayJalali()}
-          </span>
+          <CalendarMenu />
           <button
             onClick={() => setDark(!dark)}
             aria-label={dark ? t('topbar.lightTheme') : t('topbar.darkTheme')}
