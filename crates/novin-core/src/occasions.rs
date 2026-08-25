@@ -282,7 +282,11 @@ pub fn occasions_between(
     let mut cursor = from;
     while cursor <= to {
         days.extend(occasions_on(cursor));
-        cursor += chrono::Duration::days(1);
+        // الگوی اثبات‌شده‌ی مخزن (jalali.rs/checks.rs) — بدون اتکا به AddAssign
+        cursor = match cursor.checked_add_signed(chrono::Duration::days(1)) {
+            Some(next) => next,
+            None => break,
+        };
     }
     Ok(days)
 }
