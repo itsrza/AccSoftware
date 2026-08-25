@@ -27,27 +27,47 @@ fn date_of(year: i32, month: u32, day: u32) -> NaiveDate {
 fn k53_hijri_anchors() {
     assert_eq!(
         to_hijri(date_of(2026, 3, 20)),
-        HijriDate { year: 1447, month: 10, day: 1 },
+        HijriDate {
+            year: 1447,
+            month: 10,
+            day: 1
+        },
         "عید فطر ۱۴۴۷"
     );
     assert_eq!(
         to_hijri(date_of(2026, 5, 27)),
-        HijriDate { year: 1447, month: 12, day: 10 },
+        HijriDate {
+            year: 1447,
+            month: 12,
+            day: 10
+        },
         "عید قربان ۱۴۴۷"
     );
     assert_eq!(
         to_hijri(date_of(2025, 7, 6)),
-        HijriDate { year: 1447, month: 1, day: 10 },
+        HijriDate {
+            year: 1447,
+            month: 1,
+            day: 10
+        },
         "عاشورای ۱۴۴۷"
     );
     assert_eq!(
         to_hijri(date_of(2026, 1, 16)),
-        HijriDate { year: 1447, month: 7, day: 27 },
+        HijriDate {
+            year: 1447,
+            month: 7,
+            day: 27
+        },
         "مبعث ۱۴۴۷"
     );
     assert_eq!(
         to_hijri(date_of(2026, 8, 24)),
-        HijriDate { year: 1448, month: 3, day: 10 },
+        HijriDate {
+            year: 1448,
+            month: 3,
+            day: 10
+        },
         "نمونه‌ی روز"
     );
 }
@@ -84,7 +104,11 @@ fn k56_month_names_and_format() {
     assert_eq!(hijri_month_name(9), "رمضان");
     assert_eq!(hijri_month_name(12), "ذی‌الحجه");
     assert_eq!(hijri_month_name(13), "");
-    let date = HijriDate { year: 1447, month: 10, day: 1 };
+    let date = HijriDate {
+        year: 1447,
+        month: 10,
+        day: 1,
+    };
     assert_eq!(date.format(), "1447/10/01");
     assert_eq!(date.month_name(), "شوال");
 }
@@ -103,11 +127,29 @@ fn k57_validation() {
 /// ک۵۸ — تبدیل معکوسِ تاریخ نامعتبر هیچ تاریخی تولید نمی‌کند.
 #[test]
 fn k58_invalid_inverse_is_none() {
-    assert_eq!(to_gregorian(HijriDate { year: 1447, month: 13, day: 1 }), None);
-    assert_eq!(to_gregorian(HijriDate { year: 1447, month: 1, day: 40 }), None);
+    assert_eq!(
+        to_gregorian(HijriDate {
+            year: 1447,
+            month: 13,
+            day: 1
+        }),
+        None
+    );
+    assert_eq!(
+        to_gregorian(HijriDate {
+            year: 1447,
+            month: 1,
+            day: 40
+        }),
+        None
+    );
     // تاریخ معتبر برمی‌گردد
     assert_eq!(
-        to_gregorian(HijriDate { year: 1447, month: 10, day: 1 }),
+        to_gregorian(HijriDate {
+            year: 1447,
+            month: 10,
+            day: 1
+        }),
         Some(date_of(2026, 3, 20))
     );
 }
@@ -138,7 +180,9 @@ fn k59_nowruz_occasions() {
 fn k60_two_occasions_same_day() {
     let occasions = occasions_on(date_of(2026, 3, 20));
     assert_eq!(occasions.len(), 2, "عید فطر + ملی شدن صنعت نفت");
-    assert!(occasions.iter().any(|o| o.title == "عید سعید فطر" && o.holiday));
+    assert!(occasions
+        .iter()
+        .any(|o| o.title == "عید سعید فطر" && o.holiday));
     assert!(occasions
         .iter()
         .any(|o| o.title == "روز ملی شدن صنعت نفت" && o.holiday));
@@ -148,8 +192,8 @@ fn k60_two_occasions_same_day() {
 /// ک۶۱ — مناسبت‌های قمریِ سال ۱۴۰۴: عاشورا، اربعین، مبعث و ۱۵ شعبان سر جای خودشان‌اند.
 #[test]
 fn k61_hijri_occasions_of_1404() {
-    let days = occasions_between(date_of(2025, 3, 21), date_of(2026, 3, 20))
-        .expect("مناسبت‌های سال ۱۴۰۴");
+    let days =
+        occasions_between(date_of(2025, 3, 21), date_of(2026, 3, 20)).expect("مناسبت‌های سال ۱۴۰۴");
 
     let find = |title: &str| days.iter().find(|o| o.title == title);
     // عاشورای ۱۴۴۷ = ۱۴۰۴/۰۴/۱۵
@@ -236,7 +280,11 @@ fn k65_occasion_table_sanity() {
             "ماه نامعتبر: {}",
             occasion.title
         );
-        let day_limit = if occasion.calendar == "jalali" { 31 } else { 30 };
+        let day_limit = if occasion.calendar == "jalali" {
+            31
+        } else {
+            30
+        };
         assert!(
             occasion.day >= 1 && occasion.day <= day_limit,
             "روز نامعتبر: {}",
