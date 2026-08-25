@@ -80,7 +80,9 @@ fn k54_round_trip_3000_days() {
         let hijri = to_hijri(cursor);
         let back = to_gregorian(hijri).expect("بازگشت میلادی");
         assert_eq!(back, cursor, "رفت‌وبرگشت {cursor}");
-        cursor = cursor.checked_add_signed(chrono::Duration::days(1)).expect("روز بعد");
+        cursor = cursor
+            .checked_add_signed(chrono::Duration::days(1))
+            .expect("روز بعد");
     }
 }
 
