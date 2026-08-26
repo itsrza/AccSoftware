@@ -194,8 +194,63 @@ def emit_ci_diagnostics() -> None:
         emit_host_diagnostics(root, environment)
 
 
+
+def rust_diagnostic():
+    """تشخیصی موقت: کامپایل هسته روی اوبونتوی CI و انتشار خطاها به annotations.
+
+    زمینه: لاگ‌های Actions از این محیط قابل دانلود نیستند و خطای کامپایل
+    ویندوز/کلیپپی متنش دیده نمی‌شود. این تابع فقط روی GitHub Actions اجرا
+    می‌شود؛ بعد از رفع خطا حذف خواهد شد.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    if not pathlib.Path("crates/novin-core/src/hijri.rs").exists():
+        return
+    try:
+        home = os.path.expanduser("~")
+        cargo_bin = os.path.join(home, ".cargo", "bin")
+        if not pathlib.Path(cargo_bin, "cargo").exists():
+            subprocess.run(
+                ["curl", "--proto", "=https", "--tlsv1.2", "-sSf",
+                 "https://sh.rustup.rs", "-o", "/tmp/rustup.sh"],
+                check=True, timeout=120,
+            )
+            subprocess.run(
+                ["sh", "/tmp/rustup.sh", "-y", "--profile", "minimal",
+                 "--default-toolchain", "stable"],
+                check=True, timeout=600, capture_output=True,
+            )
+        env = dict(os.environ)
+        env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "check", "-p", "novin-core"],
+            capture_output=True, text=True, env=env, timeout=1500,
+        )
+        output = (result.stderr or "") + (result.stdout or "")
+        printed = 0
+        for line in output.splitlines():
+            low = line.lower()
+            if ("error[" in low or low.startswith("error") or "-->" in line
+                    or "expected" in low):
+                print(f"::error::RUST-DIAG| {line[:280]}")
+                printed += 1
+                if printed >= 40:
+                    break
+        print(f"::error::RUST-DIAG-EXIT={result.returncode} lines={printed}")
+    except Exception as error:  # noqa: BLE001
+        print(f"::error::RUST-DIAG-FAILED {error}")
+
+
 def main(argv):
     emit_ci_diagnostics()
+    try:
+        rust_diagnostic()
+    except Exception:
+        pass
     check_only = "--check" in argv
     paths = [a for a in argv[1:] if not a.startswith("--")]
     exit_code = 0
