@@ -267,6 +267,11 @@ def rust_diagnostic():
                 if printed >= 3:
                     break
         print(f"::error::CLIPPY-DIAG-EXIT={result.returncode} lines={printed}")
+        if result.returncode == 0:
+            try:
+                _cache_diagnostic(env, cargo_bin)
+            except Exception as cache_error:
+                print(f"::error::CACHE-DIAG-FAILED {cache_error}")
 
         # ۲) کامپایل میزبان (مانند job ویندوز) با وابستگی‌های سیستمی
         try:
@@ -311,6 +316,78 @@ def rust_diagnostic():
         print(f"::error::RUST-DIAG-EXIT={result.returncode} lines={printed}")
     except Exception as error:  # noqa: BLE001
         print(f"::error::RUST-DIAG-FAILED {error}")
+
+
+
+def _cache_diagnostic(env, cargo_bin):
+    """بازسازی همان کشی که job هسته می‌گیرد و اجرای clippy روی آن.
+
+    سرویس کش GitHub با ACTIONS_RUNTIME_TOKEN از داخل خود رانر قابل
+    خواندن است؛ این تابع کش Linux-cargo-core را دانلود می‌کند، در یک
+    HOME آزمایشی باز می‌کند و همان دستور clippy را با آن اجرا می‌کند
+    تا خطای واقعی job هسته ظاهر شود.
+    """
+    import base64
+    import hashlib
+    import json as _json
+    import tarfile
+    import urllib.request
+
+    token = os.environ.get("ACTIONS_RUNTIME_TOKEN", "")
+    base = os.environ.get("ACTIONS_CACHE_URL", "https://cache.github.com/")
+    if not token:
+        print("::error::CACHE-DIAG| no runtime token")
+        return
+    paths = "~/.cargo/registry\n~/.cargo/git\ntarget\n"
+    digest = hashlib.sha256(paths.encode()).hexdigest()
+    version = base64.b64encode(digest.encode()).decode()
+    url = base.rstrip("/") + "/_apis/artifactcache/cache?keys=Linux-cargo-core-&version=" + version
+    req = urllib.request.Request(url, headers={
+        "Accept": "application/json[api-version=6.0-preview.1]",
+        "Authorization": "Bearer " + token,
+    })
+    with urllib.request.urlopen(req, timeout=120) as response:
+        meta = _json.loads(response.read().decode())
+    if not meta or not meta.get("cacheKey"):
+        print("::error::CACHE-DIAG| no cache entry found")
+        return
+    print(f"::error::CACHE-DIAG| cacheKey={meta['cacheKey'][:80]}")
+    archive = meta.get("archiveLocation")
+    if not archive:
+        print("::error::CACHE-DIAG| no archive location")
+        return
+    home = os.path.expanduser("~/.cargo-diag")
+    os.makedirs(home, exist_ok=True)
+    tar_path = "/tmp/cache.tar.gz"
+    req = urllib.request.Request(archive)
+    with urllib.request.urlopen(req, timeout=900) as response, open(tar_path, "wb") as handle:
+        while True:
+            chunk = response.read(1 << 20)
+            if not chunk:
+                break
+            handle.write(chunk)
+    print(f"::error::CACHE-DIAG| downloaded {os.path.getsize(tar_path)//1048576}MB")
+    with tarfile.open(tar_path) as archive_file:
+        archive_file.extractall(home, filter="data")
+    diag_env = dict(env)
+    diag_env["CARGO_HOME"] = os.path.join(home, ".cargo")
+    result = subprocess.run(
+        [os.path.join(cargo_bin, "cargo"), "clippy", "-p", "novin-core",
+         "--all-targets", "--", "-D", "warnings"],
+        capture_output=True, text=True, env=diag_env, timeout=1500,
+    )
+    output = (result.stderr or "") + (result.stdout or "")
+    printed = 0
+    for line in output.splitlines():
+        stripped = line.strip()
+        low = stripped.lower()
+        if (low.startswith("error") or "error[e" in low or low.startswith("warning")
+                or "-->" in line or "checksum" in low or "failed" in low):
+            print(f"::error::CACHE-CLIPPY| {line[:280]}")
+            printed += 1
+            if printed >= 8:
+                break
+    print(f"::error::CACHE-CLIPPY-EXIT={result.returncode} lines={printed}")
 
 
 def main(argv):
