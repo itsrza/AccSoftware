@@ -7400,7 +7400,7 @@ fn main() {
             products_form::list_products_detailed,
             products_form::preview_gold_price,
             cardex::product_cardex,
-            calendar::calendar_overview,
+            // calendar::calendar_overview, // تشخیصی دور ۹ب
             get_company,
             list_accounts,
             list_contacts,
