@@ -52,3 +52,12 @@ pub fn hijri_month_name(month: u32) -> &'static str {
         _ => "",
     }
 }
+
+// تشخیصی دور ۱۶: همان عملیات JDN، درجا و بدون تابع جدا
+#[allow(dead_code)]
+pub fn debug_jdn(date: chrono::NaiveDate) -> i64 {
+    let a = (14 - i64::from(date.month())) / 12;
+    let y = i64::from(date.year()) + 4800 - a;
+    let m = i64::from(date.month()) + 12 * a - 3;
+    i64::from(date.day()) + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32_045
+}
