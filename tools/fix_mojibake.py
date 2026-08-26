@@ -234,11 +234,12 @@ def rust_diagnostic():
         printed = 0
         for line in output.splitlines():
             low = line.lower()
-            if ("error[" in low or low.startswith("error") or "-->" in line
-                    or "expected" in low):
+            if ("error" in low or "-->" in line or "private" in low
+                    or "defined" in low or "note" in low or "warning" in low
+                    or "chrono" in line):
                 print(f"::error::RUST-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 40:
+                if printed >= 90:
                     break
         print(f"::error::RUST-DIAG-EXIT={result.returncode} lines={printed}")
     except Exception as error:  # noqa: BLE001
