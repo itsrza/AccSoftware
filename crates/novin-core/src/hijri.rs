@@ -47,7 +47,7 @@ impl HijriDate {
         if !(HIJRI_MIN_YEAR..=HIJRI_MAX_YEAR).contains(&year) {
             return None;
         }
-        if month == 0 || month > 12 || day == 0 || day > 30 {
+        if !(1..=12).contains(&month) || !(1..=30).contains(&day) {
             return None;
         }
         Some(HijriDate { year, month, day })
@@ -102,7 +102,7 @@ fn jdn_to_gregorian(jdn: i64) -> Option<(i32, u32, u32)> {
     let day = e - (153 * m + 2) / 5 + 1;
     let month = m + 3 - 12 * (m / 10);
     let year = 100 * b + d - 4800 + m / 10;
-    if !(1..=12).contains(&month) || day < 1 || day > 31 || !(1..=9999).contains(&year) {
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) || !(1..=9999).contains(&year) {
         return None;
     }
     Some((year as i32, month as u32, day as u32))
@@ -136,9 +136,8 @@ pub fn to_hijri(date: NaiveDate) -> HijriDate {
 
 /// تبدیل قمری به میلادی — فقط برای تاریخ معتبر.
 pub fn to_gregorian(date: HijriDate) -> Option<NaiveDate> {
-    if HijriDate::new(date.year, date.month, date.day).is_none() {
-        return None;
-    }
+    // اعتبارسنجی با ? — همان الگویی که clippy می‌خواهد
+    let _validated = HijriDate::new(date.year, date.month, date.day)?;
     let (year, month, day) = jdn_to_gregorian(hijri_to_julian(date))?;
     NaiveDate::from_ymd_opt(year, month, day)
 }

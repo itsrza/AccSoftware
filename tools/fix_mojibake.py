@@ -240,7 +240,7 @@ def rust_diagnostic():
                     or "private" in low or "defined" in low or "note" in low):
                 print(f"::error::CLIPPY-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 60:
+                if printed >= 5:
                     break
         print(f"::error::CLIPPY-DIAG-EXIT={result.returncode} lines={printed}")
 
@@ -267,7 +267,7 @@ def rust_diagnostic():
                     or "defined" in low or "expected" in low):
                 print(f"::error::HOST-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 60:
+                if printed >= 5:
                     break
         print(f"::error::HOST-DIAG-EXIT={host.returncode} lines={printed}")
         return
@@ -280,7 +280,7 @@ def rust_diagnostic():
                     or "chrono" in line):
                 print(f"::error::RUST-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 90:
+                if printed >= 5:
                     break
         print(f"::error::RUST-DIAG-EXIT={result.returncode} lines={printed}")
     except Exception as error:  # noqa: BLE001
