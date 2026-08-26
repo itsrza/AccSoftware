@@ -93,15 +93,15 @@ pub fn calendar_overview(
             // ماه شمسیِ جاری
             let current = jalali::from_gregorian(today);
             let start = JalaliDate::new(current.year, current.month, 1)
-                .and_then(|date| date.to_gregorian().ok())
-                .ok_or_else(|| "CAL-001: ابتدای ماه شمسی نامعتبر است".to_string())?;
+                .and_then(|date| date.to_gregorian())
+                .map_err(|error| format!("CAL-001: ابتدای ماه شمسی نامعتبر است ({error})"))?;
             let end = JalaliDate::new(
                 current.year,
                 current.month,
                 jalali::days_in_jalali_month(current.year, current.month),
             )
-            .and_then(|date| date.to_gregorian().ok())
-            .ok_or_else(|| "CAL-001: پایان ماه شمسی نامعتبر است".to_string())?;
+            .and_then(|date| date.to_gregorian())
+            .map_err(|error| format!("CAL-001: پایان ماه شمسی نامعتبر است ({error})"))?;
             (start, end)
         }
     };
