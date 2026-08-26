@@ -226,6 +226,19 @@ def rust_diagnostic():
             )
         env = dict(os.environ)
         env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        # نسخه‌ی ابزار — برای مقایسه با job هسته
+        for tool in ("rustc", "cargo"):
+            probe = subprocess.run(
+                [os.path.join(cargo_bin, tool), "--version"],
+                capture_output=True, text=True, env=env, timeout=60,
+            )
+            print(f"::error::VER-DIAG| {tool} {probe.stdout.strip()[:120]}")
+        probe = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "clippy", "--version"],
+            capture_output=True, text=True, env=env, timeout=120,
+        )
+        print(f"::error::VER-DIAG| clippy {probe.stdout.strip()[:120]}")
+
         # ۱) همان Clippy قرمزِ job هسته
         result = subprocess.run(
             [os.path.join(cargo_bin, "cargo"), "clippy", "-p", "novin-core",
