@@ -236,11 +236,13 @@ def rust_diagnostic():
         printed = 0
         for line in output.splitlines():
             low = line.lower()
-            if ("error" in low or "-->" in line or "warning" in low
-                    or "private" in low or "defined" in low or "note" in low):
+            stripped = line.strip()
+            low2 = stripped.lower()
+            if (low2.startswith("error") or "error[e" in low2 or "-->" in line
+                    or low2.startswith("warning: unused")):
                 print(f"::error::CLIPPY-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 5:
+                if printed >= 3:
                     break
         print(f"::error::CLIPPY-DIAG-EXIT={result.returncode} lines={printed}")
 
@@ -262,12 +264,14 @@ def rust_diagnostic():
         host_output = (host.stderr or "") + (host.stdout or "")
         printed = 0
         for line in host_output.splitlines():
-            low = line.lower()
-            if ("error" in low or "-->" in line or "private" in low
-                    or "defined" in low or "expected" in low):
+            stripped = line.strip()
+            low = stripped.lower()
+            if (low.startswith("error") or "error[e" in low or low.startswith("warning: unused")
+                    or "-->" in line or "private method" in low
+                    or "defined here" in low or "method `" in low):
                 print(f"::error::HOST-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 5:
+                if printed >= 8:
                     break
         print(f"::error::HOST-DIAG-EXIT={host.returncode} lines={printed}")
         return
