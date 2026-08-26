@@ -28,7 +28,7 @@
 //! - `2026-05-27` = ۱۰ ذی‌الحجه ۱۴۴۷ — عید قربان
 //! - رفت‌وبرگشت ۳۰۰۰ روز پیاپی بدون خطا
 
-use chrono::{Datelike, NaiveDate};  // Datelike: year()/month()/day()/weekday() تریت‌اند، نه ذات NaiveDate
+use chrono::{Datelike, NaiveDate}; // Datelike: year()/month()/day()/weekday() تریت‌اند، نه ذات NaiveDate
 
 /// تاریخ قمری.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
