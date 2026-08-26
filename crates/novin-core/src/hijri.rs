@@ -1,4 +1,6 @@
-// تشخیصی دور ۱۱: فقط نصف اول — struct و new/format/month_name و نام ماه‌ها
+use chrono::NaiveDate;
+
+// تشخیصی دور ۱۸ — struct و new/format/month_name و نام ماه‌ها
 
 /// محدوده‌ی سال‌های قابل اتکا برای این تقویم.
 pub const HIJRI_MIN_YEAR: i32 = 1300;
@@ -55,7 +57,7 @@ pub fn hijri_month_name(month: u32) -> &'static str {
 
 // تشخیصی دور ۱۶: همان عملیات JDN، درجا و بدون تابع جدا
 #[allow(dead_code)]
-pub fn debug_jdn(date: chrono::NaiveDate) -> i64 {
+pub fn debug_jdn(date: NaiveDate) -> i64 {
     let a = (14 - i64::from(date.month())) / 12;
     let y = i64::from(date.year()) + 4800 - a;
     let m = i64::from(date.month()) + 12 * a - 3;
