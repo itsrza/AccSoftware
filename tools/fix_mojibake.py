@@ -226,6 +226,15 @@ def rust_diagnostic():
             )
         env = dict(os.environ)
         env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        # همان مراحل job هسته: نصب کامپوننت‌ها قبل از نسخه‌ها
+        try:
+            subprocess.run(
+                [os.path.join(cargo_bin, "rustup"), "component", "add",
+                 "clippy", "rustfmt"],
+                capture_output=True, text=True, env=env, timeout=600,
+            )
+        except Exception as comp_error:
+            print(f"::error::VER-DIAG| component-add failed {comp_error}")
         # نسخه‌ی ابزار — برای مقایسه با job هسته
         for tool in ("rustc", "cargo"):
             probe = subprocess.run(
