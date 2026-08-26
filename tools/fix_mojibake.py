@@ -226,10 +226,51 @@ def rust_diagnostic():
             )
         env = dict(os.environ)
         env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        # ۱) همان Clippy قرمزِ job هسته
         result = subprocess.run(
-            [os.path.join(cargo_bin, "cargo"), "check", "-p", "novin-core"],
+            [os.path.join(cargo_bin, "cargo"), "clippy", "-p", "novin-core",
+             "--all-targets", "--", "-D", "warnings"],
             capture_output=True, text=True, env=env, timeout=1500,
         )
+        output = (result.stderr or "") + (result.stdout or "")
+        printed = 0
+        for line in output.splitlines():
+            low = line.lower()
+            if ("error" in low or "-->" in line or "warning" in low
+                    or "private" in low or "defined" in low or "note" in low):
+                print(f"::error::CLIPPY-DIAG| {line[:280]}")
+                printed += 1
+                if printed >= 60:
+                    break
+        print(f"::error::CLIPPY-DIAG-EXIT={result.returncode} lines={printed}")
+
+        # ۲) کامپایل میزبان (مانند job ویندوز) با وابستگی‌های سیستمی
+        try:
+            subprocess.run(
+                ["sudo", "apt-get", "install", "-y", "-qq",
+                 "libgtk-3-dev", "libwebkit2gtk-4.1-dev",
+                 "libayatana-appindicator3-dev", "librsvg2-dev"],
+                check=True, timeout=900, capture_output=True,
+            )
+        except Exception as apt_error:
+            print(f"::error::HOST-DIAG-APT-FAILED {apt_error}")
+        host = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "check",
+             "-p", "novin-accounting-host", "--all-targets"],
+            capture_output=True, text=True, env=env, timeout=1800,
+        )
+        host_output = (host.stderr or "") + (host.stdout or "")
+        printed = 0
+        for line in host_output.splitlines():
+            low = line.lower()
+            if ("error" in low or "-->" in line or "private" in low
+                    or "defined" in low or "expected" in low):
+                print(f"::error::HOST-DIAG| {line[:280]}")
+                printed += 1
+                if printed >= 60:
+                    break
+        print(f"::error::HOST-DIAG-EXIT={host.returncode} lines={printed}")
+        return
         output = (result.stderr or "") + (result.stdout or "")
         printed = 0
         for line in output.splitlines():
