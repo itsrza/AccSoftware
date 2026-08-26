@@ -1,7 +1,4 @@
-#![allow(warnings)]
-// تشخیصی دور ۱۴: نصف اول + فقط لایه‌ی JDN بدون توابع تبدیل قمری
-
-use chrono::NaiveDate;
+// تشخیصی دور ۱۱: فقط نصف اول — struct و new/format/month_name و نام ماه‌ها
 
 /// محدوده‌ی سال‌های قابل اتکا برای این تقویم.
 pub const HIJRI_MIN_YEAR: i32 = 1300;
@@ -54,34 +51,4 @@ pub fn hijri_month_name(month: u32) -> &'static str {
         12 => "ذی‌الحجه",
         _ => "",
     }
-}
-
-/// عدد روز جولیَن از تاریخ میلادی — تقویم پرولپتیک گِرِگوری (فرمول کلاسیک).
-fn gregorian_to_jdn(year: i32, month: u32, day: u32) -> i64 {
-    let a = (14 - i64::from(month)) / 12;
-    let y = i64::from(year) + 4800 - a;
-    let m = i64::from(month) + 12 * a - 3;
-    i64::from(day) + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32_045
-}
-
-/// تاریخ میلادی از عدد روز جولیَن — فرمول معکوس کلاسیک.
-fn jdn_to_gregorian(jdn: i64) -> Option<(i32, u32, u32)> {
-    let a = jdn + 32_044;
-    let b = (4 * a + 3) / 146_097;
-    let c = a - (146_097 * b) / 4;
-    let d = (4 * c + 3) / 1_461;
-    let e = c - (1_461 * d) / 4;
-    let m = (5 * e + 2) / 153;
-    let day = e - (153 * m + 2) / 5 + 1;
-    let month = m + 3 - 12 * (m / 10);
-    let year = 100 * b + d - 4800 + m / 10;
-    if !(1..=12).contains(&month) || day < 1 || day > 31 || !(1..=9999).contains(&year) {
-        return None;
-    }
-    Some((year as i32, month as u32, day as u32))
-}
-
-/// نگه‌دارنده‌ی تشخیصی — تابع تست JDN.
-pub fn debug_jdn(date: NaiveDate) -> i64 {
-    gregorian_to_jdn(date.year(), date.month(), date.day())
 }
