@@ -288,7 +288,11 @@ def host_diagnostic():
                   if line.strip().lower().startswith("error")
                   or "error[e" in line.lower()[:20]]
         contexts = [line for line in output.splitlines() if "-->" in line]
-        for line in (errors[:10] + contexts[:2]):
+        lines_out = output.splitlines()
+        panic_at = next((i for i, l in enumerate(lines_out)
+                         if "proc macro panicked" in l), None)
+        detail = lines_out[panic_at:panic_at + 4] if panic_at else []
+        for line in (errors[:6] + contexts[:2] + detail):
             print(f"::error::HOST3| {line.strip()[:270]}")
         print(f"::error::HOST3-EXIT={result.returncode} errors={len(errors)}")
     except Exception as error:  # noqa: BLE001
