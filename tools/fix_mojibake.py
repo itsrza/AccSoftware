@@ -275,9 +275,13 @@ def host_diagnostic():
              "-p", "novin-accounting-host", "--all-targets"],
             capture_output=True, text=True, env=env, timeout=1700,
         )
-        output = (result.stderr or "") + (result.stdout or "")
+        raw = (result.stderr or "") + (result.stdout or "")
+        # حذف کدهای رنگ ANSI تا خطاها قابل جدا کردن باشند
+        import re as _re
+        output = _re.compile(r"\x1b\[[0-9;]*m").sub("", raw)
         errors = [line for line in output.splitlines()
-                  if line.strip().lower().startswith("error")]
+                  if line.strip().lower().startswith("error")
+                  or "error[e" in line.lower()[:20]]
         contexts = [line for line in output.splitlines() if "-->" in line]
         for line in (errors[:6] + contexts[:2]):
             print(f"::error::HOST3| {line.strip()[:270]}")
