@@ -255,6 +255,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_invoice_settlements_invoice ON invoice_settlements(invoice_id,invoice_type);
+    CREATE INDEX IF NOT EXISTS idx_invoice_settlements_company_type_date ON invoice_settlements(company_id,invoice_type,settlement_date);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_products_company_barcode_unique ON products(company_id,barcode) WHERE barcode IS NOT NULL AND barcode <> '';
     CREATE TABLE IF NOT EXISTS treasury_accounts(
       id TEXT PRIMARY KEY, company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -1646,4 +1647,35 @@ pub fn open_in_memory() -> Result<Connection> {
     conn.pragma_update(None, "foreign_keys", "ON")?;
     migrate(&conn)?;
     Ok(conn)
+}
+
+// ---------------------------------------------------------------------------
+// گارد نام جدول — دفاع‌در‌عمق علیه SQL Injection از مسیر نام جدول داینامیک
+// ---------------------------------------------------------------------------
+
+/// نام جدول‌های سند که میزبان به‌صورت داینامیک در SQL می‌نشیند.
+///
+/// ## چرا این تابع لازم است
+///
+/// میزبان در چند نقطه (`next_invoice_number`، ثبت/پست فاکتور، برگشت‌ها)
+/// نام جدول را با `format!` داخل SQL می‌گذارد. امروز همه‌ی مقادیر از
+/// `if sale {...} else {...}` ثابت می‌آیند، اما هیچ گاردی در مسیر نیست؛
+/// اولین فراخوانی آینده با ورودی کاربر یعنی تزریق کامل SQL. این تابع
+/// فقط ۸ نام مجاز را قبول می‌کند و بقیه را با خطای صریح رد می‌کند.
+pub fn validated_table(name: &str) -> Result<&'static str, String> {
+    const ALLOWED: [&str; 8] = [
+        "sales_invoices",
+        "purchase_invoices",
+        "sales_invoice_lines",
+        "purchase_invoice_lines",
+        "sales_returns",
+        "purchase_returns",
+        "sales_return_lines",
+        "purchase_return_lines",
+    ];
+    ALLOWED
+        .iter()
+        .find(|candidate| **candidate == name)
+        .copied()
+        .ok_or_else(|| format!("SQLGUARD-001: نام جدول مجاز نیست: {name}"))
 }
