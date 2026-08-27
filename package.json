@@ -1,0 +1,13 @@
+{
+  "name": "novin-accounting-workspace",
+  "private": true,
+  "version": "1.7.1",
+  "type": "module",
+  "engines": { "node": ">=20.19.0" },
+  "scripts": {
+    "build": "npm --prefix apps/desktop-ui run build",
+    "test:hardening": "npm --prefix apps/desktop-ui run test:hardening",
+    "install:ui": "npm --prefix apps/desktop-ui ci",
+    "build:windows": "call BUILD_AND_RUN_DEMO.cmd"
+  }
+}
