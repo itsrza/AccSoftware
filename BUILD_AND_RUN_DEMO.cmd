@@ -38,8 +38,11 @@ cargo check --locked --manifest-path apps\desktop-host\src-tauri\Cargo.toml
 if errorlevel 1 goto fail
 
 echo [5/5] Tauri Windows installer build...
-call npx --yes tauri build --config apps\desktop-host\src-tauri\tauri.conf.json
-if errorlevel 1 goto fail
+pushd apps\desktop-ui
+call npx tauri build --config ..\desktop-host\src-tauri\tauri.conf.json
+set "TAURI_EXIT=%ERRORLEVEL%"
+popd
+if not "%TAURI_EXIT%"=="0" goto fail
 
 echo.
 echo BUILD COMPLETE.
