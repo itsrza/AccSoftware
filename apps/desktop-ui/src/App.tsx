@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react'
+import type {FormEvent} from 'react'
 import {Dashboard} from './pages/Dashboard'
 import {Invoices} from './pages/Invoices'
 import {DataPage} from './pages/DataPage'
@@ -80,7 +81,7 @@ export default function App(){
     return()=>window.removeEventListener('keydown',f)
   },[])
 
-  const handleLogin=async(e:React.FormEvent)=>{
+  const handleLogin=async(e:FormEvent)=>{
     e.preventDefault()
     if(loginBusy)return
     setLoginError(null)
