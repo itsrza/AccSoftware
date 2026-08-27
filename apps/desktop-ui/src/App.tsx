@@ -16,6 +16,7 @@ import {DataTools} from './pages/DataTools'
 import {PrintTemplates} from './pages/PrintTemplates'
 import {getDemoStatus,deleteDemo,login,logout} from './api'
 import './styles.css'
+import './security-hardening.css'
 
 const menu = [
   {id:'dashboard',label:'داشبورد',icon:'grid'},
