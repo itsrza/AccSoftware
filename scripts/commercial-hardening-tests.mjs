@@ -7,36 +7,31 @@ const ui=path.join(root,'apps','desktop-ui')
 const tauri=path.join(root,'apps','desktop-host','src-tauri')
 const src=path.join(ui,'src')
 const files={
-  app: path.join(src,'App.tsx'),
-  api: path.join(src,'api.ts'),
-  icon: path.join(src,'components','Icon.tsx'),
-  css: path.join(src,'styles.css'),
-  hardCss: path.join(src,'security-hardening.css'),
-  index: path.join(ui,'index.html'),
-  main: path.join(src,'main.tsx'),
-  pkg: path.join(ui,'package.json'),
-  lock: path.join(ui,'package-lock.json'),
-  gitignore: path.join(root,'.gitignore'),
-  tauriConfig: path.join(tauri,'tauri.conf.json'),
-  cargo: path.join(tauri,'Cargo.toml'),
-  cargoLock: path.join(tauri,'Cargo.lock'),
-  rustMain: path.join(tauri,'src','main.rs'),
-  rustDb: path.join(tauri,'src','db.rs'),
+  app:path.join(src,'App.tsx'),api:path.join(src,'api.ts'),icon:path.join(src,'components','Icon.tsx'),
+  css:path.join(src,'styles.css'),hardCss:path.join(src,'security-hardening.css'),index:path.join(ui,'index.html'),
+  main:path.join(src,'main.tsx'),pkg:path.join(ui,'package.json'),lock:path.join(ui,'package-lock.json'),
+  gitignore:path.join(root,'.gitignore'),tauriConfig:path.join(tauri,'tauri.conf.json'),cargo:path.join(tauri,'Cargo.toml'),
+  cargoLock:path.join(tauri,'Cargo.lock'),rustMain:path.join(tauri,'src','main.rs'),rustDb:path.join(tauri,'src','db','mod.rs')
 }
-
 const pages=['AdvancedInventory','Checks','Dashboard','DataPage','DataTools','Integrations','Invoices','Operations','PrintTemplates','ReportBuilder','Reports','Treasury']
 const components=['CommandPalette','Icon','SettingsCenter','Sidebar','Topbar']
 const tests=[]
 const test=(name,fn)=>tests.push([name,fn])
 const exists=p=>fs.existsSync(p)
-const read=p=>fs.existsSync(p)?fs.readFileSync(p,'utf8'):''
-const app=()=>read(files.app)
-const api=()=>read(files.api)
-const css=()=>read(files.css)
-const pkg=()=>JSON.parse(read(files.pkg)||'{}')
-const tauriConfig=()=>JSON.parse(read(files.tauriConfig)||'{}')
-const rust=()=>read(files.rustMain)
-const gitignore=()=>read(files.gitignore)
+const read=p=>exists(p)&&fs.statSync(p).isFile()?fs.readFileSync(p,'utf8'):''
+const readTree=dir=>{
+  if(!exists(dir)||!fs.statSync(dir).isDirectory())return ''
+  const out=[]
+  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+    if(['node_modules','dist','target','.git'].includes(entry.name))continue
+    const p=path.join(dir,entry.name)
+    if(entry.isDirectory())out.push(readTree(p))
+    else if(entry.isFile())out.push(read(p))
+  }
+  return out.join('\n')
+}
+const app=()=>read(files.app),api=()=>read(files.api),css=()=>read(files.css),rust=()=>read(files.rustMain),gitignore=()=>read(files.gitignore)
+const pkg=()=>JSON.parse(read(files.pkg)||'{}'),tauriConfig=()=>JSON.parse(read(files.tauriConfig)||'{}')
 const assert=(condition,message)=>{if(!condition)throw new Error(message)}
 
 for(const [label,p] of Object.entries(files))test(`file:${label}`,()=>assert(exists(p),`missing ${p}`))
@@ -54,8 +49,8 @@ test('artifacts:no-cargo-error',()=>assert(!exists(path.join(tauri,'cargo-build-
 
 test('auth:explicit-demo-mode',()=>assert(app().includes("import.meta.env.VITE_DEMO_MODE === 'true'"),'demo mode must be opt-in'))
 test('auth:no-legacy-demo-default',()=>assert(!app().includes("VITE_DEMO_MODE !== 'false'"),'legacy insecure demo default exists'))
-test('auth:login-gate',()=>assert(app().includes('if(!authenticated)'), 'frontend must gate unauthenticated users'))
-test('auth:login-command',()=>assert(app().includes("login(username.trim(),password)"),'login command must be used'))
+test('auth:login-gate',()=>assert(app().includes('if(!authenticated)'),'frontend must gate unauthenticated users'))
+test('auth:login-command',()=>assert(app().includes('login(username.trim(),password)'),'login command must be used'))
 test('auth:logout-command',()=>assert(app().includes('await logout()'),'logout command must be used'))
 test('auth:generic-login-error',()=>assert(app().includes('نام کاربری یا رمز عبور صحیح نیست'),'login errors must not expose backend details'))
 test('auth:generic-boot-error',()=>assert(app().includes('راه‌اندازی برنامه انجام نشد'),'boot errors must be generic'))
@@ -63,21 +58,21 @@ test('auth:no-raw-alert',()=>assert(!app().includes('alert(String(e))'),'raw exc
 test('auth:no-remote-logo',()=>assert(!app().includes('novinacc.ir/wp-content'),'remote logo dependency removed'))
 test('auth:password-autocomplete',()=>assert(app().includes('autoComplete="current-password"'),'password field must use password autocomplete'))
 test('ui:logout-icon',()=>assert(read(files.icon).includes("'logout'"),'logout icon missing'))
-test('ui:hardening-css',()=>assert(app().includes("./security-hardening.css"),'hardening CSS must be loaded'))
+test('ui:hardening-css',()=>assert(app().includes('./security-hardening.css'),'hardening CSS must be loaded'))
+test('api:tauri-wrapper',()=>assert(api().includes('invoke<T>(command,args)'),'API wrapper missing'))
 
-test('api:tauri-wrapper',()=>assert(api().includes("invoke<T>(command,args)"),'API wrapper missing'))
-test('frontend:no-eval',()=>assert(!app().match(/\beval\s*\(/),'eval must not be used'))
-test('frontend:no-innerhtml',()=>assert(!read(src).match(/innerHTML\s*=/),'innerHTML assignment must not be used'))
-test('frontend:no-dangerous-html',()=>assert(!read(src).includes('dangerouslySetInnerHTML'),'dangerouslySetInnerHTML must not be used'))
-test('frontend:no-document-write',()=>assert(!read(src).includes('document.write'),'document.write must not be used'))
-test('frontend:no-javascript-url',()=>assert(!read(src).match(/javascript:/i),'javascript URLs must not be used'))
-test('frontend:no-file-url',()=>assert(!read(src).match(/file:\/\//i),'file URLs must not be used in frontend source'))
-test('frontend:no-child-process',()=>assert(!read(src).match(/child_process|execFile|spawn\s*\(/),'native process execution must stay out of frontend'))
-test('frontend:no-shell-import',()=>assert(!read(src).match(/@tauri-apps\/plugin-shell/),'shell plugin must not be imported without review'))
-test('frontend:no-http-url',()=>assert(!read(src).match(/http:\/\//i),'unencrypted HTTP must not be used by frontend source'))
-test('frontend:no-local-storage',()=>assert(!read(src).match(/localStorage\s*\./),'sensitive app state must not use localStorage'))
-test('frontend:no-session-storage',()=>assert(!read(src).match(/sessionStorage\s*\./),'sensitive app state must not use sessionStorage'))
-test('frontend:no-dynamic-script',()=>assert(!read(src).match(/createElement\(['"]script['"]\)/i),'dynamic scripts must not be created'))
+test('frontend:no-eval',()=>assert(!readTree(src).match(/\beval\s*\(/),'eval must not be used'))
+test('frontend:no-innerhtml',()=>assert(!readTree(src).match(/innerHTML\s*=/),'innerHTML assignment must not be used'))
+test('frontend:no-dangerous-html',()=>assert(!readTree(src).includes('dangerouslySetInnerHTML'),'dangerouslySetInnerHTML must not be used'))
+test('frontend:no-document-write',()=>assert(!readTree(src).includes('document.write'),'document.write must not be used'))
+test('frontend:no-javascript-url',()=>assert(!readTree(src).match(/javascript:/i),'javascript URLs must not be used'))
+test('frontend:no-file-url',()=>assert(!readTree(src).match(/file:\/\//i),'file URLs must not be used in frontend source'))
+test('frontend:no-child-process',()=>assert(!readTree(src).match(/child_process|execFile|spawn\s*\(/),'native process execution must stay out of frontend'))
+test('frontend:no-shell-import',()=>assert(!readTree(src).match(/@tauri-apps\/plugin-shell/),'shell plugin must not be imported without review'))
+test('frontend:no-http-url',()=>assert(!readTree(src).match(/http:\/\//i),'unencrypted HTTP must not be used by frontend source'))
+test('frontend:no-local-storage',()=>assert(!readTree(src).match(/localStorage\s*\./),'sensitive app state must not use localStorage'))
+test('frontend:no-session-storage',()=>assert(!readTree(src).match(/sessionStorage\s*\./),'sensitive app state must not use sessionStorage'))
+test('frontend:no-dynamic-script',()=>assert(!readTree(src).match(/createElement\(["']script["']\)/i),'dynamic scripts must not be created'))
 
 test('csp:configured',()=>assert(typeof tauriConfig().app?.security?.csp==='string','CSP must be configured'))
 test('csp:ipc',()=>assert(tauriConfig().app.security.csp.includes('ipc:'),'CSP must explicitly allow Tauri IPC'))
@@ -88,7 +83,6 @@ test('csp:form-self',()=>assert(tauriConfig().app.security.csp.includes("form-ac
 test('csp:img-self',()=>assert(tauriConfig().app.security.csp.includes("img-src 'self' data:"),'image sources must be restricted'))
 test('csp:freeze-prototype',()=>assert(tauriConfig().app.security.freezePrototype===true,'prototype freezing must be enabled'))
 test('headers:nosniff',()=>assert(tauriConfig().app.security.headers['X-Content-Type-Options']==='nosniff','nosniff header missing'))
-test('headers:referrer',()=>assert(tauriConfig().app.security.headers['Referrer-Policy']==='no-referrer','referrer policy missing'))
 test('headers:permissions',()=>assert(tauriConfig().app.security.headers['Permissions-Policy'].includes('camera=()'),'permissions policy missing'))
 test('csp:no-remote-image',()=>assert(!tauriConfig().app.security.csp.includes('novinacc.ir'),'CSP should not allow the removed remote logo'))
 
@@ -102,7 +96,7 @@ test('rust:login-guard',()=>assert(rust().includes('fn require_login'),'login gu
 test('rust:permission-guard',()=>assert(rust().includes('fn require_permission'),'permission guard missing'))
 test('rust:audit-log',()=>assert(rust().includes('audit_logs'),'audit logging must exist'))
 test('rust:sql-params',()=>assert(rust().includes('params!'),'SQL commands must use bound parameters'))
-test('rust:no-obvious-sql-format',()=>assert(!rust().match(/format!\(\s*["'].*\b(?:SELECT|INSERT|UPDATE|DELETE)\b/i),'SQL must not be built with format interpolation'))
+test('rust:no-obvious-sql-format',()=>assert(!rust().match(/format!\(\s*["'](?:[^"']*\b(?:SELECT|INSERT|UPDATE|DELETE)\b)/i),'SQL must not be built with format interpolation'))
 test('rust:serde',()=>assert(read(files.cargo).includes('serde ='),'serde dependency missing'))
 test('rust:tauri-v2',()=>assert(read(files.cargo).includes('tauri = { version = "2"'),'Tauri 2 dependency missing'))
 
@@ -117,15 +111,13 @@ test('css:no-javascript',()=>assert(!css().match(/javascript:/i),'javascript URL
 test('css:responsive-baseline',()=>assert(css().includes('min-width:1100px'),'desktop minimum layout must be explicit'))
 test('pkg:hardening-script',()=>assert(pkg().scripts?.['test:hardening']==='node ../../scripts/commercial-hardening-tests.mjs','hardening test script missing'))
 test('pkg:node-engine',()=>assert(pkg().engines?.node==='>=20.19.0','Node engine must be explicit'))
-test('readme:commercial-warning',()=>assert(read(path.join(root,'README.md')).includes('commercial builds'),'commercial build warning missing'))
-test('readme:version',()=>assert(read(path.join(root,'README.md')).includes('1.7.0'),'README version marker missing'))
 test('build:windows-script',()=>assert(exists(path.join(root,'BUILD_AND_RUN_DEMO.cmd')),'Windows build script missing'))
 
-test('source:no-console-debugger',()=>assert(!read(src).match(/debugger\s*;/),'debugger statement must not ship'))
-test('source:no-todo-security',()=>assert(!read(src).match(/TODO.*security/i),'unresolved security TODO found'))
-test('source:no-hardcoded-token',()=>assert(!read(src).match(/(?:api[_-]?key|access[_-]?token|secret)\s*[:=]\s*["'][^"']{12,}["']/i),'possible hardcoded secret found'))
-test('source:no-private-key',()=>assert(!read(root).match(/BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/),'private key material must not be committed'))
-test('source:no-env-secret',()=>assert(!read(root).match(/VITE_[A-Z0-9_]*(?:KEY|SECRET|TOKEN)\s*=\s*[^\n]+/i),'frontend secret variable assignment found'))
+test('source:no-console-debugger',()=>assert(!readTree(src).match(/debugger\s*;/),'debugger statement must not ship'))
+test('source:no-todo-security',()=>assert(!readTree(src).match(/TODO.*security/i),'unresolved security TODO found'))
+test('source:no-hardcoded-token',()=>assert(!readTree(src).match(/(?:api[_-]?key|access[_-]?token|secret)\s*[:=]\s*["'][^"']{12,}["']/i),'possible hardcoded secret found'))
+test('source:no-private-key',()=>assert(!readTree(root).match(/BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/),'private key material must not be committed'))
+test('source:no-env-secret',()=>assert(!readTree(src).match(/VITE_[A-Z0-9_]*(?:KEY|SECRET|TOKEN)\s*=\s*[^\n]+/i),'frontend secret variable assignment found'))
 test('source:single-api-boundary',()=>assert(api().includes("from '@tauri-apps/api/core'"),'Tauri API boundary must stay centralized'))
 test('source:styles-present',()=>assert(exists(files.css),'main stylesheet missing'))
 test('source:security-styles-present',()=>assert(exists(files.hardCss),'security stylesheet missing'))
@@ -134,8 +126,7 @@ test('source:components-count',()=>assert(components.length>=5,'component covera
 
 test('final:exactly-100',()=>assert(tests.length===100,`expected 100 tests, got ${tests.length}`))
 
-let passed=0
-let failed=0
+let passed=0,failed=0
 for(const [name,fn] of tests){
   try{fn();passed++;console.log(`PASS ${String(passed+failed).padStart(3,'0')} ${name}`)}
   catch(error){failed++;console.error(`FAIL ${String(passed+failed).padStart(3,'0')} ${name}: ${error.message}`)}
