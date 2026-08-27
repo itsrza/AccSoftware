@@ -89,92 +89,40 @@ fn scenario() -> Connection {
     )
     .expect("برگشت از خرید");
 
-    let movements: &[(&str, &str, f64, i64, &str, &str, &str, &str)] = &[
-        // (id, نوع, مقدار, بهای واحد, نوع مرجع, شناسه مرجع, یادداشت, تاریخ)
-        (
-            "m1",
-            "receipt",
-            10.0,
-            1_000_000,
-            "opening",
-            "",
-            "موجودی اول دوره",
-            "2025-08-20 09:00",
-        ),
-        (
-            "m2",
-            "issue",
-            3.0,
-            0,
-            "invoice",
-            "audit11-inv-s",
-            "فروش",
-            "2025-09-01 10:00",
-        ),
-        (
-            "m3",
-            "receipt",
-            5.0,
-            1_000_000,
-            "invoice",
-            "audit11-inv-p",
-            "خرید",
-            "2025-09-02 10:00",
-        ),
-        (
-            "m4",
-            "receipt",
-            1.0,
-            0,
-            "invoice_return",
-            "audit11-ret-s",
-            "برگشت از فروش",
-            "2025-09-05 10:00",
-        ),
-        (
-            "m5",
-            "issue",
-            2.0,
-            1_000_000,
-            "invoice_return",
-            "audit11-ret-p",
-            "برگشت از خرید",
-            "2025-09-06 10:00",
-        ),
-        (
-            "m6",
-            "adjustment",
-            4.0,
-            0,
-            "inventory_count",
-            "sess",
-            "variance:-4",
-            "2025-09-07 10:00",
-        ),
-        (
-            "m8",
-            "transfer_out",
-            2.0,
-            0,
-            "transfer",
-            "tr-1",
-            "",
-            "2025-09-09 10:00",
-        ),
-        (
-            "m9",
-            "issue",
-            1.0,
-            0,
-            "sales_invoice",
-            "audit11-inv-s",
-            "نوع قدیمی",
-            "2025-09-10 10:00",
-        ),
+    /// یک حرکت سناریو — ساختار به‌جای تاپل ۸عضوی (type_complexity).
+    struct Mov<'a> {
+        id: &'a str,
+        movement_type: &'a str,
+        quantity: f64,
+        unit_cost: i64,
+        reference_type: &'a str,
+        reference_id: &'a str,
+        note: &'a str,
+        created: &'a str,
+    }
+
+    let movements = [
+        Mov { id: "m1", movement_type: "receipt", quantity: 10.0, unit_cost: 1_000_000, reference_type: "opening", reference_id: "", note: "موجودی اول دوره", created: "2025-08-20 09:00" },
+        Mov { id: "m2", movement_type: "issue", quantity: 3.0, unit_cost: 0, reference_type: "invoice", reference_id: "audit11-inv-s", note: "فروش", created: "2025-09-01 10:00" },
+        Mov { id: "m3", movement_type: "receipt", quantity: 5.0, unit_cost: 1_000_000, reference_type: "invoice", reference_id: "audit11-inv-p", note: "خرید", created: "2025-09-02 10:00" },
+        Mov { id: "m4", movement_type: "receipt", quantity: 1.0, unit_cost: 0, reference_type: "invoice_return", reference_id: "audit11-ret-s", note: "برگشت از فروش", created: "2025-09-05 10:00" },
+        Mov { id: "m5", movement_type: "issue", quantity: 2.0, unit_cost: 1_000_000, reference_type: "invoice_return", reference_id: "audit11-ret-p", note: "برگشت از خرید", created: "2025-09-06 10:00" },
+        Mov { id: "m6", movement_type: "adjustment", quantity: 4.0, unit_cost: 0, reference_type: "inventory_count", reference_id: "sess", note: "variance:-4", created: "2025-09-07 10:00" },
+        Mov { id: "m8", movement_type: "transfer_out", quantity: 2.0, unit_cost: 0, reference_type: "transfer", reference_id: "tr-1", note: "", created: "2025-09-09 10:00" },
+        Mov { id: "m9", movement_type: "issue", quantity: 1.0, unit_cost: 0, reference_type: "sales_invoice", reference_id: "audit11-inv-s", note: "نوع قدیمی", created: "2025-09-10 10:00" },
     ];
-    for (id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created) in
-        movements
-    {
+
+    for movement in &movements {
+        let (id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created) = (
+            movement.id,
+            movement.movement_type,
+            movement.quantity,
+            movement.unit_cost,
+            movement.reference_type,
+            movement.reference_id,
+            movement.note,
+            movement.created,
+        );
         conn.execute(
             "INSERT INTO inventory_movements(id, company_id, product_id, warehouse_id, \
              movement_type, quantity, unit_cost, reference_type, reference_id, note, created_at) \
