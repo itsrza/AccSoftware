@@ -3,33 +3,17 @@
   "productName": "Novin Accounting",
   "version": "1.7.1",
   "identifier": "com.novin.accounting",
-  "build": {
-    "frontendDist": "../../desktop-ui/dist"
-  },
+  "build": {"frontendDist": "../../desktop-ui/dist"},
   "app": {
-    "windows": [
-      {
-        "title": "نوین حساب",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 1100,
-        "minHeight": 700,
-        "resizable": true
-      }
-    ],
+    "windows": [{"title":"نوین حساب","width":1440,"height":900,"minWidth":1100,"minHeight":700,"resizable":true}],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' ipc:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none';",
       "freezePrototype": true,
       "headers": {
         "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "no-referrer",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=(), usb=(), payment=()"
       }
     }
   },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": ["icons/icon.ico"]
-  }
+  "bundle": {"active":true,"targets":"all","icon":["icons/icon.ico"]}
 }
