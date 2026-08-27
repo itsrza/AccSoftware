@@ -241,9 +241,59 @@ def lint_diagnostic():
     except Exception as error:  # noqa: BLE001
         print(f"::error::LINT-FAILED {error}")
 
+def host_diagnostic():
+    """تشخیصی موقت ۳: کامپایل میزبان روی لینوکس — متن خطای ویندوز در annotation."""
+    import os
+    import subprocess
+
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    try:
+        home = os.path.expanduser("~")
+        cargo_bin = os.path.join(home, ".cargo", "bin")
+        if not pathlib.Path(cargo_bin, "cargo").exists():
+            subprocess.run(
+                ["curl", "--proto", "=https", "--tlsv1.2", "-sSf",
+                 "https://sh.rustup.rs", "-o", "/tmp/rustup.sh"],
+                check=True, timeout=120,
+            )
+            subprocess.run(
+                ["sh", "/tmp/rustup.sh", "-y", "--profile", "minimal",
+                 "--default-toolchain", "stable"],
+                check=True, timeout=600, capture_output=True,
+            )
+        env = dict(os.environ)
+        env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        subprocess.run(
+            ["sudo", "apt-get", "install", "-y", "-qq",
+             "libgtk-3-dev", "libwebkit2gtk-4.1-dev",
+             "libayatana-appindicator3-dev", "librsvg2-dev"],
+            check=True, timeout=900, capture_output=True,
+        )
+        result = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "check",
+             "-p", "novin-accounting-host", "--all-targets"],
+            capture_output=True, text=True, env=env, timeout=1700,
+        )
+        output = (result.stderr or "") + (result.stdout or "")
+        printed = 0
+        for line in output.splitlines():
+            stripped = line.strip()
+            low = stripped.lower()
+            if (low.startswith("error") or "error[e" in low or "-->" in line
+                    or low.startswith("warning: unused")):
+                print(f"::error::HOST3| {line[:270]}")
+                printed += 1
+                if printed >= 8:
+                    break
+        print(f"::error::HOST3-EXIT={result.returncode}")
+    except Exception as error:  # noqa: BLE001
+        print(f"::error::HOST3-FAILED {error}")
+
 
 def main(argv):
     emit_ci_diagnostics()
+    host_diagnostic()
     lint_diagnostic()
     check_only = "--check" in argv
     paths = [a for a in argv[1:] if not a.startswith("--")]
