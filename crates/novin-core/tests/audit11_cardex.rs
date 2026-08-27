@@ -68,25 +68,25 @@ fn scenario() -> Connection {
     .expect("کالای سناریو");
     conn.execute(
         "INSERT INTO sales_invoices(id, company_id, fiscal_year_id, number, invoice_date, status) \
-         VALUES('audit11-inv-s',?1,?2,7,'2025-09-01','posted')",
+         VALUES('audit11-inv-s',?1,?2,90007,'2025-09-01','posted')",
         params![firm, fiscal],
     )
     .expect("فاکتور فروش");
     conn.execute(
         "INSERT INTO purchase_invoices(id, company_id, fiscal_year_id, number, invoice_date, status) \
-         VALUES('audit11-inv-p',?1,?2,12,'2025-09-02','posted')",
+         VALUES('audit11-inv-p',?1,?2,90012,'2025-09-02','posted')",
         params![firm, fiscal],
     )
     .expect("فاکتور خرید");
     conn.execute(
         "INSERT INTO sales_returns(id, company_id, fiscal_year_id, number, return_date, original_invoice_id, status) \
-         VALUES('audit11-ret-s',?1,?2,2,'2025-09-05','audit11-inv-s','posted')",
+         VALUES('audit11-ret-s',?1,?2,90002,'2025-09-05','audit11-inv-s','posted')",
         params![firm, fiscal],
     )
     .expect("برگشت از فروش");
     conn.execute(
         "INSERT INTO purchase_returns(id, company_id, fiscal_year_id, number, return_date, original_invoice_id, status) \
-         VALUES('audit11-ret-p',?1,?2,3,'2025-09-06','audit11-inv-p','posted')",
+         VALUES('audit11-ret-p',?1,?2,90003,'2025-09-06','audit11-inv-p','posted')",
         params![firm, fiscal],
     )
     .expect("برگشت از خرید");
@@ -346,7 +346,7 @@ fn k42_all_cardex_report() {
     assert_eq!(report.entries[0].flow, "out");
     assert_eq!(report.entries[0].quantity, 3.0);
     assert_eq!(report.entries[0].doc_kind, "sales_invoice");
-    assert_eq!(report.entries[0].doc_number, Some(7));
+    assert_eq!(report.entries[0].doc_number, Some(90_007));
     assert_eq!(
         report.entries[0].date_jalali, "1404/06/10",
         "2025-09-01 شمسی"
@@ -405,10 +405,10 @@ fn k44_purchase_cardex_report() {
 
     assert_eq!(report.entries.len(), 2);
     assert_eq!(report.entries[0].doc_kind, "purchase_invoice");
-    assert_eq!(report.entries[0].doc_number, Some(12));
+    assert_eq!(report.entries[0].doc_number, Some(90_012));
     assert_eq!(report.entries[0].value, 5_000_000, "۵ عدد × ۱٬۰۰۰٬۰۰۰ ریال");
     assert_eq!(report.entries[1].doc_kind, "purchase_return");
-    assert_eq!(report.entries[1].doc_number, Some(3));
+    assert_eq!(report.entries[1].doc_number, Some(90_003));
     assert_eq!(report.entries[1].flow, "out");
     assert_eq!(report.closing_balance, 3.0, "۵ خرید − ۲ برگشت");
 }
