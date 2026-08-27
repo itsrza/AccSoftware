@@ -23,7 +23,7 @@ if not exist "apps\desktop-ui\package.json" (echo ERROR: desktop-ui package.json
 if not exist "apps\desktop-ui\package-lock.json" (echo ERROR: desktop-ui package-lock.json is missing.&pause&exit /b 1)
 if not exist "apps\desktop-host\src-tauri\tauri.conf.json" (echo ERROR: Tauri configuration is missing.&pause&exit /b 1)
 
- echo [1/5] Installing locked frontend dependencies...
+echo [1/5] Installing locked frontend dependencies...
 call npm --prefix apps\desktop-ui ci
 if errorlevel 1 goto fail
 
@@ -43,7 +43,7 @@ if errorlevel 1 goto fail
 
 echo [5/5] Tauri Windows installer build...
 pushd apps\desktop-host\src-tauri
-call ..\..\desktop-ui\node_modules\.bin\tauri.cmd build
+call ..\..\..\desktop-ui\node_modules\.bin\tauri.cmd build
 set "TAURI_EXIT=%ERRORLEVEL%"
 popd
 if not "%TAURI_EXIT%"=="0" goto fail
