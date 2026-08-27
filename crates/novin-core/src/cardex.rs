@@ -167,7 +167,18 @@ pub fn channel_of(reference_type: Option<&str>, links: &DocLinks) -> Channel {
 /// شناسه‌ی نوع سند برای نمایش — رابط کاربری آن را ترجمه می‌کند.
 pub fn doc_kind(reference_type: Option<&str>, links: &DocLinks) -> &'static str {
     match reference_type {
-        Some("invoice") | Some("sales_invoice") => {
+        // «invoice» بدون علامت: فاکتور فروش یا خرید — همان ترتیبی که
+        // channel_of تشخیص می‌دهد تا برچسب سند با کانال هم‌راستا بماند.
+        Some("invoice") => {
+            if links.sales_invoice.is_some() {
+                "sales_invoice"
+            } else if links.purchase_invoice.is_some() {
+                "purchase_invoice"
+            } else {
+                "other"
+            }
+        }
+        Some("sales_invoice") => {
             if links.sales_invoice.is_some() {
                 "sales_invoice"
             } else {
