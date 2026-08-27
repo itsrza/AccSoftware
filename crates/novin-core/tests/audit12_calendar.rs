@@ -216,9 +216,14 @@ fn k61_hijri_occasions_of_1404() {
     let fifteenth = find("ولادت حضرت قائم (عج)").expect("۱۵ شعبان");
     assert_eq!(fifteenth.jalali, "1404/11/14");
 
-    // غدیر و قربان ۱۴۴۷ در تابستان ۱۴۰۵ افتادند، نه ۱۴۰۴
-    assert!(find("عید سعید غدیر خم").is_none());
-    assert!(find("عید سعید قربان").is_none());
+    // قربان و غدیرِ سال قمری ۱۴۴۶ در خرداد ۱۴۰۴ افتاده‌اند (نسخه‌ی ۱۴۴۷
+    // آن‌ها در تابستان ۱۴۰۵ است) — تاریخ‌ها با تبدیل مستقل تأیید شده‌اند.
+    let qurban = find("عید سعید قربان").expect("قربان ۱۴۴۶");
+    assert_eq!(qurban.jalali, "1404/03/17");
+    assert!(qurban.holiday);
+    let ghadir = find("عید سعید غدیر خم").expect("غدیر ۱۴۴۶");
+    assert_eq!(ghadir.jalali, "1404/03/25");
+    assert!(!ghadir.holiday);
 }
 
 /// ک۶۲ — پرچم تعطیل: مبعث تعطیل، غدیر و ولادت امام علی مناسبت بدون تعطیل.
