@@ -1,0 +1,15 @@
+/* Security baseline for the desktop application. */
+* { -webkit-user-select: none; user-select: none; }
+input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
+.auth-screen { min-height:100vh; display:grid; place-items:center; padding:32px; background:#f6f9ff; }
+.auth-card { width:min(420px,100%); display:flex; flex-direction:column; gap:14px; padding:32px; border:1px solid #d9dfe9; border-radius:18px; background:#fff; box-shadow:0 18px 50px rgba(33,37,78,.12); }
+.auth-card label { display:flex; flex-direction:column; gap:7px; font-size:12px; font-weight:700; color:#21254e; }
+.auth-card input { min-height:42px; padding:0 12px; border:1px solid #cfd6e3; border-radius:10px; background:#fff; color:#21254e; outline:none; }
+.auth-card input:focus { border-color:#d79d4b; box-shadow:0 0 0 3px rgba(215,157,75,.16); }
+.auth-mark { width:64px; height:64px; display:grid; place-items:center; margin:0 auto 4px; border-radius:18px; background:#21254e; color:#fff; font-weight:900; font-size:22px; }
+.auth-title { text-align:center; color:#21254e; font-size:22px; }
+.auth-subtitle { text-align:center; color:#62748e; font-size:12px; margin-bottom:8px; }
+.auth-error { margin:0; }
+.auth-submit { min-height:44px; margin-top:4px; }
+.logout-nav { margin-top:4px; }
+.page-error { margin:16px; }

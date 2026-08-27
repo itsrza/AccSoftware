@@ -1,0 +1,115 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
+
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..')
+const ui=path.join(root,'apps','desktop-ui')
+const tauri=path.join(root,'apps','desktop-host','src-tauri')
+const src=path.join(ui,'src')
+const files={app:path.join(src,'App.tsx'),api:path.join(src,'api.ts'),icon:path.join(src,'components','Icon.tsx'),css:path.join(src,'styles.css'),hardCss:path.join(src,'security-hardening.css'),index:path.join(ui,'index.html'),main:path.join(src,'main.tsx'),pkg:path.join(ui,'package.json'),lock:path.join(ui,'package-lock.json'),gitignore:path.join(root,'.gitignore'),tauriConfig:path.join(tauri,'tauri.conf.json'),cargo:path.join(tauri,'Cargo.toml'),cargoLock:path.join(tauri,'Cargo.lock'),rustMain:path.join(tauri,'src','main.rs'),rustDb:path.join(tauri,'src','db','mod.rs')}
+const pages=['AdvancedInventory','Checks','Dashboard','DataPage','DataTools','Integrations','Invoices','Operations','PrintTemplates','ReportBuilder','Reports','Treasury']
+const components=['CommandPalette','Icon','SettingsCenter','Sidebar','Topbar']
+const tests=[]
+const test=(name,fn)=>tests.push([name,fn])
+const exists=p=>fs.existsSync(p)
+const read=p=>exists(p)&&fs.statSync(p).isFile()?fs.readFileSync(p,'utf8'):''
+const readTree=dir=>{if(!exists(dir)||!fs.statSync(dir).isDirectory())return '';const out=[];for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(['node_modules','dist','target','.git'].includes(entry.name))continue;const p=path.join(dir,entry.name);if(entry.isDirectory())out.push(readTree(p));else if(entry.isFile())out.push(read(p))}return out.join('\n')}
+const app=()=>read(files.app),api=()=>read(files.api),css=()=>read(files.css),rust=()=>read(files.rustMain),gitignore=()=>read(files.gitignore)
+const pkg=()=>JSON.parse(read(files.pkg)||'{}'),tauriConfig=()=>JSON.parse(read(files.tauriConfig)||'{}')
+const assert=(condition,message)=>{if(!condition)throw new Error(message)}
+
+for(const [label,p] of Object.entries(files))test(`file:${label}`,()=>assert(exists(p),`missing ${p}`))
+test('package:private',()=>assert(pkg().private===true,'package must be private'))
+test('package:esm',()=>assert(pkg().type==='module','package must use ESM'))
+test('lock:v3',()=>assert(JSON.parse(read(files.lock)).lockfileVersion===3,'lockfile must use npm lockfile v3'))
+test('gitignore:node_modules',()=>assert(gitignore().includes('node_modules/'),'node_modules must be ignored'))
+test('gitignore:dist',()=>assert(gitignore().includes('dist/'),'dist must be ignored'))
+test('gitignore:target',()=>assert(gitignore().includes('target/'),'target must be ignored'))
+test('gitignore:env',()=>assert(gitignore().includes('.env'),'env files must be ignored'))
+test('artifacts:no-node_modules',()=>assert(!exists(path.join(ui,'node_modules')),'node_modules must not be committed'))
+test('artifacts:no-dist',()=>assert(!exists(path.join(ui,'dist')),'dist must not be committed'))
+test('artifacts:no-cargo-error',()=>assert(!exists(path.join(tauri,'cargo-build-error.txt')),'build error dump must not be committed'))
+
+test('auth:explicit-demo-mode',()=>assert(app().includes("import.meta.env.VITE_DEMO_MODE === 'true'"),'demo mode must be opt-in'))
+test('auth:no-legacy-demo-default',()=>assert(!app().includes("VITE_DEMO_MODE !== 'false'"),'legacy insecure demo default exists'))
+test('auth:login-gate',()=>assert(app().includes('if(!authenticated)'),'frontend must gate unauthenticated users'))
+test('auth:login-command',()=>assert(app().includes('login(username.trim(),password)'),'login command must be used'))
+test('auth:logout-command',()=>assert(app().includes('await logout()'),'logout command must be used'))
+test('auth:generic-login-error',()=>assert(app().includes('نام کاربری یا رمز عبور صحیح نیست'),'login errors must not expose backend details'))
+test('auth:generic-boot-error',()=>assert(app().includes('راه‌اندازی برنامه انجام نشد'),'boot errors must be generic'))
+test('auth:no-raw-alert',()=>assert(!app().includes('alert(String(e))'),'raw exceptions must not be shown to users'))
+test('auth:no-remote-logo',()=>assert(!app().includes('novinacc.ir/wp-content'),'remote logo dependency removed'))
+test('auth:password-autocomplete',()=>assert(app().includes('autoComplete="current-password"'),'password field must use password autocomplete'))
+test('ui:logout-icon',()=>assert(read(files.icon).includes("'logout'"),'logout icon missing'))
+test('ui:hardening-css',()=>assert(app().includes('./security-hardening.css'),'hardening CSS must be loaded'))
+test('api:tauri-wrapper',()=>assert(api().includes('invoke<T>(command,args)'),'API wrapper missing'))
+
+test('frontend:no-eval',()=>assert(!readTree(src).match(/\beval\s*\(/),'eval must not be used'))
+test('frontend:no-innerhtml',()=>assert(!readTree(src).match(/innerHTML\s*=/),'innerHTML assignment must not be used'))
+test('frontend:no-dangerous-html',()=>assert(!readTree(src).includes('dangerouslySetInnerHTML'),'dangerouslySetInnerHTML must not be used'))
+test('frontend:no-document-write',()=>assert(!readTree(src).includes('document.write'),'document.write must not be used'))
+test('frontend:no-javascript-url',()=>assert(!readTree(src).match(/javascript:/i),'javascript URLs must not be used'))
+test('frontend:no-file-url',()=>assert(!readTree(src).match(/file:\/\//i),'file URLs must not be used in frontend source'))
+test('frontend:no-child-process',()=>assert(!readTree(src).match(/child_process|execFile|spawn\s*\(/),'native process execution must stay out of frontend'))
+test('frontend:no-shell-import',()=>assert(!readTree(src).match(/@tauri-apps\/plugin-shell/),'shell plugin must not be imported without review'))
+test('frontend:no-http-url',()=>assert(!readTree(src).match(/http:\/\//i),'unencrypted HTTP must not be used by frontend source'))
+test('frontend:no-local-storage',()=>assert(!readTree(src).match(/localStorage\s*\./),'sensitive app state must not use localStorage'))
+test('frontend:no-session-storage',()=>assert(!readTree(src).match(/sessionStorage\s*\./),'sensitive app state must not use sessionStorage'))
+test('frontend:no-dynamic-script',()=>assert(!readTree(src).match(/createElement\(["']script["']\)/i),'dynamic scripts must not be created'))
+
+test('csp:configured',()=>assert(typeof tauriConfig().app?.security?.csp==='string','CSP must be configured'))
+test('csp:ipc',()=>assert(tauriConfig().app.security.csp.includes('ipc:'),'CSP must explicitly allow Tauri IPC'))
+test('csp:script-self',()=>assert(tauriConfig().app.security.csp.includes("script-src 'self'"),'script source must be restricted'))
+test('csp:object-none',()=>assert(tauriConfig().app.security.csp.includes("object-src 'none'"),'object-src must be disabled'))
+test('csp:base-none',()=>assert(tauriConfig().app.security.csp.includes("base-uri 'none'"),'base-uri must be disabled'))
+test('csp:form-self',()=>assert(tauriConfig().app.security.csp.includes("form-action 'self'"),'form-action must be restricted'))
+test('csp:img-self',()=>assert(tauriConfig().app.security.csp.includes("img-src 'self' data:"),'image sources must be restricted'))
+test('csp:freeze-prototype',()=>assert(tauriConfig().app.security.freezePrototype===true,'prototype freezing must be enabled'))
+test('headers:nosniff',()=>assert(tauriConfig().app.security.headers['X-Content-Type-Options']==='nosniff','nosniff header missing'))
+test('headers:permissions',()=>assert(tauriConfig().app.security.headers['Permissions-Policy'].includes('camera=()'),'permissions policy missing'))
+test('csp:no-remote-image',()=>assert(!tauriConfig().app.security.csp.includes('novinacc.ir'),'CSP should not allow the removed remote logo'))
+
+test('rust:cargo-lock',()=>assert(exists(files.cargoLock),'Cargo.lock missing'))
+test('rust:sqlite-bundled',()=>assert(read(files.cargo).includes('rusqlite = { version = "0.37", features = ["bundled", "chrono"] }'),'SQLite must be bundled'))
+test('rust:argon2',()=>assert(read(files.cargo).includes('argon2'),'Argon2 dependency missing'))
+test('rust:keyring',()=>assert(read(files.cargo).includes('keyring'),'OS keyring dependency missing'))
+test('rust:rustls',()=>assert(read(files.cargo).includes('rustls-tls'),'TLS backend must use rustls'))
+test('rust:password-verifier',()=>assert(rust().includes('PasswordVerifier'),'password verification must use Argon2 verifier'))
+test('rust:login-guard',()=>assert(rust().includes('fn require_login'),'login guard missing'))
+test('rust:permission-guard',()=>assert(rust().includes('fn require_permission'),'permission guard missing'))
+test('rust:audit-log',()=>assert(rust().includes('audit_logs'),'audit logging must exist'))
+test('rust:sql-params',()=>assert(rust().includes('params!'),'SQL commands must use bound parameters'))
+test('rust:sql-identifier-guard',()=>assert(readTree(path.join(tauri,'src')).includes('validate_identifier'),'dynamic SQL identifiers must be validated'))
+test('rust:serde',()=>assert(read(files.cargo).includes('serde ='),'serde dependency missing'))
+test('rust:tauri-v2',()=>assert(read(files.cargo).includes('tauri = { version = "2"'),'Tauri 2 dependency missing'))
+
+for(const page of pages)test(`page:${page}`,()=>assert(exists(path.join(src,'pages',`${page}.tsx`)),`missing page ${page}`))
+for(const component of components)test(`component:${component}`,()=>assert(exists(path.join(src,'components',`${component}.tsx`)),`missing component ${component}`))
+test('html:root',()=>assert(read(files.index).includes('id="root"'),'HTML root element missing'))
+test('main:entry',()=>assert(read(files.main).includes('createRoot'),'React root mount missing'))
+test('css:box-sizing',()=>assert(css().includes('box-sizing:border-box'),'global box sizing missing'))
+test('css:font',()=>assert(css().includes('Vazirmatn'),'expected UI font missing'))
+test('css:no-expression',()=>assert(!css().match(/expression\s*\(/i),'CSS expression must not be used'))
+test('css:no-javascript',()=>assert(!css().match(/javascript:/i),'javascript URL must not be used in CSS'))
+test('css:responsive-baseline',()=>assert(css().includes('min-width:1100px'),'desktop minimum layout must be explicit'))
+test('pkg:hardening-script',()=>assert(pkg().scripts?.['test:hardening']==='node ../../scripts/commercial-hardening-tests.mjs','hardening test script missing'))
+test('pkg:node-engine',()=>assert(pkg().engines?.node==='>=20.19.0','Node engine must be explicit'))
+test('build:windows-script',()=>assert(exists(path.join(root,'BUILD_AND_RUN_DEMO.cmd')),'Windows build script missing'))
+
+test('source:no-console-debugger',()=>assert(!readTree(src).match(/debugger\s*;/),'debugger statement must not ship'))
+test('source:no-todo-security',()=>assert(!readTree(src).match(/TODO.*security/i),'unresolved security TODO found'))
+test('source:no-hardcoded-token',()=>assert(!readTree(src).match(/(?:api[_-]?key|access[_-]?token|secret)\s*[:=]\s*["'][^"']{12,}["']/i),'possible hardcoded secret found'))
+test('source:no-private-key',()=>assert(!readTree(root).match(/BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/),'private key material must not be committed'))
+test('source:no-env-secret',()=>assert(!readTree(src).match(/VITE_[A-Z0-9_]*(?:KEY|SECRET|TOKEN)\s*=\s*[^\n]+/i),'frontend secret variable assignment found'))
+test('source:single-api-boundary',()=>assert(api().includes("from '@tauri-apps/api/core'"),'Tauri API boundary must stay centralized'))
+test('source:styles-present',()=>assert(exists(files.css),'main stylesheet missing'))
+test('source:security-styles-present',()=>assert(exists(files.hardCss),'security stylesheet missing'))
+test('source:pages-count',()=>assert(pages.length>=10,'page coverage is unexpectedly low'))
+test('source:components-count',()=>assert(components.length>=5,'component coverage is unexpectedly low'))
+
+test('final:exactly-100',()=>assert(tests.length===100,`expected 100 tests, got ${tests.length}`))
+
+let passed=0,failed=0
+for(const [name,fn] of tests){try{fn();passed++;console.log(`PASS ${String(passed+failed).padStart(3,'0')} ${name}`)}catch(error){failed++;console.error(`FAIL ${String(passed+failed).padStart(3,'0')} ${name}: ${error.message}`)}}
+console.log(`\nCommercial hardening tests: ${passed} passed, ${failed} failed, ${tests.length} total`)
+if(failed>0)process.exit(1)
