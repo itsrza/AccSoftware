@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react'
+import type {FormEvent} from 'react'
 import {Dashboard} from './pages/Dashboard'
 import {Invoices} from './pages/Invoices'
 import {DataPage} from './pages/DataPage'
@@ -14,8 +15,9 @@ import {Operations} from './pages/Operations'
 import {AdvancedInventory} from './pages/AdvancedInventory'
 import {DataTools} from './pages/DataTools'
 import {PrintTemplates} from './pages/PrintTemplates'
-import {getDemoStatus,deleteDemo,login} from './api'
+import {getDemoStatus,deleteDemo,login,logout} from './api'
 import './styles.css'
+import './security-hardening.css'
 
 const menu = [
   {id:'dashboard',label:'داشبورد',icon:'grid'},
@@ -39,11 +41,17 @@ export default function App(){
   const [settings,setSettings]=useState(false)
   const [palette,setPalette]=useState(false)
   const [collapsed,setCollapsed]=useState(false)
-  const DEMO_BUILD = import.meta.env.VITE_DEMO_MODE !== 'false'
+  const DEMO_BUILD = import.meta.env.VITE_DEMO_MODE === 'true'
   const [demo,setDemo]=useState(false)
   const [demoBusy,setDemoBusy]=useState(false)
   const [booting,setBooting]=useState(true)
   const [bootError,setBootError]=useState<string | null>(null)
+  const [authenticated,setAuthenticated]=useState(false)
+  const [username,setUsername]=useState(DEMO_BUILD?'admin':'')
+  const [password,setPassword]=useState(DEMO_BUILD?'demo':'')
+  const [loginBusy,setLoginBusy]=useState(false)
+  const [loginError,setLoginError]=useState<string | null>(null)
+
   useEffect(()=>{
     let alive=true
     const boot=async()=>{
@@ -51,10 +59,11 @@ export default function App(){
         if(DEMO_BUILD){
           await login('admin','demo')
           const status=await getDemoStatus()
-          if(alive)setDemo(status)
+          if(alive){setDemo(status);setAuthenticated(true)}
         }
       }catch(e){
-        if(alive)setBootError(String(e))
+        if(alive)setBootError('راه‌اندازی برنامه انجام نشد.')
+        console.error(e)
       }finally{
         if(alive)setBooting(false)
       }
@@ -62,15 +71,55 @@ export default function App(){
     boot()
     return()=>{alive=false}
   },[DEMO_BUILD])
-  useEffect(()=>{const f=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(true)};if(e.key==='Escape'){setPalette(false);setSettings(false)}};window.addEventListener('keydown',f);return()=>window.removeEventListener('keydown',f)},[])
+
+  useEffect(()=>{
+    const f=(e:KeyboardEvent)=>{
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setPalette(true)}
+      if(e.key==='Escape'){setPalette(false);setSettings(false)}
+    }
+    window.addEventListener('keydown',f)
+    return()=>window.removeEventListener('keydown',f)
+  },[])
+
+  const handleLogin=async(e:FormEvent)=>{
+    e.preventDefault()
+    if(loginBusy)return
+    setLoginError(null)
+    setLoginBusy(true)
+    try{
+      await login(username.trim(),password)
+      setAuthenticated(true)
+    }catch(error){
+      setLoginError('نام کاربری یا رمز عبور صحیح نیست.')
+      console.error(error)
+    }finally{setLoginBusy(false)}
+  }
+
+  const handleLogout=async()=>{
+    try{await logout()}catch(error){console.error(error)}
+    setAuthenticated(false)
+    setDemo(false)
+  }
+
   const toggle=(id:string)=>setOpen(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id])
-  if(booting) return <div className="boot-screen" dir="rtl"><div className="boot-card"><strong>نوین پرداز</strong><span>در حال آماده‌سازی محیط دمو...</span></div></div>
+
+  if(booting) return <div className="boot-screen" dir="rtl"><div className="boot-card"><strong>نوین پرداز</strong><span>در حال آماده‌سازی محیط...</span></div></div>
   if(bootError) return <div className="boot-screen" dir="rtl"><div className="boot-card error"><strong>اجرای برنامه انجام نشد</strong><span>{bootError}</span><small>فایل لاگ را بررسی کنید.</small></div></div>
+
+  if(!authenticated) return <div className="boot-screen" dir="rtl"><form className="boot-card login-card" onSubmit={handleLogin}>
+    <strong>ورود به نوین حساب</strong>
+    <span>برای ادامه وارد حساب کاربری شوید.</span>
+    <label>نام کاربری<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required /></label>
+    <label>رمز عبور<input autoComplete="current-password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
+    {loginError&&<small className="error-text">{loginError}</small>}
+    <button type="submit" disabled={loginBusy}>{loginBusy?'در حال ورود...':'ورود'}</button>
+  </form></div>
+
   return <div className={(dark?'app dark':'app')+(collapsed?' sidebar-collapsed':'')} dir="rtl">
     <aside className="sidebar">
       <button className="collapse-btn" onClick={()=>setCollapsed(!collapsed)} title="جمع/باز کردن منو"><Icon name="chevron"/></button>
       <div className="brand">
-        <div className="brand-mark"><img src="https://novinacc.ir/wp-content/uploads/2023/07/cropped-%D9%84%D9%88%DA%AF%D9%88-300x83.png" alt="نوین پرداز" onError={(e)=>{e.currentTarget.style.display='none'; e.currentTarget.parentElement!.textContent='NP'}}/></div>
+        <div className="brand-mark"><span className="brand-fallback">NP</span></div>
         <div><strong>نوین پرداز</strong><span>Accounting Platform</span></div>
       </div>
       <div className="company-switch"><div><span>شرکت فعال</span><b>نوین پرداز — شعبه مرکزی</b></div><Icon name="chevron" size={15}/></div>
@@ -83,12 +132,13 @@ export default function App(){
       </div>)}</nav>
       <div className="sidebar-bottom">
         <button className="nav-item" onClick={()=>setSettings(true)}><span className="nav-icon"><Icon name="settings"/></span><span>تنظیمات برنامه</span></button>
+        <button className="nav-item" onClick={handleLogout}><span className="nav-icon"><Icon name="logout"/></span><span>خروج</span></button>
         <div className="storage"><span className="dot"/><div><b>وضعیت سیستم</b><small>داده‌ها روی این دستگاه ذخیره می‌شوند</small></div></div>
       </div>
     </aside>
     <main className="main">
       <header className="topbar">
-        <div className="demo-control">{DEMO_BUILD&&demo&&<button className="demo-delete" disabled={demoBusy} onClick={async()=>{if(!confirm('تمام محتوای نمونه حذف می‌شود. این عملیات برای نسخه توسعه است. ادامه می‌دهید؟'))return;setDemoBusy(true);try{await deleteDemo();setDemo(false);window.location.reload()}catch(e){alert(String(e))}finally{setDemoBusy(false)}}}>{demoBusy?'در حال حذف...':'حذف محتوای دمو'}</button>}</div>
+        <div className="demo-control">{DEMO_BUILD&&demo&&<button className="demo-delete" disabled={demoBusy} onClick={async()=>{if(!confirm('تمام محتوای نمونه حذف می‌شود. این عملیات برای نسخه توسعه است. ادامه می‌دهید؟'))return;setDemoBusy(true);try{await deleteDemo();setDemo(false);window.location.reload()}catch(e){alert('حذف محتوای نمونه انجام نشد.');console.error(e)}finally{setDemoBusy(false)}}}>{demoBusy?'در حال حذف...':'حذف محتوای دمو'}</button>}</div>
         <div className="breadcrumbs"><span>شرکت نوین پرداز</span><b>/</b><strong>{page==='dashboard'?'داشبورد':page==='sales'?'فروش':page==='inventory'?'انبار و کالا':page==='contacts'?'اشخاص':page==='treasury'?'خزانه':page==='checks'?'چک‌ها':page==='accounting'?'حسابداری':page==='integrations'?'اتصالات و افزونه‌ها':page==='data-tools'?'ورود و خروج اطلاعات':page==='print-templates'?'قالب‌های چاپ':'گزارشات'}</strong></div>
         <div className="top-actions">
           <button className="global-search command-trigger" onClick={()=>setPalette(true)}><Icon name="search" size={17}/><span>جستجوی سریع یا اجرای دستور...</span><kbd>Ctrl K</kbd></button>
