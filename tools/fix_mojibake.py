@@ -270,6 +270,11 @@ def host_diagnostic():
              "libayatana-appindicator3-dev", "librsvg2-dev"],
             check=True, timeout=900, capture_output=True,
         )
+        # generate_context! به خروجی بیلد رابط نیاز دارد — stub می‌سازیم
+        dist = pathlib.Path("apps/desktop-ui/dist")
+        if not dist.exists():
+            dist.mkdir(parents=True, exist_ok=True)
+            (dist / "index.html").write_text("<html></html>", encoding="utf-8")
         result = subprocess.run(
             [os.path.join(cargo_bin, "cargo"), "check",
              "-p", "novin-accounting-host", "--all-targets"],
@@ -283,7 +288,7 @@ def host_diagnostic():
                   if line.strip().lower().startswith("error")
                   or "error[e" in line.lower()[:20]]
         contexts = [line for line in output.splitlines() if "-->" in line]
-        for line in (errors[:6] + contexts[:2]):
+        for line in (errors[:10] + contexts[:2]):
             print(f"::error::HOST3| {line.strip()[:270]}")
         print(f"::error::HOST3-EXIT={result.returncode} errors={len(errors)}")
     except Exception as error:  # noqa: BLE001
