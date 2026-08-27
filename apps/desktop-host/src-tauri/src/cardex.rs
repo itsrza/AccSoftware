@@ -43,7 +43,9 @@ pub fn product_cardex(
         .map_err(|error| format!("CRDX-003: {error}"))?;
 
     // شرکت فعال از همان کمکی مشترک — خطای نبود دسترسی یکتا در main.rs می‌ماند
-    let tx = c.transaction().map_err(|error| format!("CRDX-005: {error}"))?;
+    let tx = c
+        .transaction()
+        .map_err(|error| format!("CRDX-005: {error}"))?;
     let (company, _fiscal) = crate::active_context(&tx, &user)?;
 
     let filter = CardexFilter {
