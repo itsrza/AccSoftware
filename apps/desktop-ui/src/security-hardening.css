@@ -1,0 +1,7 @@
+.login-card{width:min(420px,calc(100vw - 48px));display:flex;flex-direction:column;gap:14px}
+.login-card label{display:flex;flex-direction:column;gap:6px;text-align:right;width:100%;font-size:13px}
+.login-card input{box-sizing:border-box;width:100%;border:1px solid #d7dbe5;border-radius:10px;padding:11px 12px;font:inherit;background:#fff;color:#222}
+.login-card button{border:0;border-radius:10px;padding:11px 14px;font:inherit;cursor:pointer;background:#21254e;color:#fff}
+.login-card button:disabled{opacity:.6;cursor:wait}
+.error-text{color:#b42318}
+.brand-fallback{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;font-weight:800;letter-spacing:-.04em}
