@@ -1,8 +1,9 @@
-﻿target/
+target/
 *.bak
 *.backup
 cargo-check-error*.txt
 cargo-errors*.txt
+cargo-build-error.txt
 *.log
 node_modules/
 dist/
@@ -10,3 +11,4 @@ build/
 .env
 .env.*
 !.env.example
+*.tsbuildinfo
