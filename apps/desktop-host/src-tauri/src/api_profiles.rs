@@ -55,7 +55,6 @@ pub(crate) fn api_secret_key(profile_id: &str) -> String {
 }
 
 #[tauri::command]
-#[tauri::command]
 pub fn create_api_profile(
     state: State<AppState>,
     name: String,
@@ -117,7 +116,6 @@ pub fn create_api_profile(
     Ok(id)
 }
 
-#[tauri::command]
 #[tauri::command]
 pub fn execute_api_request(
     state: State<AppState>,
@@ -219,7 +217,6 @@ pub fn execute_api_request(
     })
 }
 
-#[tauri::command]
 #[tauri::command]
 pub fn set_api_profile_enabled(
     state: State<AppState>,
