@@ -410,7 +410,11 @@ fn k44_purchase_cardex_report() {
         report
             .entries
             .iter()
-            .map(|entry| (entry.date_jalali.clone(), entry.doc_kind.clone(), entry.doc_number))
+            .map(|entry| (
+                entry.date_jalali.clone(),
+                entry.doc_kind.clone(),
+                entry.doc_number
+            ))
             .collect::<Vec<_>>()
     );
     assert_eq!(
@@ -420,7 +424,11 @@ fn k44_purchase_cardex_report() {
         report
             .entries
             .iter()
-            .map(|entry| (entry.date_jalali.clone(), entry.doc_kind.clone(), entry.doc_number))
+            .map(|entry| (
+                entry.date_jalali.clone(),
+                entry.doc_kind.clone(),
+                entry.doc_number
+            ))
             .collect::<Vec<_>>()
     );
     assert_eq!(report.entries[0].doc_number, Some(90_012));
