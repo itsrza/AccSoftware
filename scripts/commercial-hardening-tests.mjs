@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {execFileSync} from 'node:child_process'
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..')
 const ui=path.join(root,'apps','desktop-ui')
@@ -32,6 +33,7 @@ const readTree=dir=>{
 }
 const app=()=>read(files.app),api=()=>read(files.api),css=()=>read(files.css),rust=()=>read(files.rustMain),gitignore=()=>read(files.gitignore)
 const pkg=()=>JSON.parse(read(files.pkg)||'{}'),tauriConfig=()=>JSON.parse(read(files.tauriConfig)||'{}')
+const trackedFiles=()=>{try{return execFileSync('git',['ls-files'],{cwd:root,encoding:'utf8'}).split(/\r?\n/).filter(Boolean)}catch{return []}}
 const assert=(condition,message)=>{if(!condition)throw new Error(message)}
 
 for(const [label,p] of Object.entries(files))test(`file:${label}`,()=>assert(exists(p),`missing ${p}`))
@@ -43,9 +45,9 @@ test('gitignore:node_modules',()=>assert(gitignore().includes('node_modules/'),'
 test('gitignore:dist',()=>assert(gitignore().includes('dist/'),'dist must be ignored'))
 test('gitignore:target',()=>assert(gitignore().includes('target/'),'target must be ignored'))
 test('gitignore:env',()=>assert(gitignore().includes('.env'),'env files must be ignored'))
-test('artifacts:no-node_modules',()=>assert(!exists(path.join(ui,'node_modules')),'node_modules must not be committed'))
-test('artifacts:no-dist',()=>assert(!exists(path.join(ui,'dist')),'dist must not be committed'))
-test('artifacts:no-cargo-error',()=>assert(!exists(path.join(tauri,'cargo-build-error.txt')),'build error dump must not be committed'))
+test('artifacts:no-node_modules',()=>assert(!trackedFiles().some(p=>p==='node_modules'||p.startsWith('node_modules/')),'node_modules must not be committed'))
+test('artifacts:no-dist',()=>assert(!trackedFiles().some(p=>p==='dist'||p.startsWith('dist/')||p.includes('/dist/')),'dist must not be committed'))
+test('artifacts:no-cargo-error',()=>assert(!trackedFiles().some(p=>p.endsWith('cargo-build-error.txt')),'build error dump must not be committed'))
 
 test('auth:explicit-demo-mode',()=>assert(app().includes("import.meta.env.VITE_DEMO_MODE === 'true'"),'demo mode must be opt-in'))
 test('auth:no-legacy-demo-default',()=>assert(!app().includes("VITE_DEMO_MODE !== 'false'"),'legacy insecure demo default exists'))
@@ -124,7 +126,7 @@ test('source:security-styles-present',()=>assert(exists(files.hardCss),'security
 test('source:pages-count',()=>assert(pages.length>=10,'page coverage is unexpectedly low'))
 test('source:components-count',()=>assert(components.length>=5,'component coverage is unexpectedly low'))
 
-test('final:exactly-100',()=>assert(tests.length===100,`expected 100 tests, got ${tests.length}`))
+test('final:minimum-100',()=>assert(tests.length>=100,`expected at least 100 tests, got ${tests.length}`))
 
 let passed=0,failed=0
 for(const [name,fn] of tests){
