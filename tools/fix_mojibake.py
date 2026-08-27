@@ -249,9 +249,9 @@ def rust_diagnostic():
 
         # ۱) همان Clippy قرمزِ job هسته
         result = subprocess.run(
-            [os.path.join(cargo_bin, "cargo"), "clippy", "-p", "novin-core",
-             "--all-targets", "--", "-D", "warnings"],
-            capture_output=True, text=True, env=env, timeout=1500,
+            [os.path.join(cargo_bin, "cargo"), "test", "-p", "novin-core",
+             "--", "--nocapture"],
+            capture_output=True, text=True, env=env, timeout=1700,
         )
         output = (result.stderr or "") + (result.stdout or "")
         printed = 0
@@ -259,11 +259,13 @@ def rust_diagnostic():
             low = line.lower()
             stripped = line.strip()
             low2 = stripped.lower()
-            if (low2.startswith("error") or "error[e" in low2 or "-->" in line
-                    or low2.startswith("warning: unused")):
-                print(f"::error::CLIPPY-DIAG| {line[:280]}")
+            if (low2.startswith("test ") or "panicked" in low2
+                    or "assertion" in low2 or "left:" in low2
+                    or "right:" in low2 or "test result" in low2
+                    or low2.startswith("failures") or "error" in low2[:8]):
+                print(f"::error::TEST-DIAG| {line[:280]}")
                 printed += 1
-                if printed >= 3:
+                if printed >= 8:
                     break
         print(f"::error::CLIPPY-DIAG-EXIT={result.returncode} lines={printed}")
         if result.returncode == 0:
