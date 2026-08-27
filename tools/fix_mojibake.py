@@ -235,7 +235,6 @@ def rust_diagnostic():
             )
         except Exception as comp_error:
             print(f"::error::VER-DIAG| component-add failed {comp_error}")
-        # نسخه‌ی ابزار — برای مقایسه با job هسته
         for tool in ("rustc", "cargo"):
             probe = subprocess.run(
                 [os.path.join(cargo_bin, tool), "--version"],
@@ -292,34 +291,6 @@ def rust_diagnostic():
                      or "RUNTIME" in key.upper()]
             print(f"::error::ENV-DIAG| {', '.join(sorted(names))[:250]}")
 
-        # ۲) کامپایل میزبان (مانند job ویندوز) با وابستگی‌های سیستمی
-        try:
-            subprocess.run(
-                ["sudo", "apt-get", "install", "-y", "-qq",
-                 "libgtk-3-dev", "libwebkit2gtk-4.1-dev",
-                 "libayatana-appindicator3-dev", "librsvg2-dev"],
-                check=True, timeout=900, capture_output=True,
-            )
-        except Exception as apt_error:
-            print(f"::error::HOST-DIAG-APT-FAILED {apt_error}")
-        host = subprocess.run(
-            [os.path.join(cargo_bin, "cargo"), "check",
-             "-p", "novin-accounting-host", "--all-targets"],
-            capture_output=True, text=True, env=env, timeout=1800,
-        )
-        host_output = (host.stderr or "") + (host.stdout or "")
-        printed = 0
-        for line in host_output.splitlines():
-            stripped = line.strip()
-            low = stripped.lower()
-            if (low.startswith("error") or "error[e" in low or low.startswith("warning: unused")
-                    or "-->" in line or "private method" in low
-                    or "defined here" in low or "method `" in low):
-                print(f"::error::HOST-DIAG| {line[:280]}")
-                printed += 1
-                if printed >= 8:
-                    break
-        print(f"::error::HOST-DIAG-EXIT={host.returncode} lines={printed}")
         return
         output = (result.stderr or "") + (result.stdout or "")
         printed = 0
