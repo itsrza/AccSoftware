@@ -276,17 +276,12 @@ def host_diagnostic():
             capture_output=True, text=True, env=env, timeout=1700,
         )
         output = (result.stderr or "") + (result.stdout or "")
-        printed = 0
-        for line in output.splitlines():
-            stripped = line.strip()
-            low = stripped.lower()
-            if (low.startswith("error") or "error[e" in low or "-->" in line
-                    or low.startswith("warning: unused")):
-                print(f"::error::HOST3| {line[:270]}")
-                printed += 1
-                if printed >= 8:
-                    break
-        print(f"::error::HOST3-EXIT={result.returncode}")
+        errors = [line for line in output.splitlines()
+                  if line.strip().lower().startswith("error")]
+        contexts = [line for line in output.splitlines() if "-->" in line]
+        for line in (errors[:6] + contexts[:2]):
+            print(f"::error::HOST3| {line.strip()[:270]}")
+        print(f"::error::HOST3-EXIT={result.returncode} errors={len(errors)}")
     except Exception as error:  # noqa: BLE001
         print(f"::error::HOST3-FAILED {error}")
 
