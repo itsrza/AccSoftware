@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test:hardening": "node ../../scripts/commercial-hardening-tests.mjs",
     "tauri": "tauri",
     "preview": "vite preview"
   },
+  "engines": { "node": ">=20.19.0" },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "typescript": "latest",
