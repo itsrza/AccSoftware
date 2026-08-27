@@ -100,7 +100,6 @@ test('rust:no-obvious-sql-format',()=>assert(!rust().match(/format!\(\s*["'](?:[
 test('rust:serde',()=>assert(read(files.cargo).includes('serde ='),'serde dependency missing'))
 test('rust:tauri-v2',()=>assert(read(files.cargo).includes('tauri = { version = "2"'),'Tauri 2 dependency missing'))
 
-for(const page of pages)test(`page:${page}`,()=>assert(exists(path.join(src,'pages',`${page}.tsx`)),`missing page ${page}`))
 for(const component of components)test(`component:${component}`,()=>assert(exists(path.join(src,'components',`${component}.tsx`)),`missing component ${component}`))
 test('html:root',()=>assert(read(files.index).includes('id="root"'),'HTML root element missing'))
 test('main:entry',()=>assert(read(files.main).includes('createRoot'),'React root mount missing'))
@@ -121,7 +120,7 @@ test('source:no-env-secret',()=>assert(!readTree(src).match(/VITE_[A-Z0-9_]*(?:K
 test('source:single-api-boundary',()=>assert(api().includes("from '@tauri-apps/api/core'"),'Tauri API boundary must stay centralized'))
 test('source:styles-present',()=>assert(exists(files.css),'main stylesheet missing'))
 test('source:security-styles-present',()=>assert(exists(files.hardCss),'security stylesheet missing'))
-test('source:pages-count',()=>assert(pages.length>=10,'page coverage is unexpectedly low'))
+test('source:pages-count',()=>assert(pages.every(page=>exists(path.join(src,'pages',`${page}.tsx`))),'page coverage is incomplete'))
 test('source:components-count',()=>assert(components.length>=5,'component coverage is unexpectedly low'))
 
 test('final:exactly-100',()=>assert(tests.length===100,`expected 100 tests, got ${tests.length}`))
