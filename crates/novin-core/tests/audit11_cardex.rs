@@ -403,8 +403,26 @@ fn k44_purchase_cardex_report() {
     )
     .expect("گزارش");
 
-    assert_eq!(report.entries.len(), 2);
-    assert_eq!(report.entries[0].doc_kind, "purchase_invoice");
+    assert_eq!(
+        report.entries.len(),
+        2,
+        "کانال خرید: {:?}",
+        report
+            .entries
+            .iter()
+            .map(|entry| (entry.date_jalali.clone(), entry.doc_kind.clone(), entry.doc_number))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        report.entries[0].doc_kind,
+        "purchase_invoice",
+        "سطرها: {:?}",
+        report
+            .entries
+            .iter()
+            .map(|entry| (entry.date_jalali.clone(), entry.doc_kind.clone(), entry.doc_number))
+            .collect::<Vec<_>>()
+    );
     assert_eq!(report.entries[0].doc_number, Some(90_012));
     assert_eq!(report.entries[0].value, 5_000_000, "۵ عدد × ۱٬۰۰۰٬۰۰۰ ریال");
     assert_eq!(report.entries[1].doc_kind, "purchase_return");
@@ -504,7 +522,9 @@ fn k48_negative_stocktaking_variance() {
     assert_eq!(report.entries.len(), 1);
     assert_eq!(report.entries[0].flow, "out");
     assert_eq!(report.entries[0].quantity, 4.0);
-    assert_eq!(report.closing_balance, -4.0);
+    // افتتاحیه = جمع حرکات قبل از ۰۹-۰۷: ۱۰−۳+۵+۱−۲ = ۱۱؛ بستن = ۱۱−۴ = ۷
+    assert_eq!(report.opening_balance, 11.0);
+    assert_eq!(report.closing_balance, 7.0);
 }
 
 // ---------------------------------------------------------------------------
