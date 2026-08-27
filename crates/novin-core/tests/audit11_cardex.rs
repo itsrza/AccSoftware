@@ -1,5 +1,3 @@
-#![allow(warnings)]
-// موقت: میراث ممیزی CI — بعد از سبزشدن، فایل‌به‌فایل برداشته می‌شود
 //! ممیزی دور ۱۱ — کاردکس کالا (F4 فروش / F5 خرید / F6 کلی).
 //!
 //! مرجع: لیست کالاهای نرم‌افزار فعلی (تصویر `8Xmc1p`) و `docs/FEATURE_BASELINE.md`
@@ -410,11 +408,7 @@ fn k44_purchase_cardex_report() {
         report
             .entries
             .iter()
-            .map(|entry| (
-                entry.date_jalali.clone(),
-                entry.doc_kind.clone(),
-                entry.doc_number
-            ))
+            .map(|entry| (entry.date_jalali.clone(), entry.doc_kind.clone(), entry.doc_number))
             .collect::<Vec<_>>()
     );
     assert_eq!(
@@ -424,11 +418,7 @@ fn k44_purchase_cardex_report() {
         report
             .entries
             .iter()
-            .map(|entry| (
-                entry.date_jalali.clone(),
-                entry.doc_kind.clone(),
-                entry.doc_number
-            ))
+            .map(|entry| (entry.date_jalali.clone(), entry.doc_kind.clone(), entry.doc_number))
             .collect::<Vec<_>>()
     );
     assert_eq!(report.entries[0].doc_number, Some(90_012));
