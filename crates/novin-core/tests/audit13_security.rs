@@ -60,10 +60,14 @@ fn s02_injection_strings_rejected() {
 /// ا۳ — خروجی از نوع مرجع ایستاست و کل فهرست allowlist دقیقاً ۸ عضو دارد.
 #[test]
 fn s03_allowlist_is_exact() {
-    let accepted: Vec<&str> = ["sales_invoices", "purchase_invoice_lines", "sales_return_lines"]
-        .into_iter()
-        .filter_map(|name| db::validated_table(name).ok())
-        .collect();
+    let accepted: Vec<&str> = [
+        "sales_invoices",
+        "purchase_invoice_lines",
+        "sales_return_lines",
+    ]
+    .into_iter()
+    .filter_map(|name| db::validated_table(name).ok())
+    .collect();
     assert_eq!(accepted.len(), 3);
     // جدول‌های حساس خارج از فهرست — هرگز نباید قبول شوند
     for forbidden in ["users", "company_users", "audit_logs", "journal_entries"] {

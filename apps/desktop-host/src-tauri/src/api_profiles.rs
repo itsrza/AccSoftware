@@ -245,4 +245,3 @@ pub fn set_api_profile_enabled(
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
-

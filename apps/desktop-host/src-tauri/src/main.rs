@@ -7161,7 +7161,6 @@ fn delete_custom_report(state: State<AppState>, id: String) -> Result<(), String
     Ok(())
 }
 
-
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
