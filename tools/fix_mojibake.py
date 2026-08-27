@@ -268,10 +268,29 @@ def rust_diagnostic():
                     break
         print(f"::error::CLIPPY-DIAG-EXIT={result.returncode} lines={printed}")
         if result.returncode == 0:
-            try:
-                _cache_diagnostic(env, cargo_bin)
-            except Exception as cache_error:
-                print(f"::error::CACHE-DIAG-FAILED {cache_error}")
+            # اجرای دوم روی همان target (گرم) — بازتولید وضعیت job هسته
+            warm = subprocess.run(
+                [os.path.join(cargo_bin, "cargo"), "clippy", "-p", "novin-core",
+                 "--all-targets", "--", "-D", "warnings"],
+                capture_output=True, text=True, env=env, timeout=1500,
+            )
+            warm_output = (warm.stderr or "") + (warm.stdout or "")
+            printed_w = 0
+            for line in warm_output.splitlines():
+                stripped = line.strip()
+                low = stripped.lower()
+                if (low.startswith("error") or "error[e" in low
+                        or low.startswith("warning") or "-->" in line):
+                    print(f"::error::WARM-CLIPPY| {line[:280]}")
+                    printed_w += 1
+                    if printed_w >= 8:
+                        break
+            print(f"::error::WARM-CLIPPY-EXIT={warm.returncode} lines={printed_w}")
+            # نام متغیرهای محیطی مرتبط با توکن/کش (فقط نام‌ها)
+            names = [key for key in os.environ
+                     if "TOKEN" in key.upper() or "CACHE" in key.upper()
+                     or "RUNTIME" in key.upper()]
+            print(f"::error::ENV-DIAG| {', '.join(sorted(names))[:250]}")
 
         # ۲) کامپایل میزبان (مانند job ویندوز) با وابستگی‌های سیستمی
         try:
