@@ -13,10 +13,9 @@
 //! (قالب ذخیره‌سازی) تبدیل می‌شود؛ خطای تاریخ با کد `CRDX-003` برمی‌گردد.
 
 use novin_core::cardex::{self, CardexFilter, CardexKind, CardexReport};
-use rusqlite::params;
 use tauri::State;
 
-use crate::{conn, require_login, AppState};
+use crate::{active_context, conn, require_login, AppState};
 
 /// گزارش کاردکس یک کالا.
 ///
@@ -33,7 +32,7 @@ pub fn product_cardex(
     warehouse_id: Option<String>,
 ) -> Result<CardexReport, String> {
     let user = require_login(&state)?;
-    let c = conn(&state)?;
+    let mut c = conn(&state)?;
 
     let kind = CardexKind::parse(&kind).map_err(|error| format!("CRDX-001: {error}"))?;
     let from = novin_core::jalali::JalaliDate::parse(&from_jalali)
@@ -43,13 +42,9 @@ pub fn product_cardex(
         .and_then(|date| date.to_gregorian())
         .map_err(|error| format!("CRDX-003: {error}"))?;
 
-    let company: String = c
-        .query_row(
-            "SELECT company_id FROM company_users WHERE user_id=?1 AND is_active=1 LIMIT 1",
-            params![user],
-            |row| row.get(0),
-        )
-        .map_err(|_| "AUTH-403: دسترسی به شرکت وجود ندارد".to_string())?;
+    // شرکت فعال از همان کمکی مشترک — خطای نبود دسترسی یکتا در main.rs می‌ماند
+    let tx = c.transaction().map_err(|error| format!("CRDX-005: {error}"))?;
+    let (company, _fiscal) = crate::active_context(&tx, &user)?;
 
     let filter = CardexFilter {
         company_id: company,
@@ -59,5 +54,7 @@ pub fn product_cardex(
         to,
         warehouse_id,
     };
-    cardex::cardex(&c, &filter).map_err(|error| format!("CRDX-004: {error}"))
+    let report = cardex::cardex(&tx, &filter).map_err(|error| format!("CRDX-004: {error}"))?;
+    tx.commit().map_err(|error| format!("CRDX-005: {error}"))?;
+    Ok(report)
 }
