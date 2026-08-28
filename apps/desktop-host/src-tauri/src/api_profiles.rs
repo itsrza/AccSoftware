@@ -10,7 +10,7 @@ use tauri::State;
 use crate::{audit, conn, require_login, require_permission, AppState};
 
 #[derive(Serialize)]
-struct ApiProfile {
+pub struct ApiProfile {
     id: String,
     name: String,
     base_url: String,
@@ -21,7 +21,7 @@ struct ApiProfile {
     allowed_domains: String,
 }
 #[derive(Serialize)]
-struct ApiResponse {
+pub struct ApiResponse {
     status: u16,
     body: String,
     content_type: Option<String>,
