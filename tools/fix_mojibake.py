@@ -276,6 +276,15 @@ def host_diagnostic():
         stub.mkdir(parents=True, exist_ok=True)
         (stub / "index.html").write_text("<html></html>", encoding="utf-8")
         env["TAURI_CONFIG"] = '{"build":{"frontendDist":"/tmp/np-dist"}}'
+        # لینوکس icon.png می‌خواهد؛ مخزن فقط icon.ico دارد (ویندوز کافی است)
+        icons = pathlib.Path("apps/desktop-host/src-tauri/icons")
+        icons.mkdir(parents=True, exist_ok=True)
+        png = icons / "icon.png"
+        if not png.exists():
+            png.write_bytes(bytes.fromhex(
+                "89504e470d0a1a0a0000000d4948445200000001000000010806000"
+                "0001f15c4890000000d49444154789c63f8cfc0f01f0005050201"
+                "4dda5f9e0000000049454e44ae426082"))
         result = subprocess.run(
             [os.path.join(cargo_bin, "cargo"), "check",
              "-p", "novin-accounting-host", "--all-targets"],
