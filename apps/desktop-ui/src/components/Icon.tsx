@@ -1,6 +1,6 @@
 import React from 'react'
 
-type Name = 'grid'|'receipt'|'cart'|'package'|'users'|'wallet'|'check'|'file'|'bar'|'settings'|'search'|'bell'|'plus'|'arrow'|'trend'|'bank'|'cash'|'warehouse'|'more'|'moon'|'sun'|'chevron'|'close'|'filter'|'download'|'refresh'|'box'|'factory'|'trash'|'print'|'plug'|'upload'
+type Name = 'grid'|'receipt'|'cart'|'package'|'users'|'wallet'|'check'|'file'|'bar'|'settings'|'search'|'bell'|'plus'|'arrow'|'trend'|'bank'|'cash'|'warehouse'|'more'|'moon'|'sun'|'chevron'|'close'|'filter'|'download'|'refresh'|'box'|'factory'|'trash'|'print'|'plug'|'upload'|'logout'
 
 const paths: Record<Name, React.ReactNode> = {
   grid:<><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -34,6 +34,7 @@ const paths: Record<Name, React.ReactNode> = {
   trash:<><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></>,
   print:<><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></>,
   plug:<><path d="M9 2v6M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v5"/></>,
+  logout:<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></>,
   upload:<><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></>
 }
 

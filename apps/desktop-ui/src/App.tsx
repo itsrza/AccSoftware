@@ -28,7 +28,8 @@ import {Products} from './pages/Products'
 import {ProductCardex} from './pages/ProductCardex'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {Stocktaking} from './pages/Stocktaking'
-import {getDemoStatus, deleteDemo, login, getParties, getProducts, getCheckDashboard, getChecks, getSettings} from './api'
+import {getDemoStatus, deleteDemo, login, logout, getParties, getProducts, getCheckDashboard, getChecks, getSettings} from './api'
+import './security-hardening.css'
 import {Plus} from 'lucide-react'
 import {cn} from './lib/cn'
 import {Sidebar, ICONS, type NavGroup, type NavItem} from './components/Sidebar'
@@ -205,6 +206,13 @@ export default function App() {
   const [demoBusy, setDemoBusy] = useState(false)
   const [booting, setBooting] = useState(true)
   const [bootError, setBootError] = useState<string | null>(null)
+  // احراز هویت واقعی: در بیلد دمو ورود خودکار است، در بیلد تجاری دروازه‌ی ورود.
+  const [authenticated, setAuthenticated] = useState(false)
+  const [userName, setUserName] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const loginUsernameRef = useRef<HTMLInputElement>(null)
+  const loginPasswordRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let alive = true
@@ -213,12 +221,17 @@ export default function App() {
         if (isDesignPreview()) {
           if (alive) setDemo(true)
         } else if (DEMO_BUILD) {
+          // حالت دمو: ورود خودکار کاربر نمایشی — فقط در بیلد صریح دمو.
           await login('admin', 'demo')
           const status = await getDemoStatus()
-          if (alive) setDemo(status)
+          if (alive) {
+            setDemo(status)
+            setAuthenticated(true)
+          }
         }
-      } catch (e) {
-        if (alive) setBootError(errorText(e))
+      } catch {
+        // خطای بوت هرگز جزئیات فنی به کاربر نشان نمی‌دهد.
+        if (alive) setBootError('راه‌اندازی برنامه انجام نشد')
       } finally {
         if (alive) setBooting(false)
       }
@@ -377,6 +390,35 @@ export default function App() {
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     )
 
+  const submitLogin = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const username = String(loginUsernameRef.current?.value ?? '').trim()
+    const password = String(loginPasswordRef.current?.value ?? '')
+    if (!username || !password || authBusy) return
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      const user = await login(username.trim(),password)
+      setUserName(user.display_name || user.username)
+      setAuthenticated(true)
+    } catch {
+      // پیام عمومی — جزئیات باطن هرگز به کاربر نشان داده نمی‌شود.
+      setAuthError('نام کاربری یا رمز عبور صحیح نیست')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const doLogout = async () => {
+    try {
+      await logout()
+    } catch {
+      /* حتی اگر نشست منقضی شده باشد، خروج محلی انجام می‌شود */
+    }
+    setAuthenticated(false)
+    setUserName('')
+  }
+
   if (booting) {
     return (
       <div className="boot-screen" dir={dir}>
@@ -394,6 +436,31 @@ export default function App() {
           <strong>{t('app.bootFailed')}</strong>
           <span>{bootError}</span>
         </div>
+      </div>
+    )
+  }
+
+  // دروازه‌ی احراز هویت: در بیلد تجاری، تا ورود موفق هیچ داده‌ای رندر نمی‌شود.
+  if(!authenticated) {
+    return (
+      <div className="auth-screen" dir={dir}>
+        <form className="auth-card" onSubmit={submitLogin}>
+          <div className="auth-mark">NP</div>
+          <div className="auth-title">{t('app.name')}</div>
+          <div className="auth-subtitle">{t('app.loginSubtitle')}</div>
+          {authError && <p className="error-box auth-error">{authError}</p>}
+          <label>
+            {t('app.username')}
+            <input ref={loginUsernameRef} autoFocus autoComplete="username" />
+          </label>
+          <label>
+            {t('app.password')}
+            <input ref={loginPasswordRef} type="password" autoComplete="current-password" />
+          </label>
+          <button className="primary auth-submit" type="submit" disabled={authBusy}>
+            {authBusy ? t('app.loggingIn') : t('app.loginAction')}
+          </button>
+        </form>
       </div>
     )
   }
@@ -568,11 +635,11 @@ export default function App() {
           setDark={setDark}
           onOpenMobileNav={() => setMobileNav(true)}
           onOpenSettings={() => setSettings(true)}
-          onLogout={() => setPalette(true)}
+          onLogout={doLogout}
           search={globalSearch}
           navigate={go}
           notifications={notifications}
-          userName={t('app.systemAdmin')}
+          userName={userName || t('app.systemAdmin')}
           userRole={t('app.fullAccess')}
           avatar={avatar}
         />

@@ -270,11 +270,12 @@ def host_diagnostic():
              "libayatana-appindicator3-dev", "librsvg2-dev"],
             check=True, timeout=900, capture_output=True,
         )
-        # generate_context! به خروجی بیلد رابط نیاز دارد — stub می‌سازیم
-        dist = pathlib.Path("apps/desktop-ui/dist")
-        if not dist.exists():
-            dist.mkdir(parents=True, exist_ok=True)
-            (dist / "index.html").write_text("<html></html>", encoding="utf-8")
+        # generate_context! به خروجی بیلد رابط نیاز دارد — با override رسمی
+        # TAURI_CONFIG به stub مطلق هدایت می‌شود تا type-check واقعی انجام شود
+        stub = pathlib.Path("/tmp/np-dist")
+        stub.mkdir(parents=True, exist_ok=True)
+        (stub / "index.html").write_text("<html></html>", encoding="utf-8")
+        env["TAURI_CONFIG"] = '{"build":{"frontendDist":"/tmp/np-dist"}}'
         result = subprocess.run(
             [os.path.join(cargo_bin, "cargo"), "check",
              "-p", "novin-accounting-host", "--all-targets"],
@@ -289,10 +290,9 @@ def host_diagnostic():
                   or "error[e" in line.lower()[:20]]
         contexts = [line for line in output.splitlines() if "-->" in line]
         lines_out = output.splitlines()
-        panic_at = next((i for i, l in enumerate(lines_out)
-                         if "proc macro panicked" in l), None)
-        detail = lines_out[panic_at:panic_at + 4] if panic_at else []
-        for line in (errors[:6] + contexts[:2] + detail):
+        helps = [l for l in lines_out if "help:" in l or "message:" in l
+                 or "panicked at" in l][:6]
+        for line in (errors[:4] + contexts[:2] + helps):
             print(f"::error::HOST3| {line.strip()[:270]}")
         print(f"::error::HOST3-EXIT={result.returncode} errors={len(errors)}")
     except Exception as error:  # noqa: BLE001

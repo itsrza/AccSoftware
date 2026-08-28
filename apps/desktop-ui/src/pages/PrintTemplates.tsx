@@ -432,8 +432,15 @@ export function PrintTemplates() {
                   className="mx-auto bg-white shadow-[0_4px_18px_rgba(0,0,0,.18)]"
                   style={{ width: `${PAPER_WIDTH_MM[design.paper]}mm`, padding: '4mm' }}
                 >
-                  {/* پیش‌نمایش با همان HTML خروجی چاپ */}
-                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                  {/* پیش‌نمایش با همان HTML خروجی چاپ — در iframe سندباکس‌شده
+                   * تزریق مستقیم HTML به DOM اصلی انجام نمی‌شود. */}
+                  <iframe
+                    title={t('print.preview')}
+                    srcDoc={previewHtml}
+                    sandbox=""
+                    className="block border-0 bg-white"
+                    style={{ width: `${PAPER_WIDTH_MM[design.paper]}mm`, minHeight: '60vh' }}
+                  />
                 </div>
               </div>
             </Card>

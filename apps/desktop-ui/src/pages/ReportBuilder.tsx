@@ -326,14 +326,15 @@ export function ReportBuilder() {
     const grand = `<tr class="grand">${selected
       .map((column) => `<td>${escapeHtml(formatTotal(column, report.grandTotals[column.key]))}</td>`)
       .join('')}</tr>`
-    printWindow.document.write(
+    const doc = printWindow.document
+    doc.write(
       `<html dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title>` +
         `<style>${REPORT_PRINT_STYLE}</style></head><body>` +
         `<h1>${escapeHtml(name)}</h1><p>${t(SOURCE_LABEL_KEYS[source])} — از ${config.from || t('rb.periodStart')} تا ${config.to || t('rb.today')} — ${report.rowCount} ردیف</p>` +
         `<table><thead><tr>${head}</tr></thead><tbody>${bodyRows}${grand}</tbody></table>` +
         `<script>window.onload=()=>window.print()</script></body></html>`,
     )
-    printWindow.document.close()
+    doc.close()
   }
 
   return (

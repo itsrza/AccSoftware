@@ -4043,6 +4043,14 @@ struct InvoiceSummary {
     total: i64,
 }
 
+/// گارد شناسه‌های داینامیک SQL (نام جدول) — لایه‌ی میزبان روی allowlist هسته.
+///
+/// هر نام جدولی که قرار است در `format!` داخل SQL بنشیند باید از اینجا
+/// بگذرد؛ فهرست مجاز در `novin_core::db::validated_table` است.
+pub(crate) fn validate_identifier(name: &str) -> Result<&'static str, String> {
+    validate_identifier(name)
+}
+
 fn next_invoice_number(
     tx: &rusqlite::Transaction<'_>,
     table: &str,
@@ -4050,7 +4058,7 @@ fn next_invoice_number(
     fy: &str,
 ) -> Result<i64, String> {
     // گارد هسته — نام جدول فقط از فهرست مجاز (دفاع‌در‌عمق علیه تزریق)
-    let table = novin_core::db::validated_table(table)?;
+    let table = validate_identifier(table)?;
     let sql = format!(
         "SELECT COALESCE(MAX(number),0)+1 FROM {table} WHERE company_id=?1 AND fiscal_year_id=?2"
     );
@@ -4143,7 +4151,7 @@ fn create_invoice_common(
     } else {
         "purchase_invoices"
     };
-    let table = novin_core::db::validated_table(table)?;
+    let table = validate_identifier(table)?;
     let prefix = if sale { "sale" } else { "purchase" };
     let number = next_invoice_number(&tx, table, &company, &fy)?;
     let id = format!(
@@ -4249,7 +4257,7 @@ fn list_invoices(state: &State<AppState>, sale: bool) -> Result<Vec<InvoiceSumma
     } else {
         "purchase_invoices"
     };
-    let table = novin_core::db::validated_table(table)?;
+    let table = validate_identifier(table)?;
     let sql=format!("SELECT d.id,d.number,d.invoice_date,d.contact_id,d.warehouse_id,d.status,d.payment_status,d.subtotal,d.discount,d.tax,d.total FROM {table} d JOIN company_users cu ON cu.company_id=d.company_id WHERE cu.user_id=?1 AND cu.is_active=1 ORDER BY d.number DESC");
     let mut st = c.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = st
@@ -4286,13 +4294,13 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
     } else {
         "purchase_invoices"
     };
-    let table = novin_core::db::validated_table(table)?;
+    let table = validate_identifier(table)?;
     let lt = if sale {
         "sales_invoice_lines"
     } else {
         "purchase_invoice_lines"
     };
-    let lt = novin_core::db::validated_table(lt)?;
+    let lt = validate_identifier(lt)?;
     let row: (
         String,
         String,
@@ -4439,7 +4447,7 @@ fn settle_invoice(
     } else {
         "purchase_invoices"
     };
-    let table = novin_core::db::validated_table(table)?;
+    let table = validate_identifier(table)?;
     let invoice_type = if sale { "sales" } else { "purchase" };
     let row: (String, String, String, i64, String) = {
         let sql = format!(
@@ -5294,7 +5302,7 @@ fn create_return_common(
     } else {
         "purchase_invoices"
     };
-    let table = novin_core::db::validated_table(table)?;
+    let table = validate_identifier(table)?;
     let line_table = if sale {
         "sales_invoice_lines"
     } else {
@@ -5409,12 +5417,12 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
     let mut c = conn(state)?;
     let user = require_permission(state, &c, permission)?;
     let tx = c.transaction().map_err(|e| e.to_string())?;
-    let rt = novin_core::db::validated_table(if sale {
+    let rt = validate_identifier(if sale {
         "sales_returns"
     } else {
         "purchase_returns"
     })?;
-    let rl = novin_core::db::validated_table(if sale {
+    let rl = validate_identifier(if sale {
         "sales_return_lines"
     } else {
         "purchase_return_lines"
@@ -5898,7 +5906,7 @@ fn get_payables(state: State<AppState>) -> Result<Vec<PartyBalance>, String> {
 fn get_party_balances(state: &State<AppState>, sales: bool) -> Result<Vec<PartyBalance>, String> {
     let user = require_permission(state, &conn(state)?, "reporting.view")?;
     let c = conn(state)?;
-    let table = novin_core::db::validated_table(if sales {
+    let table = validate_identifier(if sales {
         "sales_invoices"
     } else {
         "purchase_invoices"
@@ -6349,7 +6357,7 @@ fn get_party_aging(
         )
         .map_err(|e| e.to_string())?;
     let date = as_of.unwrap_or(end);
-    let table = novin_core::db::validated_table(if sales {
+    let table = validate_identifier(if sales {
         "sales_invoices"
     } else {
         "purchase_invoices"

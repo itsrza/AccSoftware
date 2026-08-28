@@ -26,6 +26,7 @@ export async function api<T>(command:string,args?:Record<string,unknown>):Promis
  }
 }
 export const login=(username:string,password:string)=>api<{id:string,username:string,display_name:string}>('login',{username,password})
+export const logout=()=>api<void>('logout')
 export const getContacts=()=>api<Contact[]>('list_contacts')
 export const getProducts=()=>api<Product[]>('list_products')
 export const getAccounts=()=>api<Account[]>('list_accounts')
