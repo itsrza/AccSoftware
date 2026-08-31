@@ -1528,7 +1528,7 @@ pub fn seed(conn: &Connection) -> Result<()> {
             "چک‌های برگشتی در پیگیری",
             "detail",
             Some("acc-1200"),
-            "credit",
+            "debit",
         ),
     ] {
         tx.execute(

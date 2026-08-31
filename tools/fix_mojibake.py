@@ -261,6 +261,15 @@ def quick_diag():
                 "89504e470d0a1a0a0000000d4948445200000001000000010806000"
                 "0001f15c4890000000d49444154789c63f8cfc0f01f0005050201"
                 "4dda5f9e0000000049454e44ae426082"))
+        try:
+            subprocess.run(
+                ["sudo", "apt-get", "install", "-y", "-qq",
+                 "libgtk-3-dev", "libwebkit2gtk-4.1-dev",
+                 "libayatana-appindicator3-dev", "librsvg2-dev"],
+                check=True, timeout=900, capture_output=True,
+            )
+        except Exception as apt_error:
+            print(f"::error::QD-APT {apt_error}")
         env["TAURI_CONFIG"] = '{"build":{"frontendDist":"/tmp/np-dist"}}'
         host = subprocess.run(
             [os.path.join(cargo_bin, "cargo"), "check",
