@@ -9,14 +9,18 @@ permissions:
 
 jobs:
   apply:
-    if: ${{ !startsWith(github.event.head_commit.message, '[auto-apply]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Skip already applied commit
+        if: ${{ startsWith(github.event.head_commit.message, '[auto-apply]') }}
+        run: echo "Section 1 already applied."
+
       - name: Patch section 1
+        if: ${{ !startsWith(github.event.head_commit.message, '[auto-apply]') }}
         shell: python {0}
         run: |
           from pathlib import Path
@@ -125,12 +129,14 @@ fn get_company'''
           p.write_text(s, encoding='utf-8')
 
       - name: Format and test backend
+        if: ${{ !startsWith(github.event.head_commit.message, '[auto-apply]') }}
         working-directory: apps/desktop-host/src-tauri
         run: |
           cargo fmt -- --check
           cargo test
 
       - name: Commit implementation
+        if: ${{ !startsWith(github.event.head_commit.message, '[auto-apply]') }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
