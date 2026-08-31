@@ -1,0 +1,146 @@
+name: AccSoftware Apply Section 1
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !startsWith(github.event.head_commit.message, '[auto-apply]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch section 1
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('apps/desktop-host/src-tauri/src/main.rs')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''fn conn(state: &State<AppState>) -> Result<Connection, String> {
+              Connection::open(
+                  state
+                      .db_path
+                      .lock()
+                      .map_err(|_| {
+                          "APP-001: Ãƒâ„¢Ã¢â‚¬Å¡Ãƒâ„¢Ã‚ÂÃƒâ„¢Ã¢â‚¬Å¾ Ãƒâ„¢Ã‚Â¾ÃƒËœÃ‚Â§Ãƒâ€ºÃ…â€™ÃƒÅ¡Ã‚Â¯ÃƒËœÃ‚Â§Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â§ÃƒËœÃ‚Â¯Ãƒâ„¢Ã¢â‚¬Â¡ ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â± ÃƒËœÃ‚Â¯ÃƒËœÃ‚Â³ÃƒËœÃ‚ÂªÃƒËœÃ‚Â±ÃƒËœÃ‚Â³ Ãƒâ„¢Ã¢â‚¬Â Ãƒâ€ºÃ…â€™ÃƒËœÃ‚Â³ÃƒËœÃ‚Âª".to_string()
+                      })?
+                      .clone(),
+              )
+              .map_err(|e| e.to_string())
+          }
+          '''
+          if old not in s:
+              raise SystemExit('conn() exact block not found; aborting without changes')
+          new = '''fn configure_connection(conn: &Connection) -> Result<(), String> {
+              conn.pragma_update(None, "foreign_keys", "ON")
+                  .map_err(|e| format!("APP-002: failed to enable foreign keys: {e}"))?;
+              conn.pragma_update(None, "journal_mode", "WAL")
+                  .map_err(|e| format!("APP-003: failed to enable WAL: {e}"))?;
+              conn.pragma_update(None, "synchronous", "NORMAL")
+                  .map_err(|e| format!("APP-004: failed to set synchronous mode: {e}"))?;
+              Ok(())
+          }
+
+          fn conn(state: &State<AppState>) -> Result<Connection, String> {
+              let db_path = state
+                  .db_path
+                  .lock()
+                  .map_err(|_| "APP-001: database path lock failed".to_string())?
+                  .clone();
+              let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+              configure_connection(&conn)?;
+              Ok(conn)
+          }
+          '''
+          s = s.replace(old, new, 1)
+
+          old = '''    c.query_row(
+              "SELECT id,username,display_name FROM users WHERE id=?1",
+              params![id],
+              |r| {
+                  Ok(User {
+                      id: r.get(0)?,
+                      username: r.get(1)?,
+                      display_name: r.get(2)?,
+                  })
+              },
+          )
+          .map(Some)
+          .map_err(|e| e.to_string())
+          }'''
+          if old not in s:
+              raise SystemExit('current_user exact query block not found; aborting without changes')
+          new = '''    match c.query_row(
+              "SELECT id,username,display_name FROM users WHERE id=?1 AND is_active=1",
+              params![id],
+              |r| {
+                  Ok(User {
+                      id: r.get(0)?,
+                      username: r.get(1)?,
+                      display_name: r.get(2)?,
+                  })
+              },
+          ) {
+              Ok(user) => Ok(Some(user)),
+              Err(rusqlite::Error::QueryReturnedNoRows) => {
+                  *state.user_id.lock().map_err(|_| "AUTH-001: session lock failed".to_string())? = None;
+                  Ok(None)
+              }
+              Err(e) => Err(e.to_string()),
+          }
+          }'''
+          s = s.replace(old, new, 1)
+
+          test = '''
+
+#[cfg(test)]
+mod section1_tests {
+    use super::*;
+
+    #[test]
+    fn connection_enables_required_sqlite_pragmas() {
+        let c = Connection::open_in_memory().expect("open sqlite");
+        configure_connection(&c).expect("configure sqlite");
+        let fk: i64 = c.query_row("PRAGMA foreign_keys", [], |r| r.get(0)).expect("foreign_keys");
+        let journal: String = c.query_row("PRAGMA journal_mode", [], |r| r.get(0)).expect("journal_mode");
+        let sync: i64 = c.query_row("PRAGMA synchronous", [], |r| r.get(0)).expect("synchronous");
+        assert_eq!(fk, 1);
+        assert_eq!(journal.to_ascii_lowercase(), "memory");
+        assert_eq!(sync, 1);
+    }
+
+    #[test]
+    fn foreign_keys_reject_orphan_rows() {
+        let c = Connection::open_in_memory().expect("open sqlite");
+        configure_connection(&c).expect("configure sqlite");
+        c.execute_batch("CREATE TABLE accounts(id TEXT PRIMARY KEY); CREATE TABLE journal_lines(account_id TEXT REFERENCES accounts(id));")
+            .expect("schema");
+        let result = c.execute("INSERT INTO journal_lines(account_id) VALUES(?1)", rusqlite::params!["missing"]);
+        assert!(result.is_err());
+    }
+}
+'''
+          if 'mod section1_tests' not in s:
+              s += test
+          p.write_text(s, encoding='utf-8')
+
+      - name: Format and test backend
+        working-directory: apps/desktop-host/src-tauri
+        run: |
+          cargo fmt -- --check
+          cargo test
+
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop-host/src-tauri/src/main.rs
+          git commit -m "[auto-apply] feat(auth): harden db connections and active user sessions"
+          git push origin main
