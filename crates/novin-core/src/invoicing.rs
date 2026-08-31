@@ -592,3 +592,80 @@ impl SettlementBreakdown {
         Ok(())
     }
 }
+
+// ---------------------------------------------------------------------------
+// خطوط سند حسابداری فاکتور — با تفکیک مالیات و تخفیف
+// ---------------------------------------------------------------------------
+
+/// حساب‌های درگیر در ثبت فاکتور — همه از account_mappings می‌آیند.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvoicePostingAccounts {
+    /// حساب طرف حساب (مشتری/تأمین‌کننده)
+    pub party: String,
+    /// فروش (بستانکار) یا خرید (بدهکار)
+    pub main: String,
+    /// مالیات (پرداختنی در فروش / دریافتنی در خرید)
+    pub tax: String,
+    /// تخفیف (کاهنده فروش / کاهنده خرید)
+    pub discount: String,
+}
+
+/// خط سند: (شناسه حساب، بدهکار، بستانکار)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PostingLine(pub String, pub i64, pub i64);
+
+/// ساخت خطوط سندِ پست فاکتور با تفکیک فروش خالص/مالیات/تخفیف.
+///
+/// ```text
+/// فروش:  بدهکار طرف‌حساب (total) │ بستانکار فروش (subtotal) + مالیات (tax)
+///        + بدهکار تخفیف (discount) — درصورت مثبت‌بودن
+/// خرید:  بدهکار خرید (subtotal) + مالیات (tax) │ بستانکار تخفیف + طرف‌حساب (total)
+/// ```
+///
+/// چرا تخفیف خط جدا دارد: بدون آن، تخفیف در دل حساب فروش گم می‌شود و
+/// گزارش سود و زیان و اظهارنامه مالیاتی از دیتابیس قابل استخراج نیست.
+/// خطوط صفر ساخته نمی‌شوند و تراز بدهکار/بستانکار تضمین می‌شود.
+pub fn invoice_posting_lines(
+    sale: bool,
+    subtotal: i64,
+    discount: i64,
+    tax: i64,
+    accounts: &InvoicePostingAccounts,
+) -> Result<Vec<PostingLine>, String> {
+    if subtotal < 0 || discount < 0 || tax < 0 {
+        return Err("ACC-021: مبالغ فاکتور نمی‌تواند منفی باشد".into());
+    }
+    if discount > subtotal {
+        return Err("ACC-022: تخفیف بیشتر از مبلغ فاکتور است".into());
+    }
+    let total = subtotal - discount + tax;
+    if total <= 0 {
+        return Err("ACC-023: جمع فاکتور باید مثبت باشد".into());
+    }
+    let mut lines = Vec::new();
+    if sale {
+        lines.push(PostingLine(accounts.party.clone(), total, 0));
+        lines.push(PostingLine(accounts.main.clone(), 0, subtotal));
+        if tax > 0 {
+            lines.push(PostingLine(accounts.tax.clone(), 0, tax));
+        }
+        if discount > 0 {
+            lines.push(PostingLine(accounts.discount.clone(), discount, 0));
+        }
+    } else {
+        lines.push(PostingLine(accounts.main.clone(), subtotal, 0));
+        if tax > 0 {
+            lines.push(PostingLine(accounts.tax.clone(), tax, 0));
+        }
+        if discount > 0 {
+            lines.push(PostingLine(accounts.discount.clone(), 0, discount));
+        }
+        lines.push(PostingLine(accounts.party.clone(), 0, total));
+    }
+    let debit: i64 = lines.iter().map(|line| line.1).sum();
+    let credit: i64 = lines.iter().map(|line| line.2).sum();
+    if debit != credit {
+        return Err(format!("ACC-002: جمع بدهکار ({debit}) با بستانکار ({credit}) برابر نیست"));
+    }
+    Ok(lines)
+}

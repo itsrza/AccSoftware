@@ -116,6 +116,49 @@ pub fn create_api_profile(
     Ok(id)
 }
 
+/// بررسی عضویت دامنه در فهرست مجاز — مقایسه به حروف کوچک (دامنه Case-Insensitive است).
+pub(crate) fn host_allowed(allowed_domains: &str, host: &str) -> bool {
+    let host_lower = host.to_lowercase();
+    allowed_domains
+        .split(',')
+        .map(|domain| domain.trim().to_lowercase())
+        .any(|domain| domain == host_lower)
+}
+
+/// دنبال‌کردن دستی و امن ریدایرکت: هر پرش باید دوباره از Allowlist بگذرد.
+/// حداکثر دو پرش برای جلوگیری از حلقه.
+pub(crate) fn resolve_redirect(
+    allowed_domains: &str,
+    mut url: reqwest::Url,
+    client: &reqwest::blocking::Client,
+) -> Result<reqwest::Url, String> {
+    for _ in 0..2 {
+        let response = client
+            .get(url.clone())
+            .send()
+            .map_err(|e| format!("API-026: بررسی ریدایرکت ناموفق: {e}"))?;
+        if !response.status().is_redirection() {
+            return Ok(url);
+        }
+        let location = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| "API-027: مقصد ریدایرکت خوانده نشد".to_string())?;
+        let next = url
+            .join(location)
+            .map_err(|_| "API-027: مقصد ریدایرکت نامعتبر است".to_string())?;
+        let host = next
+            .host_str()
+            .ok_or_else(|| "API-016: دامنه مقصد مشخص نیست".to_string())?;
+        if !host_allowed(allowed_domains, host) {
+            return Err("API-027: مقصد ریدایرکت خارج از Allowlist است و دنبال نشد".into());
+        }
+        url = next;
+    }
+    Ok(url)
+}
+
 #[tauri::command]
 pub fn execute_api_request(
     state: State<AppState>,
@@ -140,7 +183,8 @@ pub fn execute_api_request(
     let host = url
         .host_str()
         .ok_or_else(|| "API-016: دامنه مقصد مشخص نیست".to_string())?;
-    if !p.2.split(',').map(str::trim).any(|d| d == host) {
+    // دامنه Case-Insensitive است — مقایسه با حروف کوچک در دو طرف.
+    if !host_allowed(&p.2, host) {
         return Err("API-017: دامنه مقصد در Allowlist نیست".into());
     }
     let m = match method.to_uppercase().as_str() {
@@ -151,8 +195,11 @@ pub fn execute_api_request(
         "DELETE" => reqwest::Method::DELETE,
         _ => return Err("API-018: HTTP Method پشتیبانی نمی‌شود".into()),
     };
+    // Redirect خودکار خاموش است: دنبال‌کردن ۳xx بدون بررسی مجدد Allowlist
+    // مسیر کلاسیک SSRF است (ریدایرکت به 169.254.169.254 یا IP داخلی).
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(p.4 as u64))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| format!("API-019: ساخت Client انجام نشد: {e}"))?;
     let mut req = client.request(m, url);
@@ -199,9 +246,34 @@ pub fn execute_api_request(
     if let Some(b) = body {
         req = req.body(b).header("content-type", "application/json");
     }
-    let resp = req
+    let mut resp = req
         .send()
         .map_err(|e| format!("API-026: درخواست ناموفق بود: {e}"))?;
+    // ریدایرکت‌ها دستی و با بررسی مجدد Allowlist دنبال می‌شوند (حداکثر ۲ پرش).
+    for _ in 0..2 {
+        if !resp.status().is_redirection() {
+            break;
+        }
+        let location = resp
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| "API-027: مقصد ریدایرکت خوانده نشد".to_string())?
+            .to_string();
+        let next = url
+            .join(&location)
+            .map_err(|_| "API-027: مقصد ریدایرکت نامعتبر است".to_string())?;
+        let next_host = next
+            .host_str()
+            .ok_or_else(|| "API-016: دامنه مقصد مشخص نیست".to_string())?;
+        if !host_allowed(&p.2, next_host) {
+            return Err("API-027: مقصد ریدایرکت خارج از Allowlist است و دنبال نشد".into());
+        }
+        resp = client
+            .request(m.clone(), next)
+            .send()
+            .map_err(|e| format!("API-026: درخواست ناموفق بود: {e}"))?;
+    }
     let status = resp.status().as_u16();
     let ct = resp
         .headers()

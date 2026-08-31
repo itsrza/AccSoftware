@@ -115,14 +115,27 @@ struct StockBalance {
 }
 
 pub(crate) fn conn(state: &State<AppState>) -> Result<Connection, String> {
-    Connection::open(
+    let connection = Connection::open(
         state
             .db_path
             .lock()
             .map_err(|_| "APP-001: قفل پایگاه داده در دسترس نیست".to_string())?
             .clone(),
     )
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+    // پراگماهای یکپارچگی در SQLite per-connection اند؛ db::open فقط اتصال
+    // راه‌اندازی را تنظیم می‌کند. بدون این سه خط، هیچ فرمان واقعی برنامه
+    // (فاکتور/سند/حرکت انبار) از یکپارچگی ارجاعی محافظت نمی‌شود.
+    connection
+        .pragma_update(None, "foreign_keys", "ON")
+        .map_err(|e| format!("APP-002: فعال‌سازی یکپارچگی ارجاعی ناموفق: {e}"))?;
+    connection
+        .pragma_update(None, "journal_mode", "WAL")
+        .map_err(|e| format!("APP-003: تنظیم حالت ژورنال WAL ناموفق: {e}"))?;
+    connection
+        .pragma_update(None, "synchronous", "NORMAL")
+        .map_err(|e| format!("APP-004: تنظیم همگام‌سازی NORMAL ناموفق: {e}"))?;
+    Ok(connection)
 }
 
 fn require_login(state: &State<AppState>) -> Result<String, String> {
@@ -206,19 +219,28 @@ fn current_user(state: State<AppState>) -> Result<Option<User>, String> {
         return Ok(None);
     };
     let c = conn(&state)?;
-    c.query_row(
-        "SELECT id,username,display_name FROM users WHERE id=?1",
-        params![id],
-        |r| {
-            Ok(User {
-                id: r.get(0)?,
-                username: r.get(1)?,
-                display_name: r.get(2)?,
-            })
-        },
-    )
-    .map(Some)
-    .map_err(|e| e.to_string())
+    let found = c
+        .query_row(
+            "SELECT id,username,display_name FROM users WHERE id=?1 AND is_active=1",
+            params![id],
+            |r| {
+                Ok(User {
+                    id: r.get(0)?,
+                    username: r.get(1)?,
+                    display_name: r.get(2)?,
+                })
+            },
+        )
+        .map(Some)
+        .or_else(|error| match error {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            other => Err(other.to_string()),
+        });
+    // کاربر غیرفعال‌شده باید نشستش هم واقعاً بسته شود، نه فقط پاسخ.
+    if found.is_none() {
+        *state.user_id.lock().map_err(|_| "AUTH-001".to_string())? = None;
+    }
+    found
 }
 
 #[tauri::command]
@@ -4043,6 +4065,96 @@ struct InvoiceSummary {
     total: i64,
 }
 
+/// خواندن حساب نگاشت‌شده‌ی یک شرکت — هیچ سندی نباید حساب hardcoded داشته باشد.
+///
+/// کلیدهای مجاز: cash_default، ar_default، ap_default، sales_revenue_default،
+/// cogs_default، sales_return_default، purchase_return_default،
+/// tax_payable_default، tax_receivable_default، sales_discount_default،
+/// purchase_discount_default، check_bounce_tracking_default.
+pub(crate) fn get_account_mapping(
+    tx: &rusqlite::Transaction<'_>,
+    company: &str,
+    mapping_key: &str,
+) -> Result<String, String> {
+    tx.query_row(
+        "SELECT account_id FROM account_mappings WHERE company_id=?1 AND mapping_key=?2",
+        params![company, mapping_key],
+        |row| row.get(0),
+    )
+    .map_err(|_| {
+        format!(
+            "ACC-020: نگاشت حساب '{mapping_key}' برای این شرکت تنظیم نشده است؛ ابتدا از تنظیمات حسابداری آن را مشخص کنید"
+        )
+    })
+}
+
+#[derive(Serialize)]
+struct AccountMappingRow {
+    mapping_key: String,
+    account_id: String,
+}
+
+#[tauri::command]
+fn get_account_mappings(state: State<AppState>) -> Result<Vec<AccountMappingRow>, String> {
+    let user = require_login(&state)?;
+    let mut c = conn(&state)?;
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let (company, _fy) = active_context(&tx, &user)?;
+    let mut st = tx
+        .prepare("SELECT mapping_key,account_id FROM account_mappings WHERE company_id=?1 ORDER BY mapping_key")
+        .map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(params![company], |r| {
+            Ok(AccountMappingRow {
+                mapping_key: r.get(0)?,
+                account_id: r.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    drop(st);
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+#[tauri::command]
+fn set_account_mapping(
+    state: State<AppState>,
+    mapping_key: String,
+    account_id: String,
+) -> Result<(), String> {
+    let user = require_login(&state)?;
+    let mut c = conn(&state)?;
+    require_permission(&state, &c, "accounting.settings.edit")?;
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let (company, _fy) = active_context(&tx, &user)?;
+    // حساب باید متعلق به همین شرکت و فعال باشد.
+    let valid: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM accounts WHERE id=?1 AND company_id=?2 AND is_active=1",
+            params![account_id, company],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if valid == 0 {
+        return Err("ACC-024: حساب انتخاب‌شده متعلق به این شرکت نیست یا غیرفعال است".into());
+    }
+    let changed = tx
+        .execute(
+            "INSERT INTO account_mappings(company_id,mapping_key,account_id) VALUES(?1,?2,?3) \
+             ON CONFLICT(company_id,mapping_key) DO UPDATE SET account_id=excluded.account_id,updated_at=CURRENT_TIMESTAMP",
+            params![company, mapping_key, account_id],
+        )
+        .map_err(|e| e.to_string())?;
+    if changed == 0 {
+        return Err("ACC-025: ذخیره‌ی نگاشت انجام نشد".into());
+    }
+    audit(&tx, &user, "update", "account_mapping", &mapping_key, None, Some(&account_id))?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// گارد شناسه‌های داینامیک SQL (نام جدول) — لایه‌ی میزبان روی allowlist هسته.
 ///
 /// هر نام جدولی که قرار است در `format!` داخل SQL بنشیند باید از اینجا
@@ -4310,8 +4422,11 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
         Option<String>,
         Option<String>,
         i64,
+        i64,
+        i64,
+        i64,
     ) = {
-        let sql=format!("SELECT company_id,fiscal_year_id,invoice_date,status,total,contact_id,warehouse_id,number FROM {table} WHERE id=?1");
+        let sql=format!("SELECT company_id,fiscal_year_id,invoice_date,status,total,contact_id,warehouse_id,number,subtotal,discount,tax FROM {table} WHERE id=?1");
         tx.query_row(&sql, params![id], |r| {
             Ok((
                 r.get(0)?,
@@ -4322,6 +4437,9 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
                 r.get(5)?,
                 r.get(6)?,
                 r.get(7)?,
+                r.get(8)?,
+                r.get(9)?,
+                r.get(10)?,
             ))
         })
         .map_err(|_| "DOC-010: فاکتور یافت نشد".to_string())?
@@ -4360,24 +4478,59 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
     }
     drop(st);
     for (pid, q, p, _lt) in &items {
-        let current:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![pid,wid],|r|r.get(0)).unwrap_or(0.0);
-        if sale && current < *q {
+        // موجودی قابل‌فروش = کل − رزروشده؛ موجودی جدید از مقدار خام حساب می‌شود
+        // تا رزرو به‌اشتباه دو بار کم نشود (همان الگوی inventory_move).
+        let raw_qty:f64=tx.query_row("SELECT COALESCE(quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![pid,wid],|r|r.get(0)).unwrap_or(0.0);
+        let reserved:f64=tx.query_row("SELECT COALESCE(reserved_quantity,0) FROM inventory_balances WHERE product_id=?1 AND warehouse_id=?2",params![pid,wid],|r|r.get(0)).unwrap_or(0.0);
+        if sale && (raw_qty - reserved) < *q {
             return Err("DOC-013: موجودی یکی از کالاها کافی نیست".into());
         }
-        let newq = if sale { current - *q } else { current + *q };
+        let newq = if sale { raw_qty - *q } else { raw_qty + *q };
         tx.execute("INSERT INTO inventory_balances(product_id,warehouse_id,quantity) VALUES(?,?,?) ON CONFLICT(product_id,warehouse_id) DO UPDATE SET quantity=excluded.quantity,updated_at=CURRENT_TIMESTAMP",params![pid,wid,newq]).map_err(|e|e.to_string())?;
         let mid = format!("invoice-stock-{}-{}", id, pid);
         let typ = if sale { "issue" } else { "receipt" };
         tx.execute("INSERT INTO inventory_movements(id,company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference_type,reference_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?)",params![mid,row.0,pid,wid,typ,q,if sale{0}else{*p},"invoice",id,user]).map_err(|e|e.to_string())?;
     }
-    let cash_acc = "acc-1101".to_string();
-    let party_acc = if sale { "acc-1201" } else { "acc-2101" }.to_string();
-    let main_acc = if sale { "acc-4100" } else { "acc-5100" }.to_string();
-    let lines = if sale {
-        vec![(party_acc.clone(), row.4, 0), (main_acc, 0, row.4)]
-    } else {
-        vec![(main_acc, row.4, 0), (party_acc.clone(), 0, row.4)]
+    // رزروهای این فاکتور آزاد می‌شوند تا فروش قطعی دو بار حساب نشود.
+    {
+        let mut rst = tx
+            .prepare("SELECT id,product_id,warehouse_id,quantity FROM inventory_reservations WHERE reference_type='invoice' AND reference_id=?1 AND status='reserved'")
+            .map_err(|e| e.to_string())?;
+        let reservations: Vec<(String, String, String, f64)> = rst
+            .query_map(params![id], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(Result::ok)
+            .collect();
+        drop(rst);
+        for (rid, r_product, r_warehouse, r_quantity) in reservations {
+            tx.execute(
+                "UPDATE inventory_reservations SET status='released',released_at=CURRENT_TIMESTAMP WHERE id=?1",
+                params![rid],
+            )
+            .map_err(|e| e.to_string())?;
+            tx.execute(
+                "UPDATE inventory_balances SET reserved_quantity=MAX(0,reserved_quantity-?3) WHERE product_id=?1 AND warehouse_id=?2",
+                params![r_product, r_warehouse, r_quantity],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    // حساب‌ها از نگاشت شرکت می‌آیند — هیچ حساب hardcoded در سند نمی‌نشیند.
+    // مالیات و تخفیف خطوط جدا دارند تا سود و زیان و اظهارنامه استخراج‌پذیر بمانند.
+    let accounts = novin_core::invoicing::InvoicePostingAccounts {
+        party: get_account_mapping(&tx, &row.0, if sale { "ar_default" } else { "ap_default" })?,
+        main: get_account_mapping(&tx, &row.0, if sale { "sales_revenue_default" } else { "cogs_default" })?,
+        tax: get_account_mapping(&tx, &row.0, if sale { "tax_payable_default" } else { "tax_receivable_default" })?,
+        discount: get_account_mapping(&tx, &row.0, if sale { "sales_discount_default" } else { "purchase_discount_default" })?,
     };
+    let posting = novin_core::invoicing::invoice_posting_lines(sale, row.8, row.9, row.10, &accounts)?;
+    let lines: Vec<(String, i64, i64)> = posting
+        .into_iter()
+        .map(|novin_core::invoicing::PostingLine(account, debit, credit)| (account, debit, credit))
+        .collect();
     let debit: i64 = lines.iter().map(|x| x.1).sum();
     let credit: i64 = lines.iter().map(|x| x.2).sum();
     if debit != credit {
@@ -4501,8 +4654,9 @@ fn settle_invoice(
     } else {
         (0, amount, amount, 0)
     };
-    let party = if sale { "acc-1201" } else { "acc-2101" };
-    tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{journal_id}-cash"),journal_id,"acc-1101",a1d,a1c,description]).map_err(|e|e.to_string())?;
+    let party = get_account_mapping(&tx, &row.0, if sale { "ar_default" } else { "ap_default" })?;
+    let cash = get_account_mapping(&tx, &row.0, "cash_default")?;
+    tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{journal_id}-cash"),journal_id,cash,a1d,a1c,description]).map_err(|e|e.to_string())?;
     tx.execute("INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",params![format!("{journal_id}-party"),journal_id,party,a2d,a2c,description]).map_err(|e|e.to_string())?;
     let sid = format!(
         "settlement-{}",
@@ -5200,11 +5354,11 @@ fn update_check_status(
         let treasury_account:Option<String>=tx.query_row("SELECT linked_account_id FROM treasury_accounts WHERE id=?1 AND company_id=?2 AND is_active=1",params![treasury_id,row.2],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
         let treasury_account = treasury_account
             .ok_or_else(|| "CHK-013: حساب خزانه به حسابداری متصل نیست".to_string())?;
-        let offset_account = if row.1 == "received" {
-            "acc-1201"
-        } else {
-            "acc-2101"
-        };
+        let offset_account = get_account_mapping(
+            &tx,
+            &row.2,
+            if row.1 == "received" { "ar_default" } else { "ap_default" },
+        )?;
         let (debit, credit) = if row.1 == "received" {
             (treasury_account.as_str(), offset_account)
         } else {
@@ -5259,6 +5413,43 @@ fn update_check_status(
         }
         tx.execute(
             "UPDATE checks SET status='bounced',clearing_journal_id=NULL WHERE id=?1",
+            params![check_id],
+        )
+        .map_err(|e| e.to_string())?;
+    } else if target == CheckStatus::Bounced {
+        // برگشت قبل از وصول (نزد بانک/انتقالی): هنوز سند وصولی نیست که معکوس
+        // شود؛ اما اثر مالی واقعی دارد — بدهی/طلبِ طرف حساب باید دوباره در
+        // دفاتر دیده شود. سند پیگیری می‌سازیم (طرف‌حساب ↔ حساب چک برگشتی).
+        let party_acc = get_account_mapping(
+            &tx,
+            &row.2,
+            if row.1 == "received" { "ar_default" } else { "ap_default" },
+        )?;
+        let tracking_acc = get_account_mapping(&tx, &row.2, "check_bounce_tracking_default")?;
+        let (debit_acc, credit_acc) = if row.1 == "received" {
+            (party_acc.as_str(), tracking_acc.as_str())
+        } else {
+            (tracking_acc.as_str(), party_acc.as_str())
+        };
+        let jid = format!("journal-check-bounce-pending-{check_id}");
+        let n = next_journal_number(&tx, &row.2, &row.6)?;
+        tx.execute(
+            "INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,?, 'posted','check_bounce_pending',?,?)",
+            params![jid, row.2, row.6, n, row.7, "برگشت چک قبل از وصول", check_id, user],
+        )
+        .map_err(|e| format!("CHK-019: {e}"))?;
+        tx.execute(
+            "INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",
+            params![format!("{jid}-debit"), jid, debit_acc, row.3, 0, "برگشت چک قبل از وصول"],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.execute(
+            "INSERT INTO journal_lines(id,journal_id,account_id,debit,credit,description) VALUES(?,?,?,?,?,?)",
+            params![format!("{jid}-credit"), jid, credit_acc, 0, row.3, "برگشت چک قبل از وصول"],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.execute(
+            "UPDATE checks SET status='bounced' WHERE id=?1",
             params![check_id],
         )
         .map_err(|e| e.to_string())?;
@@ -5462,9 +5653,15 @@ fn post_return(state: &State<AppState>, return_id: String, sale: bool) -> Result
     let n:i64=tx.query_row("SELECT COALESCE(MAX(number),0)+1 FROM journal_entries WHERE company_id=?1 AND fiscal_year_id=?2",params![row.0,row.1],|r|r.get(0)).map_err(|e|e.to_string())?;
     tx.execute("INSERT INTO journal_entries(id,company_id,fiscal_year_id,number,entry_date,description,status,source_type,source_id,created_by) VALUES(?,?,?,?,?,'ثبت خودکار برگشت فاکتور','posted','invoice_return',?,?)",params![jid,row.0,row.1,n,chrono::Utc::now().format("%Y/%m/%d").to_string(),return_id,user]).map_err(|e|e.to_string())?;
     let (a, b) = if sale {
-        ("acc-4200", "acc-1201")
+        (
+            get_account_mapping(&tx, &row.0, "sales_return_default")?,
+            get_account_mapping(&tx, &row.0, "ar_default")?,
+        )
     } else {
-        ("acc-2101", "acc-5200")
+        (
+            get_account_mapping(&tx, &row.0, "ap_default")?,
+            get_account_mapping(&tx, &row.0, "purchase_return_default")?,
+        )
     };
     let lines = if sale {
         vec![(a, row.5, 0), (b, 0, row.5)]
@@ -6123,7 +6320,13 @@ fn get_dashboard_kpis(state: State<AppState>) -> Result<DashboardKpi, String> {
     let (company, fy) = active_company(&state, &c)?;
     let sales:i64=c.query_row("SELECT COALESCE(SUM(total),0) FROM sales_invoices WHERE company_id=?1 AND fiscal_year_id=?2 AND status='posted'",params![company,fy],|r|r.get(0)).map_err(|e|e.to_string())?;
     let purchases:i64=c.query_row("SELECT COALESCE(SUM(total),0) FROM purchase_invoices WHERE company_id=?1 AND fiscal_year_id=?2 AND status='posted'",params![company,fy],|r|r.get(0)).map_err(|e|e.to_string())?;
-    let gross_profit:i64=c.query_row("SELECT COALESCE(SUM(CASE WHEN je.source_type='sales_invoice' THEN jl.credit-jl.debit ELSE 0 END),0) - COALESCE(SUM(CASE WHEN je.source_type='purchase_invoice' THEN jl.debit-jl.credit ELSE 0 END),0) FROM journal_entries je JOIN journal_lines jl ON jl.journal_id=je.id WHERE je.company_id=?1 AND je.fiscal_year_id=?2 AND je.status='posted' AND jl.account_id IN (SELECT id FROM accounts WHERE code IN ('4100','5100'))",params![company,fy],|r|r.get(0)).unwrap_or(0);
+    // سود ناخالص از حساب‌های نگاشت‌شده‌ی همین شرکت — نه کدهای ثابت 4100/5100.
+    let sales_acc: Option<String> = c.query_row("SELECT account_id FROM account_mappings WHERE company_id=?1 AND mapping_key='sales_revenue_default'",params![company],|r|r.get(0)).optional().map_err(|e| e.to_string())?;
+    let cogs_acc: Option<String> = c.query_row("SELECT account_id FROM account_mappings WHERE company_id=?1 AND mapping_key='cogs_default'",params![company],|r|r.get(0)).optional().map_err(|e| e.to_string())?;
+    let gross_profit:i64=match (&sales_acc,&cogs_acc) {
+        (Some(sa),Some(ca))=>c.query_row("SELECT COALESCE(SUM(CASE WHEN jl.account_id=?3 THEN jl.credit-jl.debit ELSE 0 END),0) - COALESCE(SUM(CASE WHEN jl.account_id=?4 THEN jl.debit-jl.credit ELSE 0 END),0) FROM journal_entries je JOIN journal_lines jl ON jl.journal_id=je.id WHERE je.company_id=?1 AND je.fiscal_year_id=?2 AND je.status='posted'",params![company,fy,sa,ca],|r|r.get(0)).unwrap_or(0),
+        _=>0,
+    };
     let receivables = get_party_balances_for_company(&c, &company, true)?;
     let payables = get_party_balances_for_company(&c, &company, false)?;
     let cash:i64=c.query_row("SELECT COALESCE(SUM(CASE WHEN tt.transaction_type='receipt' THEN tt.amount WHEN tt.transaction_type='payment' THEN -tt.amount ELSE 0 END),0) FROM treasury_transactions tt WHERE tt.company_id=?1 AND tt.fiscal_year_id=?2",params![company,fy],|r|r.get(0)).unwrap_or(0);
@@ -7197,6 +7400,8 @@ fn main() {
             api_profiles::execute_api_request,
             api_profiles::set_api_profile_enabled,
             calendar::calendar_overview,
+            get_account_mappings,
+            set_account_mapping,
             get_company,
             list_accounts,
             list_contacts,

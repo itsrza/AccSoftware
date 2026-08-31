@@ -3,8 +3,11 @@ import { Icon } from './Icon'
 import {
   closeFiscalYear,
   deleteDemo,
+  getAccountMappings,
+  getAccounts,
   getSettings,
   resetSetting,
+  setAccountMapping,
   setSetting,
   SettingWithValue,
 } from '../api'
@@ -359,6 +362,10 @@ export function SettingsCenter({
         {error && <div className="error-box">{error}</div>}
         {notice && <div className="success-box">{notice}</div>}
 
+        {/* نگاشت حساب‌های پیش‌فرض — هیچ سند خودکاری نباید حساب ثابت داشته باشد.
+            * مقادیر از account_mappings میزبان می‌آید و بلافاصله ذخیره می‌شود. */}
+        <AccountMappingsPanel onError={setError} />
+
         {activeGroup === '__tools' && !search ? (
           <div className="settings-stack">
             <div className="setting-row">
@@ -447,5 +454,100 @@ export function SettingsCenter({
         )}
       </section>
     </div>
+  )
+}
+
+
+/** کلیدهای نگاشت — برچسب فارسی از i18n می‌آید (mapping.<key>). */
+const MAPPING_KEYS = [
+  'cash_default',
+  'ar_default',
+  'ap_default',
+  'sales_revenue_default',
+  'cogs_default',
+  'sales_return_default',
+  'purchase_return_default',
+  'tax_payable_default',
+  'tax_receivable_default',
+  'sales_discount_default',
+  'purchase_discount_default',
+  'check_bounce_tracking_default',
+] as const
+
+function AccountMappingsPanel({ onError }: { onError: (message: string) => void }) {
+  const { t } = useI18n()
+  const [mappings, setMappings] = useState<{ mapping_key: string; account_id: string }[]>([])
+  const [accounts, setAccounts] = useState<{ id: string; code: string; name: string }[]>([])
+  const [busy, setBusy] = useState('')
+  const [ok, setOk] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    Promise.all([getAccountMappings(), getAccounts()])
+      .then(([map, acc]) => {
+        if (!alive) return
+        setMappings(map)
+        setAccounts(acc)
+      })
+      .catch((e) => alive && onError(errorText(e)))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const commit = async (key: string, accountId: string) => {
+    setBusy(key)
+    setOk('')
+    try {
+      await setAccountMapping(key, accountId)
+      setMappings((current) =>
+        current.map((row) => (row.mapping_key === key ? { ...row, account_id: accountId } : row)),
+      )
+      setOk(key)
+    } catch (e) {
+      onError(errorText(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const label = (key: string) => t(`mapping.${key}` as never)
+
+  return (
+    <section className="panel list-panel" style={{ marginBottom: 18 }}>
+      <div className="repeat-head">
+        <h3 className="section-title">{t('settingsCenter.accountMappings')}</h3>
+      </div>
+      <p className="hint">{t('settingsCenter.accountMappingsHint')}</p>
+      <div className="line-editor">
+        {mappings.map((row) => {
+          const missing = accounts.length > 0 && !accounts.some((a) => a.id === row.account_id)
+          return (
+            <div className="line-row" key={row.mapping_key}>
+              <label className="grow">
+                {label(row.mapping_key)}
+                <Select
+                  value={row.account_id}
+                  aria-label={label(row.mapping_key)}
+                  disabled={busy === row.mapping_key}
+                  onChange={(event) => void commit(row.mapping_key, event.target.value)}
+                >
+                  <option value="">{t('settingsCenter.mappingUnset')}</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.code} — {account.name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              {ok === row.mapping_key && <span className="status passed">✓</span>}
+              {missing && <span className="status neutral">{t('settingsCenter.mappingMissing')}</span>}
+            </div>
+          )
+        })}
+        {mappings.length === 0 && <p className="empty-state">{t('common.loading')}</p>}
+      </div>
+    </section>
   )
 }

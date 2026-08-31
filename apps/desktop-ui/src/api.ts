@@ -30,6 +30,10 @@ export const logout=()=>api<void>('logout')
 export const getContacts=()=>api<Contact[]>('list_contacts')
 export const getProducts=()=>api<Product[]>('list_products')
 export const getAccounts=()=>api<Account[]>('list_accounts')
+export type AccountMapping={mapping_key:string;account_id:string}
+export const getAccountMappings=()=>api<AccountMapping[]>('get_account_mappings')
+export const setAccountMapping=(mappingKey:string,accountId:string)=>
+  api<void>('set_account_mapping',{mappingKey,accountId})
 export const getJournals=()=>api<Journal[]>('list_journals')
 export const deleteDemo=()=>api<void>('delete_demo_data')
 export const createJournal=(entry_date:string,description:string,lines:Array<[string,number,number]>)=>api<string>('create_journal',{entryDate:entry_date,description,lines})

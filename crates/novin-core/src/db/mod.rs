@@ -307,7 +307,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     INSERT OR IGNORE INTO permissions(id,name) VALUES
       ('plugins.view','plugins.view'),('plugins.manage','plugins.manage'),('plugins.execute','plugins.execute'),
       ('native.execute','native.execute'),('integrations.view','integrations.view'),('integrations.manage','integrations.manage'),('integrations.execute','integrations.execute');
-    INSERT OR IGNORE INTO permissions(id,name) VALUES ('reporting.view','reporting.view'),('accounting.period.close','accounting.period.close');
+    INSERT OR IGNORE INTO permissions(id,name) VALUES ('reporting.view','reporting.view'),('accounting.period.close','accounting.period.close'),('accounting.settings.edit','accounting.settings.edit');
     CREATE TABLE IF NOT EXISTS sales_returns(
       id TEXT PRIMARY KEY, company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE, fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id),
       number INTEGER NOT NULL, return_date TEXT NOT NULL, original_invoice_id TEXT NOT NULL REFERENCES sales_invoices(id), contact_id TEXT REFERENCES contacts(id), warehouse_id TEXT REFERENCES warehouses(id),
@@ -1503,6 +1503,50 @@ pub fn seed(conn: &Connection) -> Result<()> {
         "INSERT OR IGNORE INTO app_settings(key,value) VALUES('inventory.recount_threshold_percent','5')",
         [],
     )?;
+    // --- نگاشت حساب‌های پیش‌فرض (حذف حساب‌های hardcoded از میزبان) ---
+    // دو حساب تخفیف و یک حساب پیگیری چک برگشتی به کدینگ پایه اضافه می‌شود.
+    for (id, code, name, level, parent, nature) in [
+        ("acc-4250", "4250", "تخفیفات فروش", "general", Some("acc-4000"), "debit"),
+        ("acc-5250", "5250", "تخفیفات خرید", "general", Some("acc-5000"), "credit"),
+        ("acc-1260", "1260", "چک‌های برگشتی در پیگیری", "detail", Some("acc-1200"), "credit"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \
+             VALUES(?1,'company-demo',?2,?3,?4,?5,?6)",
+            rusqlite::params![id, code, name, level, parent, nature],
+        )?;
+    }
+    tx.execute(
+        "CREATE TABLE IF NOT EXISTS account_mappings(
+          company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+          mapping_key TEXT NOT NULL,
+          account_id TEXT NOT NULL REFERENCES accounts(id),
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY(company_id, mapping_key)
+        )",
+        [],
+    )?;
+    // seed فقط برای company-demo — شرکت‌های تازه باید از تنظیمات پر شوند.
+    for (key, account) in [
+        ("cash_default", "acc-1101"),
+        ("ar_default", "acc-1201"),
+        ("ap_default", "acc-2101"),
+        ("sales_revenue_default", "acc-4100"),
+        ("cogs_default", "acc-5100"),
+        ("sales_return_default", "acc-4200"),
+        ("purchase_return_default", "acc-5200"),
+        ("tax_payable_default", "acc-2401"),
+        ("tax_receivable_default", "acc-2401"),
+        ("sales_discount_default", "acc-4250"),
+        ("purchase_discount_default", "acc-5250"),
+        ("check_bounce_tracking_default", "acc-1260"),
+    ] {
+        tx.execute(
+            "INSERT OR IGNORE INTO account_mappings(company_id,mapping_key,account_id) \
+             VALUES('company-demo',?1,?2)",
+            rusqlite::params![key, account],
+        )?;
+    }
     // حساب‌های کسری و اضافی انبار برای سند تعدیل انبارگردانی.
     for (id, code, name, level, parent, nature) in [
         (

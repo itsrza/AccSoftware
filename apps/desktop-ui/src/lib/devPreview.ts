@@ -1348,6 +1348,21 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
 const allResponses: Record<string, (args: Record<string, unknown>) => unknown> = {
   ...responses,
   calendar_overview: calendarOverviewResponse,
+  get_account_mappings: () => [
+    {mapping_key: 'cash_default', account_id: 'acc-1101'},
+    {mapping_key: 'ar_default', account_id: 'acc-1201'},
+    {mapping_key: 'ap_default', account_id: 'acc-2101'},
+    {mapping_key: 'sales_revenue_default', account_id: 'acc-4100'},
+    {mapping_key: 'cogs_default', account_id: 'acc-5100'},
+    {mapping_key: 'sales_return_default', account_id: 'acc-4200'},
+    {mapping_key: 'purchase_return_default', account_id: 'acc-5200'},
+    {mapping_key: 'tax_payable_default', account_id: 'acc-2401'},
+    {mapping_key: 'tax_receivable_default', account_id: 'acc-2401'},
+    {mapping_key: 'sales_discount_default', account_id: 'acc-4250'},
+    {mapping_key: 'purchase_discount_default', account_id: 'acc-5250'},
+    {mapping_key: 'check_bounce_tracking_default', account_id: 'acc-1260'},
+  ],
+  set_account_mapping: () => undefined,
   ...buildExtraResponses({
     products,
     contacts,
