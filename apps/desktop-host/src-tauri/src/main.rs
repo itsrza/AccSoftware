@@ -237,7 +237,7 @@ fn current_user(state: State<AppState>) -> Result<Option<User>, String> {
             other => Err(other.to_string()),
         });
     // کاربر غیرفعال‌شده باید نشستش هم واقعاً بسته شود، نه فقط پاسخ.
-    if found.is_none() {
+    if matches!(found, Ok(None)) {
         *state.user_id.lock().map_err(|_| "AUTH-001".to_string())? = None;
     }
     found
