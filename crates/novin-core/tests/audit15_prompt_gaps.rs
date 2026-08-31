@@ -294,8 +294,7 @@ fn p11_audit_view_permission_seeded() {
     // نقش مدیر خودکار همه‌ی مجوزها را می‌گیرد (seed موجود)
     let granted: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id \\
-             JOIN roles r ON r.id=rp.role_id WHERE r.id='role-admin' AND p.id='system.audit.view'",
+            "SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id JOIN roles r ON r.id=rp.role_id WHERE rp.role_id=(SELECT id FROM roles WHERE id='role-admin') AND p.id='system.audit.view'",
             [],
             |r| r.get(0),
         )
