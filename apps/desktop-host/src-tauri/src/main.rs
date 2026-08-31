@@ -5397,9 +5397,9 @@ fn update_check_status(
             },
         )?;
         let (debit, credit) = if row.1 == "received" {
-            (treasury_account.as_str(), offset_account)
+            (treasury_account.as_str(), offset_account.as_str())
         } else {
-            (offset_account, treasury_account.as_str())
+            (offset_account.as_str(), treasury_account.as_str())
         };
         let jid = format!("journal-check-clear-{}", check_id);
         let n = next_journal_number(&tx, &row.2, &row.6)?;

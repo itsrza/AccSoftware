@@ -202,7 +202,7 @@ pub fn execute_api_request(
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| format!("API-019: ساخت Client انجام نشد: {e}"))?;
-    let mut req = client.request(m, url);
+    let mut req = client.request(m.clone(), url.clone());
     if let Some(h) = headers_json {
         let hv: serde_json::Value = serde_json::from_str(&h)
             .map_err(|_| "API-020: Headers JSON نامعتبر است".to_string())?;
