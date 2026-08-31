@@ -665,7 +665,9 @@ pub fn invoice_posting_lines(
     let debit: i64 = lines.iter().map(|line| line.1).sum();
     let credit: i64 = lines.iter().map(|line| line.2).sum();
     if debit != credit {
-        return Err(format!("ACC-002: جمع بدهکار ({debit}) با بستانکار ({credit}) برابر نیست"));
+        return Err(format!(
+            "ACC-002: جمع بدهکار ({debit}) با بستانکار ({credit}) برابر نیست"
+        ));
     }
     Ok(lines)
 }

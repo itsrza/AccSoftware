@@ -1506,9 +1506,30 @@ pub fn seed(conn: &Connection) -> Result<()> {
     // --- نگاشت حساب‌های پیش‌فرض (حذف حساب‌های hardcoded از میزبان) ---
     // دو حساب تخفیف و یک حساب پیگیری چک برگشتی به کدینگ پایه اضافه می‌شود.
     for (id, code, name, level, parent, nature) in [
-        ("acc-4250", "4250", "تخفیفات فروش", "general", Some("acc-4000"), "debit"),
-        ("acc-5250", "5250", "تخفیفات خرید", "general", Some("acc-5000"), "credit"),
-        ("acc-1260", "1260", "چک‌های برگشتی در پیگیری", "detail", Some("acc-1200"), "credit"),
+        (
+            "acc-4250",
+            "4250",
+            "تخفیفات فروش",
+            "general",
+            Some("acc-4000"),
+            "debit",
+        ),
+        (
+            "acc-5250",
+            "5250",
+            "تخفیفات خرید",
+            "general",
+            Some("acc-5000"),
+            "credit",
+        ),
+        (
+            "acc-1260",
+            "1260",
+            "چک‌های برگشتی در پیگیری",
+            "detail",
+            Some("acc-1200"),
+            "credit",
+        ),
     ] {
         tx.execute(
             "INSERT OR IGNORE INTO accounts(id,company_id,code,name,level,parent_id,nature) \

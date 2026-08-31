@@ -17,8 +17,10 @@ fn seeded() -> Connection {
 }
 
 fn company(conn: &Connection) -> String {
-    conn.query_row("SELECT id FROM companies ORDER BY id LIMIT 1", [], |row| row.get(0))
-        .expect("شرکت پایه")
+    conn.query_row("SELECT id FROM companies ORDER BY id LIMIT 1", [], |row| {
+        row.get(0)
+    })
+    .expect("شرکت پایه")
 }
 
 /// پ۱ — جدول نگاشت ساخته و برای company-demo با هر ۱۲ کلید seed شده است.
@@ -53,7 +55,9 @@ fn p02_new_chart_accounts_exist() {
         ("acc-1260", "چک‌های برگشتی در پیگیری"),
     ] {
         let found: String = conn
-            .query_row("SELECT name FROM accounts WHERE id=?1", params![id], |r| r.get(0))
+            .query_row("SELECT name FROM accounts WHERE id=?1", params![id], |r| {
+                r.get(0)
+            })
             .unwrap_or_default();
         assert_eq!(found, name, "حساب {id} باید با نام درست seed شود");
     }
@@ -74,10 +78,22 @@ fn p03_sales_posting_splits_tax_and_discount() {
     let credit: i64 = lines.iter().map(|l| l.2).sum();
     assert_eq!(debit, credit, "سند باید تراز باشد");
     assert_eq!(debit, 1_040_000, "جمع = total");
-    assert!(lines.iter().any(|l| l.0 == "sales" && l.2 == 1_000_000), "فروش ناخالص");
-    assert!(lines.iter().any(|l| l.0 == "vat" && l.2 == 90_000), "مالیات خط جدا");
-    assert!(lines.iter().any(|l| l.0 == "disc" && l.1 == 50_000), "تخفیف خط جدا");
-    assert!(lines.iter().any(|l| l.0 == "ar" && l.1 == 1_040_000), "طرف‌حساب");
+    assert!(
+        lines.iter().any(|l| l.0 == "sales" && l.2 == 1_000_000),
+        "فروش ناخالص"
+    );
+    assert!(
+        lines.iter().any(|l| l.0 == "vat" && l.2 == 90_000),
+        "مالیات خط جدا"
+    );
+    assert!(
+        lines.iter().any(|l| l.0 == "disc" && l.1 == 50_000),
+        "تخفیف خط جدا"
+    );
+    assert!(
+        lines.iter().any(|l| l.0 == "ar" && l.1 == 1_040_000),
+        "طرف‌حساب"
+    );
     // بدون مالیات/تخفیف → هیچ خط صفر ساخته نشود
     let clean = invoice_posting_lines(true, 500_000, 0, 0, &accounts).expect("سند ساده");
     assert_eq!(clean.len(), 2, "فقط طرف‌حساب و فروش");
@@ -109,9 +125,18 @@ fn p05_posting_rejects_invalid() {
         tax: "c".into(),
         discount: "d".into(),
     };
-    assert!(invoice_posting_lines(true, 100, 200, 0, &accounts).is_err(), "تخفیف > مبلغ");
-    assert!(invoice_posting_lines(true, -1, 0, 0, &accounts).is_err(), "منفی");
-    assert!(invoice_posting_lines(true, 0, 0, 0, &accounts).is_err(), "جمع صفر");
+    assert!(
+        invoice_posting_lines(true, 100, 200, 0, &accounts).is_err(),
+        "تخفیف > مبلغ"
+    );
+    assert!(
+        invoice_posting_lines(true, -1, 0, 0, &accounts).is_err(),
+        "منفی"
+    );
+    assert!(
+        invoice_posting_lines(true, 0, 0, 0, &accounts).is_err(),
+        "جمع صفر"
+    );
 }
 
 /// پ۶ — موجودی قابل‌فروش در پست فاکتور: کل − رزرو ملاک است، نه کل خام.
@@ -173,7 +198,11 @@ fn p07_reservation_released_on_post() {
     )
     .unwrap();
     let status: String = conn
-        .query_row("SELECT status FROM inventory_reservations WHERE id='audit15-r'", [], |r| r.get(0))
+        .query_row(
+            "SELECT status FROM inventory_reservations WHERE id='audit15-r'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(status, "released");
     let reserved: f64 = conn
@@ -201,7 +230,11 @@ fn p08_bounce_pending_uses_mappings() {
     assert_eq!(tracking, "acc-1260");
     // حساب باید در کدینگ واقعاً موجود باشد (FK معتبر)
     let exists: i64 = conn
-        .query_row("SELECT COUNT(*) FROM accounts WHERE id='acc-1260'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM accounts WHERE id='acc-1260'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(exists, 1);
 }

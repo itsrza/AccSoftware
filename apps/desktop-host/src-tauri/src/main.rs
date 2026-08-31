@@ -4150,7 +4150,15 @@ fn set_account_mapping(
     if changed == 0 {
         return Err("ACC-025: ذخیره‌ی نگاشت انجام نشد".into());
     }
-    audit(&tx, &user, "update", "account_mapping", &mapping_key, None, Some(&account_id))?;
+    audit(
+        &tx,
+        &user,
+        "update",
+        "account_mapping",
+        &mapping_key,
+        None,
+        Some(&account_id),
+    )?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -4522,11 +4530,36 @@ fn post_invoice(state: &State<AppState>, id: String, sale: bool) -> Result<(), S
     // مالیات و تخفیف خطوط جدا دارند تا سود و زیان و اظهارنامه استخراج‌پذیر بمانند.
     let accounts = novin_core::invoicing::InvoicePostingAccounts {
         party: get_account_mapping(&tx, &row.0, if sale { "ar_default" } else { "ap_default" })?,
-        main: get_account_mapping(&tx, &row.0, if sale { "sales_revenue_default" } else { "cogs_default" })?,
-        tax: get_account_mapping(&tx, &row.0, if sale { "tax_payable_default" } else { "tax_receivable_default" })?,
-        discount: get_account_mapping(&tx, &row.0, if sale { "sales_discount_default" } else { "purchase_discount_default" })?,
+        main: get_account_mapping(
+            &tx,
+            &row.0,
+            if sale {
+                "sales_revenue_default"
+            } else {
+                "cogs_default"
+            },
+        )?,
+        tax: get_account_mapping(
+            &tx,
+            &row.0,
+            if sale {
+                "tax_payable_default"
+            } else {
+                "tax_receivable_default"
+            },
+        )?,
+        discount: get_account_mapping(
+            &tx,
+            &row.0,
+            if sale {
+                "sales_discount_default"
+            } else {
+                "purchase_discount_default"
+            },
+        )?,
     };
-    let posting = novin_core::invoicing::invoice_posting_lines(sale, row.8, row.9, row.10, &accounts)?;
+    let posting =
+        novin_core::invoicing::invoice_posting_lines(sale, row.8, row.9, row.10, &accounts)?;
     let lines: Vec<(String, i64, i64)> = posting
         .into_iter()
         .map(|novin_core::invoicing::PostingLine(account, debit, credit)| (account, debit, credit))
@@ -5357,7 +5390,11 @@ fn update_check_status(
         let offset_account = get_account_mapping(
             &tx,
             &row.2,
-            if row.1 == "received" { "ar_default" } else { "ap_default" },
+            if row.1 == "received" {
+                "ar_default"
+            } else {
+                "ap_default"
+            },
         )?;
         let (debit, credit) = if row.1 == "received" {
             (treasury_account.as_str(), offset_account)
@@ -5423,7 +5460,11 @@ fn update_check_status(
         let party_acc = get_account_mapping(
             &tx,
             &row.2,
-            if row.1 == "received" { "ar_default" } else { "ap_default" },
+            if row.1 == "received" {
+                "ar_default"
+            } else {
+                "ap_default"
+            },
         )?;
         let tracking_acc = get_account_mapping(&tx, &row.2, "check_bounce_tracking_default")?;
         let (debit_acc, credit_acc) = if row.1 == "received" {
