@@ -3629,6 +3629,79 @@ fn backup_dir(state: &State<AppState>) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+#[derive(Serialize)]
+struct AuditLogRow {
+    id: String,
+    user_id: Option<String>,
+    username: Option<String>,
+    action: String,
+    entity_type: Option<String>,
+    entity_id: Option<String>,
+    before_json: Option<String>,
+    after_json: Option<String>,
+    created_at: String,
+}
+
+/// لاگ عملکرد کاربران — داده‌ی audit_logs از قبل کامل ثبت می‌شود؛
+/// این دستور آن را با فیلتر و صفحه‌بندی در دسترس مدیر می‌گذارد.
+#[tauri::command]
+fn list_audit_logs(
+    state: State<AppState>,
+    from_date: Option<String>,
+    to_date: Option<String>,
+    user_id: Option<String>,
+    entity_type: Option<String>,
+    limit: Option<i64>,
+) -> Result<Vec<AuditLogRow>, String> {
+    let c = conn(&state)?;
+    require_permission(&state, &c, "system.audit.view")?;
+    let limit = limit.unwrap_or(200).clamp(1, 1000);
+    // شرط‌ها پارامتری می‌شوند — ورودی کاربر هرگز در متن SQL نمی‌نشیند.
+    let mut sql = String::from(
+        "SELECT a.id,a.user_id,u.username,a.action,a.entity_type,a.entity_id,\
+         a.before_json,a.after_json,a.created_at \
+         FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id WHERE 1=1",
+    );
+    let mut args: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    if let Some(from) = from_date {
+        sql.push_str(" AND date(a.created_at)>=?");
+        args.push(Box::new(from));
+    }
+    if let Some(to) = to_date {
+        sql.push_str(" AND date(a.created_at)<=?");
+        args.push(Box::new(to));
+    }
+    if let Some(user) = user_id {
+        sql.push_str(" AND a.user_id=?");
+        args.push(Box::new(user));
+    }
+    if let Some(entity) = entity_type {
+        sql.push_str(" AND a.entity_type=?");
+        args.push(Box::new(entity));
+    }
+    sql.push_str(" ORDER BY a.created_at DESC, a.rowid DESC LIMIT ?");
+    args.push(Box::new(limit));
+    let mut st = c.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = st
+        .query_map(rusqlite::params_from_iter(args.iter().map(|value| value.as_ref())), |r| {
+            Ok(AuditLogRow {
+                id: r.get(0)?,
+                user_id: r.get(1)?,
+                username: r.get(2)?,
+                action: r.get(3)?,
+                entity_type: r.get(4)?,
+                entity_id: r.get(5)?,
+                before_json: r.get(6)?,
+                after_json: r.get(7)?,
+                created_at: r.get(8)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
+    Ok(rows)
+}
+
 #[tauri::command]
 fn list_backups(state: State<AppState>) -> Result<Vec<BackupInfo>, String> {
     let dir = backup_dir(&state)?;
@@ -7504,6 +7577,7 @@ fn main() {
             delete_product,
             transfer_stock,
             adjust_stock,
+            list_audit_logs,
             list_backups,
             backup_database,
             restore_database,

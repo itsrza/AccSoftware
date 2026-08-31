@@ -278,3 +278,27 @@ fn p10_demo_regression_mappings_match_old_hardcode() {
         assert_eq!(actual, expected, "کلید {key} باید هم‌ارزش رفتار قدیمی باشد");
     }
 }
+
+/// پ۱۱ — مجوز لاگ عملکرد seed و به نقش مدیر داده شده است.
+#[test]
+fn p11_audit_view_permission_seeded() {
+    let conn = seeded();
+    let seeded_perm: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM permissions WHERE id='system.audit.view'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(seeded_perm, 1, "مجوز باید seed شود");
+    // نقش مدیر خودکار همه‌ی مجوزها را می‌گیرد (seed موجود)
+    let granted: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id \\
+             JOIN roles r ON r.id=rp.role_id WHERE r.id='role-admin' AND p.id='system.audit.view'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(granted, 1, "مدیر باید مجوز لاگ را داشته باشد");
+}

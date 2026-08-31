@@ -307,7 +307,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     INSERT OR IGNORE INTO permissions(id,name) VALUES
       ('plugins.view','plugins.view'),('plugins.manage','plugins.manage'),('plugins.execute','plugins.execute'),
       ('native.execute','native.execute'),('integrations.view','integrations.view'),('integrations.manage','integrations.manage'),('integrations.execute','integrations.execute');
-    INSERT OR IGNORE INTO permissions(id,name) VALUES ('reporting.view','reporting.view'),('accounting.period.close','accounting.period.close'),('accounting.settings.edit','accounting.settings.edit');
+    INSERT OR IGNORE INTO permissions(id,name) VALUES ('reporting.view','reporting.view'),('accounting.period.close','accounting.period.close'),('accounting.settings.edit','accounting.settings.edit'),('system.audit.view','system.audit.view');
     CREATE TABLE IF NOT EXISTS sales_returns(
       id TEXT PRIMARY KEY, company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE, fiscal_year_id TEXT NOT NULL REFERENCES fiscal_years(id),
       number INTEGER NOT NULL, return_date TEXT NOT NULL, original_invoice_id TEXT NOT NULL REFERENCES sales_invoices(id), contact_id TEXT REFERENCES contacts(id), warehouse_id TEXT REFERENCES warehouses(id),

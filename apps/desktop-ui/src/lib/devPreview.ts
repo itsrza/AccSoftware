@@ -1348,6 +1348,27 @@ const responses: Record<string, (args: Record<string, unknown>) => unknown> = {
 const allResponses: Record<string, (args: Record<string, unknown>) => unknown> = {
   ...responses,
   calendar_overview: calendarOverviewResponse,
+  list_audit_logs: () => [
+    {
+      id: 'audit-1', user_id: 'user-demo', username: 'admin', action: 'create',
+      entity_type: 'invoice', entity_id: 'demo-sale-1',
+      before_json: null, after_json: '{"number":3,"total":26400000}',
+      created_at: '2026-08-20 10:12:00',
+    },
+    {
+      id: 'audit-2', user_id: 'user-demo', username: 'admin', action: 'update',
+      entity_type: 'product', entity_id: 'prod-1',
+      before_json: '{"sale_price":12000000}', after_json: '{"sale_price":12500000}',
+      created_at: '2026-08-19 16:40:00',
+    },
+  ],
+  list_backups: () => [
+    {name: 'backup-2026-08-20.sqlite', size_bytes: 4_718_592},
+    {name: 'backup-2026-08-13.sqlite', size_bytes: 4_194_304},
+  ],
+  backup_database: () => ({name: `backup-${new Date().toISOString().slice(0, 10)}.sqlite`, size_bytes: 5_242_880}),
+  verify_backup_file: () => 'OK',
+  restore_database: () => undefined,
   get_account_mappings: () => [
     {mapping_key: 'cash_default', account_id: 'acc-1101'},
     {mapping_key: 'ar_default', account_id: 'acc-1201'},

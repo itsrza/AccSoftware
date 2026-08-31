@@ -3,8 +3,12 @@ import { Icon } from './Icon'
 import {
   closeFiscalYear,
   deleteDemo,
+  backupDatabase,
   getAccountMappings,
   getAccounts,
+  listBackups,
+  restoreDatabase,
+  verifyBackupFile,
   getSettings,
   resetSetting,
   setAccountMapping,
@@ -365,6 +369,7 @@ export function SettingsCenter({
         {/* نگاشت حساب‌های پیش‌فرض — هیچ سند خودکاری نباید حساب ثابت داشته باشد.
             * مقادیر از account_mappings میزبان می‌آید و بلافاصله ذخیره می‌شود. */}
         <AccountMappingsPanel onError={setError} />
+        <BackupPanel onError={setError} />
 
         {activeGroup === '__tools' && !search ? (
           <div className="settings-stack">
@@ -547,6 +552,100 @@ function AccountMappingsPanel({ onError }: { onError: (message: string) => void 
           )
         })}
         {mappings.length === 0 && <p className="empty-state">{t('common.loading')}</p>}
+      </div>
+    </section>
+  )
+}
+
+
+function BackupPanel({ onError }: { onError: (message: string) => void }) {
+  const { t } = useI18n()
+  const [items, setItems] = useState<{ name: string; size_bytes: number }[]>([])
+  const [busy, setBusy] = useState('')
+  const [confirming, setConfirming] = useState('')
+  const [ok, setOk] = useState('')
+
+  const load = () => {
+    listBackups()
+      .then(setItems)
+      .catch(() => setItems([]))
+  }
+  useEffect(load, [])
+
+  const create = async () => {
+    setBusy('create')
+    setOk('')
+    try {
+      await backupDatabase()
+      setOk('create')
+      load()
+    } catch (e) {
+      onError(errorText(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const verify = async (name: string) => {
+    setBusy(name)
+    setOk('')
+    try {
+      await verifyBackupFile(name)
+      setOk(name)
+    } catch (e) {
+      onError(errorText(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const restore = async (name: string) => {
+    if (confirming !== name) {
+      setConfirming(name)
+      return
+    }
+    setBusy(name)
+    setConfirming('')
+    try {
+      await restoreDatabase(name)
+      setOk(name)
+    } catch (e) {
+      onError(errorText(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const mb = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`
+
+  return (
+    <section className="panel list-panel" style={{ marginBottom: 18 }}>
+      <div className="repeat-head">
+        <h3 className="section-title">{t('settingsCenter.backup')}</h3>
+        <button type="button" className="table-action" disabled={busy === 'create'} onClick={create}>
+          {busy === 'create' ? t('common.loading') : t('settingsCenter.backupCreate')}
+        </button>
+      </div>
+      <p className="hint">{t('settingsCenter.backupHint')}</p>
+      <div className="line-editor">
+        {items.map((item) => (
+          <div className="line-row" key={item.name}>
+            <span className="grow tnum" dir="ltr">{item.name}</span>
+            <span className="tnum text-faint">{t('settingsCenter.backupSize')}: {mb(item.size_bytes)}</span>
+            <button type="button" className="table-action" disabled={busy === item.name} onClick={() => void verify(item.name)}>
+              {ok === item.name ? '✓' : t('settingsCenter.backupVerify')}
+            </button>
+            <button
+              type="button"
+              className={confirming === item.name ? 'table-action danger-icon' : 'table-action'}
+              disabled={busy === item.name}
+              onClick={() => void restore(item.name)}
+            >
+              {confirming === item.name ? t('settingsCenter.backupConfirm') : t('settingsCenter.backupRestore')}
+            </button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="empty-state">{t('settingsCenter.backupEmpty')}</p>}
       </div>
     </section>
   )

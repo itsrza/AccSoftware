@@ -30,6 +30,20 @@ export const logout=()=>api<void>('logout')
 export const getContacts=()=>api<Contact[]>('list_contacts')
 export const getProducts=()=>api<Product[]>('list_products')
 export const getAccounts=()=>api<Account[]>('list_accounts')
+export type AuditLogRow={
+  id:string;user_id:string|null;username:string|null;action:string;
+  entity_type:string|null;entity_id:string|null;
+  before_json:string|null;after_json:string|null;created_at:string
+}
+export const getAuditLogs=(
+  from?:string,to?:string,userId?:string,entityType?:string,limit?:number,
+)=>api<AuditLogRow[]>('list_audit_logs',{fromDate:from,toDate:to,userId,entityType,limit})
+
+export type BackupInfo={name:string;size_bytes:number}
+export const listBackups=()=>api<BackupInfo[]>('list_backups')
+export const backupDatabase=()=>api<BackupInfo>('backup_database')
+export const restoreDatabase=(name:string)=>api<void>('restore_database',{name})
+
 export type AccountMapping={mapping_key:string;account_id:string}
 export const getAccountMappings=()=>api<AccountMapping[]>('get_account_mappings')
 export const setAccountMapping=(mappingKey:string,accountId:string)=>
