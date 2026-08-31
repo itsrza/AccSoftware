@@ -16,14 +16,14 @@ import { resolve } from 'node:path'
 const ROOT = resolve(__dirname, '../../../..')
 
 describe('م۱۴ · مجموعه‌ی سخت‌گیرانه‌ی تجاری‌سازی', () => {
-  it('س۱۴ — ۱۱۳ تست سخت‌گرایی تجاری همه پاس‌اند', () => {
+  it('س۱۴ — ۱۱۴ تست سخت‌گرایی تجاری همه پاس‌اند', () => {
     const run = spawnSync('node', ['scripts/commercial-hardening-tests.mjs'], {
       cwd: ROOT,
       encoding: 'utf8',
       timeout: 120_000,
     })
     expect(run.status, run.stdout + run.stderr).toBe(0)
-    expect(run.stdout).toContain('113 passed, 0 failed')
+    expect(run.stdout).toContain('114 passed, 0 failed')
   })
 
   it('س۱۵ — ممیزی پایتونی معماری/یکپارچگی/امنیت پاس است', () => {

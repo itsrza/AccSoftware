@@ -117,7 +117,8 @@ test('source:pages-count',()=>assert(pages.length>=10,'page coverage is unexpect
 test('source:components-count',()=>assert(components.length>=5,'component coverage is unexpectedly low'))
 
 /* اندازه‌ی مجموعه منجمد است؛ هر تغییر عمدی باید این عدد را آگاهانه به‌روز کند. */
-test('final:exactly-113',()=>assert(tests.length===113,`expected 113 tests, got ${tests.length}`))
+test('ps1:bom',()=>{for(const f of fs.readdirSync(path.join(root,'tools')).filter(f=>f.endsWith('.ps1'))){const b=fs.readFileSync(path.join(root,'tools',f));assert(b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF,`tools/${f} must start with a UTF-8 BOM — Windows PowerShell 5.1 cannot parse UTF-8 without BOM`)}},)
+test('final:exactly-114',()=>assert(tests.length===114,`expected 114 tests, got ${tests.length}`))
 
 let passed=0,failed=0
 for(const [name,fn] of tests){try{fn();passed++;console.log(`PASS ${String(passed+failed).padStart(3,'0')} ${name}`)}catch(error){failed++;console.error(`FAIL ${String(passed+failed).padStart(3,'0')} ${name}: ${error.message}`)}}
