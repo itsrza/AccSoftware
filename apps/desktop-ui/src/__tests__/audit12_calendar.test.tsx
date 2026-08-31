@@ -94,11 +94,17 @@ describe('م۱۲ · آینه‌ی TS تقویم قمری', () => {
   })
 
   it('ت۲ — رفت‌وبرگشت ۲۰۰۰ روز پیاپی بدون خطا', () => {
+    // مقایسه «روز تقویمی محلی» است نه لحظه‌ی زمانی — تبدیل‌ها روی
+    // اجزای تاریخ محلی کار می‌کنند و روی ماشین با هر منطقه‌زمانی
+    // (مثلاً UTC+3:30 در ویندوز کاربر) باید یک روز برگردند.
     const start = new Date(2020, 0, 1).getTime()
     for (let index = 0; index < 2000; index += 1) {
       const date = new Date(start + index * 86_400_000)
       const back = hijriToGregorian(toHijri(date))
-      expect(back, date.toISOString()).toEqual(date)
+      expect(
+        [back.getFullYear(), back.getMonth(), back.getDate()],
+        date.toLocaleDateString('en-CA'),
+      ).toEqual([date.getFullYear(), date.getMonth(), date.getDate()])
     }
   })
 

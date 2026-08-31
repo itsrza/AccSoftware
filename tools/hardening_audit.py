@@ -3,12 +3,12 @@ import re, json, sys
 
 root=Path(__file__).resolve().parents[1]
 _host=root/'apps/desktop-host/src-tauri/src'
-rust=(_host/'main.rs').read_text()
+rust=(_host/'main.rs').read_text(encoding='utf-8')
 host_tree='\n'.join(f.read_text(encoding='utf-8') for f in sorted(_host.rglob('*.rs')))
-db=(root/'crates/novin-core/src/db/mod.rs').read_text()  # دیتابیس در هسته است
-ui_pkg=json.loads((root/'apps/desktop-ui/package.json').read_text())
-api=(root/'apps/desktop-ui/src/api.ts').read_text()
-app=(root/'apps/desktop-ui/src/App.tsx').read_text()
+db=(root/'crates/novin-core/src/db/mod.rs').read_text(encoding='utf-8')  # دیتابیس در هسته است
+ui_pkg=json.loads((root/'apps/desktop-ui/package.json').read_text(encoding='utf-8'))
+api=(root/'apps/desktop-ui/src/api.ts').read_text(encoding='utf-8')
+app=(root/'apps/desktop-ui/src/App.tsx').read_text(encoding='utf-8')
 errors=[]
 
 def need(cond,msg):
@@ -17,13 +17,13 @@ def need(cond,msg):
 # Pass A: architecture and version integrity
 _v=str(ui_pkg['version'])
 need(len(_v.split('.'))==3,'UI version must be semver')
-need('version.workspace = true' in (root/'apps/desktop-host/src-tauri/Cargo.toml').read_text(),'Rust package must use workspace version')
-need(f'"version": "{_v}"' in (root/'package.json').read_text(),'Root package version mismatch')
-need(f'"version": "{_v}"' in (root/'apps/desktop-host/src-tauri/tauri.conf.json').read_text(),'Tauri version mismatch')
-need(f'version = "{_v}"' in (root/'Cargo.toml').read_text(),'Workspace version mismatch')
-need('SQLite' in (root/'docs/ARCHITECTURE.md').read_text(),'Architecture documentation missing SQLite')
-need('Tauri' in (root/'docs/ARCHITECTURE.md').read_text(),'Architecture documentation missing Tauri')
-need('React' in (root/'docs/ARCHITECTURE.md').read_text(),'Architecture documentation missing React')
+need('version.workspace = true' in (root/'apps/desktop-host/src-tauri/Cargo.toml').read_text(encoding='utf-8'),'Rust package must use workspace version')
+need(f'"version": "{_v}"' in (root/'package.json').read_text(encoding='utf-8'),'Root package version mismatch')
+need(f'"version": "{_v}"' in (root/'apps/desktop-host/src-tauri/tauri.conf.json').read_text(encoding='utf-8'),'Tauri version mismatch')
+need(f'version = "{_v}"' in (root/'Cargo.toml').read_text(encoding='utf-8'),'Workspace version mismatch')
+need('SQLite' in (root/'docs/ARCHITECTURE.md').read_text(encoding='utf-8'),'Architecture documentation missing SQLite')
+need('Tauri' in (root/'docs/ARCHITECTURE.md').read_text(encoding='utf-8'),'Architecture documentation missing Tauri')
+need('React' in (root/'docs/ARCHITECTURE.md').read_text(encoding='utf-8'),'Architecture documentation missing React')
 need('tauri::generate_handler!' in rust,'Tauri command handler missing')
 need('env_clear()' in rust and 'Duration::from_secs(15)' in rust,'Plugin worker isolation controls missing')
 need('keyring::Entry' in host_tree,'OS secure secret storage missing')
@@ -48,13 +48,13 @@ need('company_users WHERE user_id=?2 AND cu.is_active=1' in rust or 'cu.user_id=
 need('api_profiles' in host_tree and 'allowed_domains' in host_tree,'API allowlist missing')
 need(re.search(r'"host"\s*\|\s*"authorization"\s*\|\s*"cookie"',host_tree),'Sensitive request header block missing')
 need('plugins.execute' in rust and 'native.execute' in rust,'Plugin execution permission gate missing')
-need('Plugin / Native Worker' in (root/'apps/desktop-ui/src/pages/Integrations.tsx').read_text(),'Integration UI missing')
+need('Plugin / Native Worker' in (root/'apps/desktop-ui/src/pages/Integrations.tsx').read_text(encoding='utf-8'),'Integration UI missing')
 need('getApiProfiles' in api and 'getPlugins' in api,'Frontend integration API bindings missing')
 need('Integrations' in app,'Integrations route/UI missing')
 
 # No obvious fake-form residue in active production pages.
 for f in root.glob('apps/desktop-ui/src/**/*.tsx'):
-    t=f.read_text()
+    t=f.read_text(encoding='utf-8')
     if 'فرم نمونه برای مرحله UI نسخه 0.2' in t:
         errors.append(f'Old fake/demo UI marker remains in {f}')
 
