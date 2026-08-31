@@ -77,7 +77,8 @@ fn p03_sales_posting_splits_tax_and_discount() {
     let debit: i64 = lines.iter().map(|l| l.1).sum();
     let credit: i64 = lines.iter().map(|l| l.2).sum();
     assert_eq!(debit, credit, "سند باید تراز باشد");
-    assert_eq!(debit, 1_040_000, "جمع = total");
+    // جمع دفتر = ناخالص + مالیات (تخفیف خطِ بدهکار جدا دارد؛ طرفین ۱٬۰۹۰٬۰۰۰)
+    assert_eq!(debit, 1_090_000);
     assert!(
         lines.iter().any(|l| l.0 == "sales" && l.2 == 1_000_000),
         "فروش ناخالص"
@@ -112,7 +113,7 @@ fn p04_purchase_posting_balanced() {
     let debit: i64 = lines.iter().map(|l| l.1).sum();
     let credit: i64 = lines.iter().map(|l| l.2).sum();
     assert_eq!(debit, credit);
-    assert_eq!(debit, 2_080_000, "خرید ناخالص + مالیات");
+    assert_eq!(debit, 2_180_000, "خرید ناخالص + مالیات");
     assert!(lines.iter().any(|l| l.0 == "ap" && l.2 == 2_080_000));
 }
 
