@@ -192,9 +192,49 @@ def emit_ci_diagnostics() -> None:
 
     if "host" in marker_text:
         emit_host_diagnostics(root, environment)
+def test_diag():
+    """تشخیصی موقت: تست‌های شکسته‌ی هسته در annotations."""
+    import os
+    import re as _re
+    import subprocess
+
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    try:
+        home = os.path.expanduser("~")
+        cargo_bin = os.path.join(home, ".cargo", "bin")
+        if not pathlib.Path(cargo_bin, "cargo").exists():
+            subprocess.run(
+                ["curl", "--proto", "=https", "--tlsv1.2", "-sSf",
+                 "https://sh.rustup.rs", "-o", "/tmp/rustup.sh"],
+                check=True, timeout=120,
+            )
+            subprocess.run(
+                ["sh", "/tmp/rustup.sh", "-y", "--profile", "minimal",
+                 "--default-toolchain", "stable"],
+                check=True, timeout=600, capture_output=True,
+            )
+        env = dict(os.environ)
+        env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        result = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "test", "-p", "novin-core", "--", "--nocapture"],
+            capture_output=True, text=True, env=env, timeout=1700,
+        )
+        raw = _re.compile(r"\x1b\[[0-9;]*m").sub("", (result.stderr or "") + (result.stdout or ""))
+        lines = [l for l in raw.splitlines()
+                 if ("panicked" in l.lower() or "left:" in l or "right:" in l
+                      or l.strip().lower().startswith("error")
+                      or (l.strip().startswith("test ") and "FAILED" in l))][:8]
+        for line in lines:
+            print(f"::error::TD| {line.strip()[:260]}")
+        print(f"::error::TD-EXIT={result.returncode}")
+    except Exception as error:  # noqa: BLE001
+        print(f"::error::TD-FAILED {error}")
+
 
 def main(argv):
     emit_ci_diagnostics()
+    test_diag()
     check_only = "--check" in argv
     paths = [a for a in argv[1:] if not a.startswith("--")]
     exit_code = 0
