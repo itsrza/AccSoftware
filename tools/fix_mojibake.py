@@ -221,10 +221,21 @@ def test_diag():
             capture_output=True, text=True, env=env, timeout=1700,
         )
         raw = _re.compile(r"\x1b\[[0-9;]*m").sub("", (result.stderr or "") + (result.stdout or ""))
-        lines = [l for l in raw.splitlines()
-                 if ("panicked" in l.lower() or "left:" in l or "right:" in l
-                      or l.strip().lower().startswith("error")
-                      or (l.strip().startswith("test ") and "FAILED" in l))][:8]
+        out_lines = raw.splitlines()
+        picked = []
+        for i, l in enumerate(out_lines):
+            low = l.lower()
+            if ("panicked" in low or "left:" in low or "right:" in low
+                    or l.strip().lower().startswith("error")
+                    or (l.strip().startswith("test ") and "FAILED" in l)):
+                picked.append(l)
+                # دو خط بعدی برای پیام کامل خطا
+                picked.extend(out_lines[i + 1: i + 3])
+        dedup = []
+        for l in picked:
+            if l not in dedup:
+                dedup.append(l)
+        lines = dedup[:10]
         for line in lines:
             print(f"::error::TD| {line.strip()[:260]}")
         print(f"::error::TD-EXIT={result.returncode}")
