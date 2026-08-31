@@ -234,6 +234,46 @@ def quick_diag():
         for line in errors + contexts:
             print(f"::error::QD| {line.strip()[:260]}")
         print(f"::error::QD-CORE-EXIT={core.returncode}")
+
+        tests = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "test", "-p", "novin-core", "--", "--nocapture"],
+            capture_output=True, text=True, env=env, timeout=1700,
+        )
+        traw = _re.compile(r"\x1b\[[0-9;]*m").sub("", (tests.stderr or "") + (tests.stdout or ""))
+        tlines = [l for l in traw.splitlines()
+                  if ("panicked" in l.lower() or l.strip().lower().startswith("test ")
+                      and "... " in l and "ok" not in l
+                      or "left:" in l or "right:" in l
+                      or l.strip().lower().startswith("error"))][:8]
+        for line in tlines:
+            print(f"::error::QD-TEST| {line.strip()[:260]}")
+        print(f"::error::QD-TEST-EXIT={tests.returncode}")
+
+        # میزبان: عبور از generate_context با dist و آیکون آزمایشی
+        stub = pathlib.Path("/tmp/np-dist")
+        stub.mkdir(parents=True, exist_ok=True)
+        (stub / "index.html").write_text("<html></html>", encoding="utf-8")
+        icons = pathlib.Path("apps/desktop-host/src-tauri/icons")
+        icons.mkdir(parents=True, exist_ok=True)
+        png = icons / "icon.png"
+        if not png.exists():
+            png.write_bytes(bytes.fromhex(
+                "89504e470d0a1a0a0000000d4948445200000001000000010806000"
+                "0001f15c4890000000d49444154789c63f8cfc0f01f0005050201"
+                "4dda5f9e0000000049454e44ae426082"))
+        env["TAURI_CONFIG"] = '{"build":{"frontendDist":"/tmp/np-dist"}}'
+        host = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "check",
+             "-p", "novin-accounting-host", "--all-targets"],
+            capture_output=True, text=True, env=env, timeout=1700,
+        )
+        hraw = _re.compile(r"\x1b\[[0-9;]*m").sub("", (host.stderr or "") + (host.stdout or ""))
+        hlines = [l for l in hraw.splitlines()
+                  if l.strip().lower().startswith("error") or "error[e" in l.lower()[:20]][:6]
+        hctx = [l for l in hraw.splitlines() if "-->" in l][:4]
+        for line in hlines + hctx:
+            print(f"::error::QD-HOST| {line.strip()[:260]}")
+        print(f"::error::QD-HOST-EXIT={host.returncode}")
     except Exception as error:  # noqa: BLE001
         print(f"::error::QD-FAILED {error}")
 
