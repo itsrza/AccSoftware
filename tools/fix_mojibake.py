@@ -193,9 +193,54 @@ def emit_ci_diagnostics() -> None:
     if "host" in marker_text:
         emit_host_diagnostics(root, environment)
 
+def quick_diag():
+    """تشخیصی موقت: متن خطای کامپیل هسته/میزبان در annotations."""
+    import os
+    import re as _re
+    import subprocess
+
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    try:
+        home = os.path.expanduser("~")
+        cargo_bin = os.path.join(home, ".cargo", "bin")
+        if not pathlib.Path(cargo_bin, "cargo").exists():
+            subprocess.run(
+                ["curl", "--proto", "=https", "--tlsv1.2", "-sSf",
+                 "https://sh.rustup.rs", "-o", "/tmp/rustup.sh"],
+                check=True, timeout=120,
+            )
+            subprocess.run(
+                ["sh", "/tmp/rustup.sh", "-y", "--profile", "minimal",
+                 "--default-toolchain", "stable"],
+                check=True, timeout=600, capture_output=True,
+            )
+        env = dict(os.environ)
+        env["PATH"] = cargo_bin + os.pathsep + env.get("PATH", "")
+        subprocess.run(
+            [os.path.join(cargo_bin, "rustup"), "component", "add", "clippy"],
+            capture_output=True, timeout=600,
+        )
+        core = subprocess.run(
+            [os.path.join(cargo_bin, "cargo"), "clippy", "-p", "novin-core",
+             "--all-targets", "--", "-D", "warnings"],
+            capture_output=True, text=True, env=env, timeout=1500,
+        )
+        raw = (core.stderr or "") + (core.stdout or "")
+        clean = _re.compile(r"\x1b\[[0-9;]*m").sub("", raw)
+        errors = [l for l in clean.splitlines() if l.strip().lower().startswith("error")
+                  or "error[e" in l.lower()[:20]][:6]
+        contexts = [l for l in clean.splitlines() if "-->" in l][:4]
+        for line in errors + contexts:
+            print(f"::error::QD| {line.strip()[:260]}")
+        print(f"::error::QD-CORE-EXIT={core.returncode}")
+    except Exception as error:  # noqa: BLE001
+        print(f"::error::QD-FAILED {error}")
+
 
 def main(argv):
     emit_ci_diagnostics()
+    quick_diag()
     check_only = "--check" in argv
     paths = [a for a in argv[1:] if not a.startswith("--")]
     exit_code = 0
