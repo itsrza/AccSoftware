@@ -3683,19 +3683,22 @@ fn list_audit_logs(
     args.push(Box::new(limit));
     let mut st = c.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = st
-        .query_map(rusqlite::params_from_iter(args.iter().map(|value| value.as_ref())), |r| {
-            Ok(AuditLogRow {
-                id: r.get(0)?,
-                user_id: r.get(1)?,
-                username: r.get(2)?,
-                action: r.get(3)?,
-                entity_type: r.get(4)?,
-                entity_id: r.get(5)?,
-                before_json: r.get(6)?,
-                after_json: r.get(7)?,
-                created_at: r.get(8)?,
-            })
-        })
+        .query_map(
+            rusqlite::params_from_iter(args.iter().map(|value| value.as_ref())),
+            |r| {
+                Ok(AuditLogRow {
+                    id: r.get(0)?,
+                    user_id: r.get(1)?,
+                    username: r.get(2)?,
+                    action: r.get(3)?,
+                    entity_type: r.get(4)?,
+                    entity_id: r.get(5)?,
+                    before_json: r.get(6)?,
+                    after_json: r.get(7)?,
+                    created_at: r.get(8)?,
+                })
+            },
+        )
         .map_err(|e| e.to_string())?
         .filter_map(Result::ok)
         .collect();
