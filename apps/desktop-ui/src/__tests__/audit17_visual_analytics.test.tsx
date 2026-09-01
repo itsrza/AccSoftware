@@ -39,21 +39,34 @@ vi.mock('../api', () => ({
 const SRC = resolve(__dirname, '..')
 const read = (path: string) => readFileSync(resolve(SRC, path), 'utf8')
 
-const invoice = (overrides: Partial<Parameters<typeof getSalesInvoices>[0] extends never ? never : Record<string, unknown>> = {}) =>
-  ({
-    id: 'inv-1',
-    number: 1,
-    invoice_date: '1405/04/15',
-    contact_id: 'c1',
-    warehouse_id: 'w1',
-    status: 'posted',
-    payment_status: 'paid',
-    subtotal: 100,
-    discount: 0,
-    tax: 9,
-    total: 109,
-    ...overrides,
-  }) as never
+type InvoiceLike = {
+  id: string
+  number: number
+  invoice_date: string
+  contact_id?: string
+  warehouse_id?: string
+  status: string
+  payment_status: string
+  subtotal: number
+  discount: number
+  tax: number
+  total: number
+}
+
+const invoice = (overrides: Partial<InvoiceLike> = {}): InvoiceLike => ({
+  id: 'inv-1',
+  number: 1,
+  invoice_date: '1405/04/15',
+  contact_id: 'c1',
+  warehouse_id: 'w1',
+  status: 'posted',
+  payment_status: 'paid',
+  subtotal: 100,
+  discount: 0,
+  tax: 9,
+  total: 109,
+  ...overrides,
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
