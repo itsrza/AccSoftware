@@ -27,6 +27,7 @@ import {Parties} from './pages/Parties'
 import {Products} from './pages/Products'
 import {ProductCardex} from './pages/ProductCardex'
 import {AuditLog} from './pages/AuditLog'
+import {VisualAnalytics} from './pages/VisualAnalytics'
 import {InvoiceForm} from './pages/InvoiceForm'
 import {Stocktaking} from './pages/Stocktaking'
 import {getDemoStatus, deleteDemo, login, logout, getParties, getProducts, getCheckDashboard, getChecks, getSettings} from './api'
@@ -127,7 +128,7 @@ const MENU: {id: string; titleKey: TranslationKey; items: MenuItem[]}[] = [
         labelKey: 'nav.reports',
         icon: 'bar',
         page: 'reports',
-        children: ['reports', 'report-builder'],
+        children: ['reports', 'report-builder', 'visual-analytics'],
       },
       {id: 'audit-log', labelKey: 'page.audit-log', icon: 'file', page: 'audit-log'},
       {id: 'data-tools', labelKey: 'page.data-tools', icon: 'upload', page: 'data-tools'},
@@ -485,6 +486,8 @@ export default function App() {
         return <ProductCardex initial={cardexSeed ?? undefined} />
       case 'audit-log':
         return <AuditLog />
+      case 'visual-analytics':
+        return <VisualAnalytics />
       case 'inventory':
         return <AdvancedInventory />
       case 'inventory-count':

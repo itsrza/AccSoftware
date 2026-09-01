@@ -101,8 +101,9 @@ describe('م۱۲ · آینه‌ی TS تقویم قمری', () => {
     for (let index = 0; index < 2000; index += 1) {
       const date = new Date(start + index * 86_400_000)
       const back = hijriToGregorian(toHijri(date))
+      expect(back, date.toLocaleDateString('en-CA')).not.toBeNull()
       expect(
-        [back.getFullYear(), back.getMonth(), back.getDate()],
+        [back!.getFullYear(), back!.getMonth(), back!.getDate()],
         date.toLocaleDateString('en-CA'),
       ).toEqual([date.getFullYear(), date.getMonth(), date.getDate()])
     }
